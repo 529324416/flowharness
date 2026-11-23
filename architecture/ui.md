@@ -8,38 +8,34 @@
 | 构建 | Vite 8 + electron-vite 6 | 与现有桌面壳一致 |
 | 画布交互 | **`@xyflow/react` 13** | 只作为 Canvas 视图层的实现细节，对外仍是 FH 自己的类型 |
 | 类型检查 | `tsc --noEmit` | 不引入 vue-tsc 一类的额外编译器 |
-| 样式 | CSS 变量（design tokens）+ CSS Modules | 不引 UI 组件库，避免早期锁定视觉 |
-| 状态 | React Context + `useSyncExternalStore` | 领域状态在 main；renderer 只需 UI 投影，暂不引入状态库 |
+| 样式 | design tokens（CSS 变量）+ CSS Modules | 不引完整 UI 套件 |
+| 交互原语 | **Radix Primitives**（Tooltip / Menu / ContextMenu / Dialog / Tabs） | 无障碍与键盘行为交给原语，视觉由 tokens 控制 |
+| 图标 | **Lucide** | 统一 16 / 18px，图标不单独承载含义 |
+| 主题 | **深色优先**（默认 dark） | 青绿主色；亮色同等维护 |
+| 状态 | React Context + 局部 state | 领域状态在 main；renderer 只做投影，暂不引入状态库 |
 
 > 背景：曾评估 Vue 3 + Vue Flow。实测 `vue-tsc@3.3.14` 与 `typescript@7.0.2` 不兼容（`ERR_PACKAGE_PATH_NOT_EXPORTED: './lib/tsc'`），需把 desktop 钉在 TS 6；而本仓库与 wireclaw 都在 TS 7，React 的纯 `tsc` 链路零额外成本。
 
-`@vitejs/plugin-react@6` 在 Vite 8（rolldown）下声明了若干 peer（`oxc-transform-react` 等），接入时需按官方配置补齐，接入验证归入实现阶段第一步。
+`@vitejs/plugin-react@6` 在 Vite 8（rolldown）下的额外 peer（`oxc-transform-react` 等）均为 optional，当前只装插件本体即可。
 
 ## 2. renderer 结构
 
 ```text
 renderer/src/
   main.tsx                 # React 挂载、首帧主题
-  shell/
-    App.tsx                # 外壳：工作台切换、全局命令
-    theme/                 # tokens、ThemeProvider
-    modules/               # 模块注册表与宿主
-    ipc/                   # window.fh 的类型化封装、事件订阅
-  modules/
-    canvas/
-      core/                # 纯 TS：几何、命令、选择、动画原语
-      view/                # React：Viewport / NodeLayer / EdgeLayer / MiniMap
-      index.ts             # 公开入口
-    workbench/
-      framework/           # WorkbenchDefinition 宿主、运行控制、命令栈
-      index.ts
-  workbenches/
-    harness-designer/
-      adapter/             # GraphDocument ⇄ CanvasDocument
-      palette/             # 节点目录
-      inspector/           # 选中节点/边
-      index.ts
+  App.tsx                  # shell 组合、视图切换、自检上报
+  styles/                  # tokens.css（唯一视觉事实源）、global.css
+  ui/                      # 组件原语（Button/Menu/Dialog/Tabs/...）
+  shell/                   # 六区外壳：TopBar/Rail/Inspector/BottomPanel/StatusBar
+  views/                   # Designer / Diagnostics / Styleguide
+  canvas-preview/          # 静态画布样张（Phase 3 由 canvas/ 替换）
+  canvas/                  # 几何常量；Phase 3 扩展为 core + view
+  run/                     # 运行自检（Phase 2）
+  components/              # 共享展示组件（MetaList）
+  theme/                   # ThemeProvider
 ```
+
+Phase 3/4 再引入 `modules/canvas/{core,view}`、`modules/workbench/`、`workbenches/harness-designer/`；当前 `canvas-preview/` 是视觉契约的可执行样张。
 
 规则：
 
@@ -49,9 +45,9 @@ renderer/src/
 
 ## 3. 主题接入
 
-- `<html data-theme="light|dark">`；
-- 首帧：`main.tsx` 在 `createRoot` 前同步读取 `window.fh.initialTheme`（preload 注入）并落 attribute，避免闪白；
-- main 侧 `nativeTheme.themeSource` 与窗口背景同步；
+- 默认 **dark**；`<html data-theme="light|dark">`；
+- 首帧：`main.tsx` 在 `createRoot` 前读 `localStorage["fh.theme"]`（缺失则 dark）并落 attribute，避免闪白；
+- `ThemeProvider` 启动后读取 AppConfig 并覆盖，切换时写回 `config:update`（main 同步 `nativeTheme`）与 localStorage 缓存；
 - 画布、连线、小地图、ContextMenu 全部消费同一套 token；节点内容不得自带硬编码色值。
 
 ## 4. Canvas
@@ -259,7 +255,22 @@ GraphDocument ⇄ CanvasDocument
 - 工具栏与面板使用可聚焦的原生控件；
 - 颜色不作为唯一状态表达（错误同时有图标/文本）。
 
-## 9. 测试策略
+## 9. 设计基础（Phase 2.5 已实现）
+
+视觉契约与评审细则见 [`design/`](../design/README.md) 与 Styleguide 视图。
+
+| 项 | 实现 |
+| --- | --- |
+| tokens | `styles/tokens.css`：表面 / 文本 / 边框 / 主色（青绿）/ 状态 / 画布 / 阴影 / 圆角 / 间距 / 字体 / 动效 / 尺寸 / 层级；深色默认、亮色覆盖 |
+| 密度 | 控件 30px（sm 26）、节点 220px、4px 间距基线、13px 正文字号 |
+| 外壳 | TopBar 44 / Rail 56 / Inspector 320（可收起）/ BottomPanel 200（可收起）/ StatusBar 24 |
+| 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
+| 画布视觉 | 节点 anatomy、端口 10 / 命中 16、1.5px 贝塞尔边、六种状态、小地图、缩放控件、右键菜单；常量在 `canvas/metrics.ts` |
+| 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张 |
+
+smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通启动默认进入设计器视图。
+
+## 10. 测试策略
 
 | 层级 | 方式 |
 | --- | --- |

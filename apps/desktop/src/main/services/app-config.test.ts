@@ -30,21 +30,21 @@ describe("AppConfigStore", () => {
         const config = await store.get();
 
         expect(config.schemaVersion).toBe(1);
-        expect(config.theme).toBe("system");
+        expect(config.theme).toBe("dark");
         expect(config.workspaceRoot).toBe(join(dir, "workspaces"));
 
         const persisted = JSON.parse(await readFile(join(dir, "config.json"), "utf8"));
-        expect(persisted.theme).toBe("system");
+        expect(persisted.theme).toBe("dark");
     });
 
     it("persists updates and reloads them", async () => {
         const dir = await makeDir();
         const store = makeStore(dir);
 
-        await store.update({ theme: "dark", devtools: false });
+        await store.update({ theme: "light", devtools: false });
 
         const reloaded = await makeStore(dir).get();
-        expect(reloaded.theme).toBe("dark");
+        expect(reloaded.theme).toBe("light");
         expect(reloaded.devtools).toBe(false);
     });
 
@@ -65,7 +65,7 @@ describe("AppConfigStore", () => {
         await writeFile(join(dir, "config.json"), "{ definitely not json");
 
         const config = await makeStore(dir).get();
-        expect(config.theme).toBe("system");
+        expect(config.theme).toBe("dark");
 
         const files = await readdir(dir);
         expect(files.some((file) => file.startsWith("config.json.corrupt-"))).toBe(true);

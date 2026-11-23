@@ -1,0 +1,23 @@
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  padding: var(--fh-space-2) 0;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--fh-space-1);
+}
+
+.group:last-child {
+  margin-top: auto;
+}
+
+.active {
+  background: var(--fh-accent-soft);
+  color: var(--fh-accent);
+}

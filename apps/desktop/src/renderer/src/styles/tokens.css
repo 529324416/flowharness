@@ -1,50 +1,158 @@
-:root,
+/* ==========================================================================
+   FlowHarness design tokens — single source of visual truth.
+   Naming: --fh-{category}-{role}[-{scale}]
+   Dark is the default theme; light overrides colors only.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --fh-bg: #0a0f10;
+  --fh-bg-subtle: #0d1314;
+  --fh-surface: #101718;
+  --fh-surface-raised: #151f21;
+  --fh-surface-overlay: #172224;
+
+  /* Text */
+  --fh-text: #e6f1f2;
+  --fh-text-muted: #8fa3a6;
+  --fh-text-subtle: #6b7f82;
+  --fh-text-inverse: #06201d;
+
+  /* Borders */
+  --fh-border: #223033;
+  --fh-border-strong: #314548;
+  --fh-border-focus: #2dd4bf;
+
+  /* Accent (teal) */
+  --fh-accent: #2dd4bf;
+  --fh-accent-hover: #5eead4;
+  --fh-accent-soft: #0f2a28;
+  --fh-accent-contrast: #04211e;
+
+  /* Status */
+  --fh-success: #34d399;
+  --fh-success-soft: #0c2a22;
+  --fh-warning: #fbbf24;
+  --fh-warning-soft: #2a230d;
+  --fh-danger: #f87171;
+  --fh-danger-soft: #2a1414;
+  --fh-info: #38bdf8;
+  --fh-info-soft: #0b2533;
+
+  /* Canvas */
+  --fh-canvas-bg: #080d0e;
+  --fh-canvas-grid: #1b2a2c;
+  --fh-node-bg: #111a1b;
+  --fh-node-border: #2a3b3e;
+  --fh-edge: #3b5255;
+  --fh-edge-active: #2dd4bf;
+
+  /* Elevation */
+  --fh-shadow-1: 0 1px 2px rgb(0 0 0 / 0.35);
+  --fh-shadow-2: 0 10px 28px -14px rgb(0 0 0 / 0.7);
+  --fh-shadow-3: 0 20px 52px -20px rgb(0 0 0 / 0.85);
+
+  /* Radii */
+  --fh-radius-xs: 4px;
+  --fh-radius-sm: 6px;
+  --fh-radius-md: 10px;
+  --fh-radius-lg: 14px;
+  --fh-radius-pill: 999px;
+
+  /* Spacing (4px base) */
+  --fh-space-1: 4px;
+  --fh-space-2: 8px;
+  --fh-space-3: 12px;
+  --fh-space-4: 16px;
+  --fh-space-5: 20px;
+  --fh-space-6: 24px;
+  --fh-space-7: 32px;
+  --fh-space-8: 40px;
+
+  /* Typography */
+  --fh-font-ui: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  --fh-font-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, monospace;
+
+  --fh-text-xs: 11px;
+  --fh-text-sm: 12px;
+  --fh-text-md: 13px;
+  --fh-text-lg: 15px;
+  --fh-text-xl: 18px;
+  --fh-text-2xl: 24px;
+
+  --fh-weight-normal: 400;
+  --fh-weight-medium: 500;
+  --fh-weight-semibold: 600;
+
+  --fh-leading-tight: 1.3;
+  --fh-leading-normal: 1.5;
+
+  /* Motion */
+  --fh-motion-fast: 120ms;
+  --fh-motion-base: 160ms;
+  --fh-motion-slow: 240ms;
+  --fh-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layout sizes */
+  --fh-topbar-height: 44px;
+  --fh-rail-width: 56px;
+  --fh-inspector-width: 320px;
+  --fh-statusbar-height: 24px;
+  --fh-panel-height: 200px;
+  --fh-control-height: 30px;
+  --fh-control-height-sm: 26px;
+
+  /* Z-index */
+  --fh-z-canvas: 0;
+  --fh-z-rail: 10;
+  --fh-z-topbar: 20;
+  --fh-z-overlay: 100;
+  --fh-z-modal: 200;
+  --fh-z-toast: 300;
+}
+
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --fh-bg: #f3f6fa;
-  --fh-bg-glow: #dbe7f5;
+  --fh-bg: #f4f7f7;
+  --fh-bg-subtle: #eef3f3;
   --fh-surface: #ffffff;
-  --fh-surface-soft: #f7f9fc;
-  --fh-border: #dbe2ea;
-  --fh-border-strong: #c3cedb;
-  --fh-text: #18202a;
-  --fh-text-muted: #5b6875;
-  --fh-accent: #0b63c5;
-  --fh-accent-soft: #e5effb;
-  --fh-ok: #157347;
-  --fh-ok-soft: #e4f3ea;
-  --fh-shadow: 0 24px 48px -32px rgb(20 38 64 / 0.45);
+  --fh-surface-raised: #f7fafa;
+  --fh-surface-overlay: #ffffff;
 
-  --fh-font-ui: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
-  --fh-font-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, monospace;
+  --fh-text: #10201f;
+  --fh-text-muted: #5c6f70;
+  --fh-text-subtle: #7d8f90;
+  --fh-text-inverse: #f0fdfa;
 
-  --fh-radius-lg: 16px;
-  --fh-radius-md: 10px;
-  --fh-radius-sm: 8px;
-}
+  --fh-border: #d7e0e1;
+  --fh-border-strong: #b9c8ca;
+  --fh-border-focus: #0f766e;
 
-:root[data-theme="dark"] {
-  color-scheme: dark;
+  --fh-accent: #0f766e;
+  --fh-accent-hover: #0d5f59;
+  --fh-accent-soft: #e6f4f2;
+  --fh-accent-contrast: #ffffff;
 
-  --fh-bg: #0b0f15;
-  --fh-bg-glow: #16233a;
-  --fh-surface: #131a24;
-  --fh-surface-soft: #0f151e;
-  --fh-border: #232d3b;
-  --fh-border-strong: #324053;
-  --fh-text: #e6edf5;
-  --fh-text-muted: #93a1b3;
-  --fh-accent: #63a8ff;
-  --fh-accent-soft: #16273d;
-  --fh-ok: #4ac27b;
-  --fh-ok-soft: #12291d;
-  --fh-shadow: 0 24px 48px -28px rgb(0 0 0 / 0.75);
+  --fh-success: #15803d;
+  --fh-success-soft: #e7f6ec;
+  --fh-warning: #b45309;
+  --fh-warning-soft: #fdf3e3;
+  --fh-danger: #b91c1c;
+  --fh-danger-soft: #fdeaea;
+  --fh-info: #0369a1;
+  --fh-info-soft: #e6f3fb;
 
-  --fh-font-ui: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
-  --fh-font-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, monospace;
+  --fh-canvas-bg: #edf2f2;
+  --fh-canvas-grid: #cbd8d9;
+  --fh-node-bg: #ffffff;
+  --fh-node-border: #cbd8d9;
+  --fh-edge: #93a8aa;
+  --fh-edge-active: #0f766e;
 
-  --fh-radius-lg: 16px;
-  --fh-radius-md: 10px;
-  --fh-radius-sm: 8px;
+  --fh-shadow-1: 0 1px 2px rgb(16 32 31 / 0.08);
+  --fh-shadow-2: 0 10px 28px -16px rgb(16 32 31 / 0.28);
+  --fh-shadow-3: 0 20px 52px -24px rgb(16 32 31 / 0.35);
 }

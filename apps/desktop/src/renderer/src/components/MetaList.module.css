@@ -1,0 +1,24 @@
+.list {
+  display: grid;
+  gap: var(--fh-space-2);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--fh-space-3);
+  align-items: baseline;
+}
+
+.term {
+  color: var(--fh-text-muted);
+  font-size: var(--fh-text-sm);
+}
+
+.detail {
+  margin: 0;
+  color: var(--fh-text);
+  font-family: var(--fh-font-mono);
+  font-size: var(--fh-text-xs);
+  overflow-wrap: anywhere;
+}

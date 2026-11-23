@@ -53,6 +53,18 @@
 - [x] 自检 run：Constant → Output，smoke 校验事件流与 `status: completed`
 - [ ] 完整 Session 生命周期与 Provider 工厂（随 AI 能力接入）
 
+### Phase 2.5 — UI 基础（已完成）
+
+- [x] 设计契约文档：`design/`（tokens / canvas / components）
+- [x] tokens 扩展：深色优先 + 亮色覆盖、青绿主色、间距/圆角/字体/动效/层级
+- [x] 组件原语：Button / IconButton / Badge / StatusDot / Kbd / Input / Panel /
+      EmptyState / Alert / Tooltip / Menu / ContextMenu / Dialog / Tabs
+- [x] 六区外壳：TopBar / Rail / Inspector / BottomPanel / StatusBar
+- [x] 画布静态视觉样张（节点六态、端口、连线、小地图、缩放控件）
+- [x] Styleguide 视图（token、组件、节点/连线样张）
+- [x] 主题持久化 + 首帧缓存（深色默认）
+- [x] 一次性探针验证：外壳/主题切换/Styleguide 真实渲染
+
 ### Phase 3 — 画布
 
 - [ ] Canvas core（几何、命令、选择、边 key、动画原语）+ 单测

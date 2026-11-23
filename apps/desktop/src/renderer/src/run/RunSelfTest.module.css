@@ -1,0 +1,9 @@
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--fh-space-3);
+}
+
+.alert {
+  margin-top: var(--fh-space-3);
+}

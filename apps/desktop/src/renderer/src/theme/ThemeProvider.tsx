@@ -53,6 +53,7 @@ export function ThemeProvider({ children }: { children: ReactNode }): ReactNode 
 
     useEffect(() => {
         document.documentElement.dataset["theme"] = theme;
+        window.localStorage.setItem("fh.theme", theme);
     }, [theme]);
 
     const toggleTheme = useCallback(() => {

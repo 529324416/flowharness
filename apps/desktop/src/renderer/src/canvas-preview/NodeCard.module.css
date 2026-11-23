@@ -1,0 +1,121 @@
+.node {
+  position: absolute;
+  width: 220px;
+  border: 1px solid var(--fh-node-border);
+  border-radius: var(--fh-radius-md);
+  background: var(--fh-node-bg);
+  box-shadow: var(--fh-shadow-1);
+  transition:
+    border-color var(--fh-motion-fast) var(--fh-ease-standard),
+    box-shadow var(--fh-motion-fast) var(--fh-ease-standard),
+    opacity var(--fh-motion-fast) var(--fh-ease-standard);
+}
+
+.node:hover {
+  border-color: var(--fh-border-strong);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--fh-space-2);
+  height: 32px;
+  padding: 0 var(--fh-space-2) 0 10px;
+  border-bottom: 1px solid var(--fh-border);
+}
+
+.icon {
+  flex: none;
+  color: var(--fh-text-muted);
+}
+
+.title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--fh-text);
+  font-size: var(--fh-text-sm);
+  font-weight: var(--fh-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fh-space-1);
+  padding: 10px 12px 12px;
+}
+
+.kind {
+  color: var(--fh-text-subtle);
+  font-family: var(--fh-font-mono);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary {
+  color: var(--fh-text-muted);
+  font-size: var(--fh-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.port {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--fh-node-border);
+  border-radius: var(--fh-radius-pill);
+  background: var(--fh-node-bg);
+}
+
+.portIn {
+  left: -5px;
+}
+
+.portOut {
+  right: -5px;
+}
+
+.completed {
+  border-color: color-mix(in srgb, var(--fh-success) 40%, var(--fh-node-border));
+}
+
+.running {
+  border-color: var(--fh-accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--fh-accent) 30%, transparent),
+    var(--fh-shadow-2);
+}
+
+.paused {
+  border-color: color-mix(in srgb, var(--fh-warning) 45%, var(--fh-node-border));
+}
+
+.failed {
+  border-color: color-mix(in srgb, var(--fh-danger) 55%, var(--fh-node-border));
+}
+
+.skipped {
+  opacity: 0.45;
+}
+
+.interrupted,
+.cancelled {
+  border-color: var(--fh-border-strong);
+}
+
+.selected {
+  border-color: var(--fh-accent);
+  box-shadow:
+    inset 0 0 0 2px var(--fh-accent),
+    var(--fh-shadow-2);
+}
+
+.selected .port {
+  border-color: var(--fh-accent);
+}

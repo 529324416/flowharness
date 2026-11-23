@@ -5,10 +5,10 @@ import { ThemeProvider } from "./theme/ThemeProvider";
 import "./styles/tokens.css";
 import "./styles/global.css";
 
-// 首帧主题：在 React 挂载前写死，避免亮暗闪烁。
-// Phase 1 接入 AppConfig 后，这里改为读取持久化偏好（system/light/dark）。
-const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-document.documentElement.dataset["theme"] = prefersDark ? "dark" : "light";
+// 首帧主题：深色优先；上次选择从 localStorage 快速恢复，避免闪白。
+// 真正的偏好仍以 AppConfig 为准（ThemeProvider 启动后会覆盖）。
+const cachedTheme = window.localStorage.getItem("fh.theme");
+document.documentElement.dataset["theme"] = cachedTheme === "light" ? "light" : "dark";
 
 const container = document.getElementById("root");
 if (!container) {

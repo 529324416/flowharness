@@ -1,0 +1,80 @@
+.root {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: var(--fh-rail-width) minmax(0, 1fr) var(--fh-inspector-width);
+  grid-template-rows: var(--fh-topbar-height) minmax(0, 1fr) var(--fh-statusbar-height);
+  grid-template-areas:
+    "top top top"
+    "rail main inspector"
+    "status status status";
+  background: var(--fh-bg);
+  color: var(--fh-text);
+}
+
+.noInspector {
+  grid-template-columns: var(--fh-rail-width) minmax(0, 1fr);
+  grid-template-areas:
+    "top top"
+    "rail main"
+    "status status";
+}
+
+.top {
+  grid-area: top;
+  z-index: var(--fh-z-topbar);
+  border-bottom: 1px solid var(--fh-border);
+  background: var(--fh-surface);
+  min-width: 0;
+}
+
+.rail {
+  grid-area: rail;
+  z-index: var(--fh-z-rail);
+  border-right: 1px solid var(--fh-border);
+  background: var(--fh-surface);
+  min-height: 0;
+}
+
+.main {
+  grid-area: main;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  background: var(--fh-bg-subtle);
+}
+
+.noPanel .main {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.viewport {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bottom {
+  height: var(--fh-panel-height);
+  min-height: 0;
+  border-top: 1px solid var(--fh-border);
+  background: var(--fh-surface);
+  overflow: hidden;
+}
+
+.inspector {
+  grid-area: inspector;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--fh-border);
+  background: var(--fh-surface);
+  overflow: auto;
+}
+
+.status {
+  grid-area: status;
+  border-top: 1px solid var(--fh-border);
+  background: var(--fh-surface);
+  min-width: 0;
+}

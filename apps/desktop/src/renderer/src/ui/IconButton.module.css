@@ -1,0 +1,45 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--fh-radius-sm);
+  color: var(--fh-text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background var(--fh-motion-fast) var(--fh-ease-standard),
+    border-color var(--fh-motion-fast) var(--fh-ease-standard),
+    color var(--fh-motion-fast) var(--fh-ease-standard);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.md {
+  width: var(--fh-control-height);
+  height: var(--fh-control-height);
+}
+
+.sm {
+  width: var(--fh-control-height-sm);
+  height: var(--fh-control-height-sm);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--fh-surface-raised);
+  color: var(--fh-text);
+}
+
+.secondary {
+  background: var(--fh-surface-raised);
+  border-color: var(--fh-border);
+  color: var(--fh-text);
+}
+
+.secondary:hover:not(:disabled) {
+  border-color: var(--fh-border-strong);
+  background: var(--fh-surface-overlay);
+}

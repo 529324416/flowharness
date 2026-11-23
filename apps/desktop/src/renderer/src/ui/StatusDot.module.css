@@ -1,0 +1,56 @@
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--fh-radius-pill);
+  background: var(--fh-text-subtle);
+  flex: none;
+}
+
+.idle {
+  background: var(--fh-text-subtle);
+}
+
+.running {
+  background: var(--fh-accent);
+}
+
+.paused {
+  background: var(--fh-warning);
+}
+
+.completed {
+  background: var(--fh-success);
+}
+
+.failed {
+  background: var(--fh-danger);
+}
+
+.cancelled {
+  background: var(--fh-text-muted);
+}
+
+.interrupted {
+  background: var(--fh-warning);
+}
+
+.skipped {
+  background: var(--fh-text-muted);
+}
+
+.pulse {
+  animation: fh-pulse 1.6s var(--fh-ease-standard) infinite;
+}
+
+@keyframes fh-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}

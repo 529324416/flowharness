@@ -125,8 +125,15 @@ pnpm smoke       # 启动验证：窗口隐藏运行，输出 [smoke] OK 即通�
 - [`architecture/modules.md`](architecture/modules.md) — 模块职责与契约
 - [`architecture/data-model.md`](architecture/data-model.md) — 工作区数据、文档、导入导出
 - [`architecture/runtime.md`](architecture/runtime.md) — 执行、事件、IPC、安全
-- [`architecture/ui.md`](architecture/ui.md) — React、画布、工作台框架、设计器
+- [`architecture/ui.md`](architecture/ui.md) — React、画布、工作台框架、设计基础
 - [`architecture/decisions.md`](architecture/decisions.md) — 架构决策记录（ADR）
+
+**设计**
+
+- [`design/README.md`](design/README.md) — 视觉原则与已定决策
+- [`design/tokens.md`](design/tokens.md) — token 命名与取值
+- [`design/canvas.md`](design/canvas.md) — 画布视觉与交互语言
+- [`design/components.md`](design/components.md) — 组件清单与外壳布局
 
 **工程**
 

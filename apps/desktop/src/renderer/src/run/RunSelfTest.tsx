@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import type { RunEventBatch, RunSnapshot, RunStatus } from "@flowharness/contracts";
+import { Alert, Badge, Button, Panel, type BadgeVariant } from "../ui";
 import { MetaList } from "../components/MetaList";
+import { RUN_STATUS_LABEL } from "../shell/labels";
 import { SELF_TEST_GRAPH, SELF_TEST_GRAPH_ID } from "./self-test-graph";
+import styles from "./RunSelfTest.module.css";
 
-const STATUS_LABEL: Record<RunStatus, string> = {
-    idle: "未运行",
-    running: "运行中",
-    paused: "已暂停",
-    completed: "已完成",
-    failed: "失败",
-    cancelled: "已取消",
-    interrupted: "已中断",
+const STATUS_TONE: Record<RunStatus, BadgeVariant> = {
+    idle: "neutral",
+    running: "accent",
+    paused: "warning",
+    completed: "success",
+    failed: "danger",
+    cancelled: "neutral",
+    interrupted: "warning",
 };
 
 function extractText(outputs: unknown): string | null {
@@ -29,7 +32,7 @@ function extractText(outputs: unknown): string | null {
     }
 }
 
-type RunSelfTestProps = {
+export type RunSelfTestProps = {
     autoStart?: boolean;
     onFinished?: (snapshot: RunSnapshot) => void;
 };
@@ -107,27 +110,34 @@ export function RunSelfTest({
     }, [autoStart, start]);
 
     return (
-        <article className="card">
-            <h2 className="card__title">运行自检</h2>
+        <Panel
+            title="运行自检"
+            actions={<Badge variant={STATUS_TONE[status]}>{RUN_STATUS_LABEL[status]}</Badge>}
+        >
             <MetaList
                 rows={[
-                    ["状态", STATUS_LABEL[status]],
                     ["runId", runId ?? "—"],
                     ["事件数", String(eventCount)],
                     ["输出", output ?? "—"],
                 ]}
             />
-            <div className="card__actions">
-                <button
-                    type="button"
-                    className="button button--primary"
+
+            <div className={styles.actions}>
+                <Button
+                    variant="primary"
+                    size="sm"
                     onClick={() => void start()}
                     disabled={status === "running"}
                 >
                     {status === "running" ? "运行中…" : "运行最小 Graph"}
-                </button>
+                </Button>
             </div>
-            {error ? <p className="card__error">{error}</p> : null}
-        </article>
+
+            {error ? (
+                <Alert tone="danger" title="运行失败" className={styles.alert}>
+                    {error}
+                </Alert>
+            ) : null}
+        </Panel>
     );
 }

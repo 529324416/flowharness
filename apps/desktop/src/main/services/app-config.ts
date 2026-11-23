@@ -15,7 +15,7 @@ const LANGUAGES: readonly AppConfig["language"][] = ["zh-CN", "en-US"];
 export function createDefaultAppConfig(workspaceRoot: string): AppConfig {
     return {
         schemaVersion: APP_CONFIG_SCHEMA_VERSION,
-        theme: "system",
+        theme: "dark",
         workspaceRoot,
         recentWorkspaces: [],
         language: "zh-CN",

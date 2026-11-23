@@ -52,8 +52,10 @@
 | Runtime Host + RunStore（run 持久化 / checkpoint / interrupted） | ✅ 已实现（Phase 2） |
 | 事件投影与节流、审批 / 用户输入 IPC 往返 | ✅ 已实现（Phase 2） |
 | SessionService（AttachmentFileManager 装配） | ✅ 已实现（Phase 2，仅附件管理） |
+| UI 基础：tokens / 组件原语 / 六区外壳 / 画布样张 / Styleguide | ✅ 已实现（Phase 2.5） |
 | 完整 Session 生命周期（历史 / 回放 / Provider） | ⬜ 未开始 |
-| Canvas + Workbench Framework | ⬜ 未开始 |
+| Canvas core + react-flow 交互 | ⬜ 未开始（Phase 3） |
+| Workbench Framework | ⬜ 未开始 |
 | Harness Designer | ⬜ 未开始 |
 | 打包分发、CI | ⬜ 未开始 |
 

@@ -14,6 +14,8 @@
 | Vite | 8.3.8 | renderer 打包 |
 | React | 19.3.1 | renderer UI |
 | @vitejs/plugin-react | 6.3.0 | JSX 转换与 Fast Refresh（额外 peer 均为 optional） |
+| Radix Primitives | tooltip 1.4 / dropdown 2.2 / context-menu 2.4 / dialog 1.3 / tabs 1.2 | 浮层与菜单的无障碍行为 |
+| Lucide React | 1.78.0 | 图标 |
 | Vitest | 5.1.1 | main 侧服务单测（node 环境） |
 | tsup | 9.0.0 | wireclaw 库构建 |
 
@@ -33,14 +35,21 @@ apps/desktop/
   src/renderer/
     index.html
     src/main.tsx            # React 挂载 + 首帧主题
-    src/App.tsx             # 自检界面（运行时 / Wireclaw / 数据层）
-    src/bridge.d.ts         # window.flowharness 类型
+    src/App.tsx             # 六区外壳组合 + 视图切换
+    src/styles/             # tokens.css（唯一视觉事实源）+ global.css
+    src/ui/                 # 组件原语（Button / Menu / Dialog / Tabs / ...）
+    src/shell/              # TopBar / Rail / Inspector / BottomPanel / StatusBar
+    src/views/              # Designer / Diagnostics / Styleguide
+    src/canvas/             # 画布几何常量（Phase 3 扩展为 core）
+    src/canvas-preview/     # 静态画布视觉样张
+    src/run/                # 运行自检组件
+    src/components/         # 共享展示组件
     src/theme/              # ThemeProvider
-    src/styles/             # design tokens + 全局样式
   scripts/prepare-userdata.mjs  # 启动前创建 Electron userData 目录
   scripts/smoke.mjs         # 无头启动验证
   vitest.config.mts         # main 服务单测配置
   out/                      # 构建产物（git 忽略）
+design/                     # 设计契约：tokens / canvas / components
 packages/
   contracts/                # L0：IPC 通道/DTO/错误码（以 TS 源码形式被消费）
 scripts/

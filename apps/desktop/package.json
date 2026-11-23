@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "flowharness-desktop",
   "productName": "FlowHarness",
   "version": "0.0.0",
@@ -14,10 +14,16 @@
     "smoke": "node ./scripts/prepare-userdata.mjs && node ./scripts/smoke.mjs"
   },
   "dependencies": {
+    "@flowharness/contracts": "workspace:*",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "wireclaw": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.3.0",
     "electron": "^45.4.1",
     "electron-vite": "^6.0.0",
     "typescript": "^7.0.2",

@@ -43,12 +43,13 @@
 | 能力 | 状态 |
 | --- | --- |
 | pnpm workspace + wireclaw submodule + 包名引用 | ✅ 已实现 |
-| Electron main / preload / renderer 脚手架 | ✅ 已实现（renderer 目前是原生 TS） |
+| Electron main / preload / renderer 脚手架 | ✅ 已实现 |
 | 三段验证：typecheck / build / smoke | ✅ 已实现 |
-| `packages/contracts` | ⬜ 未开始 |
+| `packages/contracts`（IPC 通道 / DTO / 错误码） | ✅ 已实现（Phase 0） |
+| React renderer + design tokens + ThemeProvider | ✅ 已实现（Phase 0） |
 | main 服务层（AppConfig / Secrets / BlobStore / WorkspaceStore） | ⬜ 未开始 |
 | Runtime Host + RunStore + Session 服务 | ⬜ 未开始 |
-| React renderer + Canvas + Workbench Framework | ⬜ 未开始 |
+| Canvas + Workbench Framework | ⬜ 未开始 |
 | Harness Designer | ⬜ 未开始 |
 | 打包分发、CI | ⬜ 未开始 |
 

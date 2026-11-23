@@ -1,3 +1,4 @@
+import react from "@vitejs/plugin-react";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 
 /**
@@ -6,17 +7,21 @@ import { defineConfig, externalizeDepsPlugin } from "electron-vite";
  * Main and preload are emitted as CommonJS: Electron's ESM main process is not
  * reliable on every platform/version yet, and CJS keeps startup deterministic.
  *
- * `wireclaw` is the one runtime dependency that must NOT be externalized: it is
- * an ESM-only package, so leaving it as a `require()` would fail at runtime.
- * Bundling it keeps the source-level `import { Graph } from "wireclaw"` intact
- * and lets the bundler resolve the package through its `exports` map.
+ * Dependencies that must be bundled rather than require()'d at runtime:
+ * - `wireclaw` is ESM-only and imports fine only through a bundler;
+ * - `@flowharness/contracts` ships TypeScript sources (internal package).
+ * Both stay normal package imports in source code.
  */
+const bundled = ["wireclaw", "@flowharness/contracts"];
+
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ["wireclaw"] })],
+    plugins: [externalizeDepsPlugin({ exclude: bundled })],
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ["@flowharness/contracts"] })],
   },
-  renderer: {},
+  renderer: {
+    plugins: [react()],
+  },
 });

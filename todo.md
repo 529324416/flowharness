@@ -24,13 +24,13 @@
 
 ## 下一阶段：按架构实现
 
-### Phase 0 — 基础迁移
+### Phase 0 — 基础迁移（已完成）
 
-- [ ] 建立 `packages/contracts`（IPC DTO、错误码、模块接口）
-- [ ] renderer 从原生 TS 迁移到 React 19 + `@vitejs/plugin-react`
-- [ ] design tokens + ThemeProvider + 首帧主题
-- [ ] 验证 `@vitejs/plugin-react` 在 Vite 8 / rolldown 下的 peer 配置
-- [ ] 保留并更新 `pnpm smoke`
+- [x] 建立 `packages/contracts`（IPC DTO、错误码、模块接口）
+- [x] renderer 从原生 TS 迁移到 React 19 + `@vitejs/plugin-react`
+- [x] design tokens + ThemeProvider + 首帧主题
+- [x] 验证 `@vitejs/plugin-react` 在 Vite 8 / rolldown 下的 peer 配置（额外 peer 均为 optional）
+- [x] 保留并更新 `pnpm smoke`（renderer 上报 `framework: "react"`）
 
 ### Phase 1 — main 数据层
 

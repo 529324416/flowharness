@@ -109,7 +109,8 @@ pnpm smoke       # 启动验证：窗口隐藏运行，输出 [smoke] OK 即通�
 ```text
 [prepare-userdata] C:\Users\<you>\AppData\Roaming\FlowHarness
 [main] wireclaw ready: Graph=function graphId=flowharness-main-boot nodes=0
-[main] renderer-ready {"renderer":{"wireclawGraphLoaded":true,"wireclawGraphId":"flowharness-renderer-boot"},"versions":{...}}
+[main] renderer-ready {"renderer":{"framework":"react","wireclawGraphLoaded":true,...},"versions":{...}}
+[main] theme-applied request=light resolved=light
 [smoke] OK — Electron launched; main and renderer both loaded wireclaw.
 ```
 

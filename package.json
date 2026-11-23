@@ -17,7 +17,7 @@
     "dev": "pnpm build:wireclaw && pnpm --filter flowharness-desktop dev",
     "dev:no-sandbox": "pnpm build:wireclaw && pnpm --filter flowharness-desktop dev:no-sandbox",
     "build": "pnpm build:wireclaw && pnpm --filter flowharness-desktop build",
-    "typecheck": "pnpm --filter flowharness-desktop typecheck",
+    "typecheck": "pnpm --filter @flowharness/contracts typecheck && pnpm --filter flowharness-desktop typecheck",
     "smoke": "pnpm --filter flowharness-desktop smoke",
     "test:wireclaw": "pnpm --filter wireclaw test"
   },

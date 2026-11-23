@@ -1,6 +1,6 @@
 # 开发环境
 
-> 本文描述**当前**可运行的开发环境。目标架构（React renderer、Runtime Host、Canvas 等）见 [README.md](./README.md)；当前 renderer 仍是原生 TS 脚手架，迁移顺序见 [../todo.md](../todo.md)。
+> 本文描述**当前**可运行的开发环境。目标架构见 [README.md](./README.md)；实现进度见 [../todo.md](../todo.md)（Phase 0 已完成：`packages/contracts` + React renderer + 主题系统）。
 
 ## 工具链
 
@@ -12,6 +12,8 @@
 | Electron | 45.4.1 | 桌面壳（Chromium 156 / Node 24.22） |
 | electron-vite | 6.0.0 | main / preload / renderer 三端构建与开发服务器 |
 | Vite | 8.3.8 | renderer 打包 |
+| React | 19.3.1 | renderer UI |
+| @vitejs/plugin-react | 6.3.0 | JSX 转换与 Fast Refresh（额外 peer 均为 optional） |
 | tsup | 9.0.0 | wireclaw 库构建 |
 
 ## 目录职责
@@ -25,10 +27,18 @@ apps/desktop/
   tsconfig.json             # 编辑器默认入口
   src/main/index.ts         # 主进程入口：窗口、IPC、wireclaw 启动自检
   src/preload/index.ts      # contextBridge 桥
-  src/renderer/             # index.html + src/*.ts|css
+  src/renderer/
+    index.html
+    src/main.tsx            # React 挂载 + 首帧主题
+    src/App.tsx             # Phase 0 自检界面
+    src/bridge.d.ts         # window.flowharness 类型
+    src/theme/              # ThemeProvider
+    src/styles/             # design tokens + 全局样式
   scripts/prepare-userdata.mjs  # 启动前创建 Electron userData 目录
   scripts/smoke.mjs         # 无头启动验证
   out/                      # 构建产物（git 忽略）
+packages/
+  contracts/                # L0：IPC 通道/DTO/错误码（以 TS 源码形式被消费）
 scripts/
   ensure-electron.mjs       # 触发 Electron 二进制下载（可配镜像）
 ```
@@ -59,9 +69,9 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 
 | 产物 | 格式 | 说明 |
 | --- | --- | --- |
-| `out/main/index.js` | CJS | `wireclaw` 与 `electron` 的处理方式不同：`electron` 外部化，`wireclaw` 打包进 bundle（它是 ESM-only 包，CJS 的 `require()` 会失败） |
-| `out/preload/index.js` | CJS | 只依赖 `electron`，保持外部化 |
-| `out/renderer/` | ESM | Vite 打包 wireclaw 的浏览器构建 |
+| `out/main/index.js` | CJS | `electron` 外部化；`wireclaw`（ESM-only）与 `@flowharness/contracts`（TS 源码）打包进 bundle |
+| `out/preload/index.js` | CJS | `electron` 外部化；`@flowharness/contracts` 打包 |
+| `out/renderer/` | ESM | Vite 打包 React + wireclaw 浏览器构建 |
 
 主进程的 preload 路径通过 `out/preload/` 下实际存在的文件（`index.mjs` / `index.js` / `index.cjs`）解析，因此切换构建格式不会破坏启动。
 
@@ -76,7 +86,7 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 ## 验证
 
 ```bash
-pnpm typecheck   # tsc（node + web 两个 project）
+pnpm typecheck   # contracts（tsc）+ desktop（node + web 两个 project）
 pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 main / renderer 都加载了 wireclaw
 ```

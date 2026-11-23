@@ -1,5 +1,6 @@
 packages:
   - apps/*
+  - packages/*
   - vendor/wireclaw
 
 # pnpm 10+ blocks dependency lifecycle scripts by default.

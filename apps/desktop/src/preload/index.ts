@@ -1,4 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
+import {
+  IpcChannel,
+  IpcSendChannel,
+  type IpcResult,
+  type ThemeMode,
+  type ThemeSetResponse,
+} from "@flowharness/contracts";
 
 /**
  * The only bridge between the renderer and the Electron main process.
@@ -12,8 +19,12 @@ const bridge = {
     node: process.versions.node,
     chrome: process.versions.chrome,
   },
+  setTheme: (theme: ThemeMode): Promise<IpcResult<ThemeSetResponse>> =>
+    ipcRenderer.invoke(IpcChannel.ThemeSet, { theme }) as Promise<
+      IpcResult<ThemeSetResponse>
+    >,
   reportReady: (payload: Record<string, unknown>): void => {
-    ipcRenderer.send("flowharness:ready", payload);
+    ipcRenderer.send(IpcSendChannel.ReportReady, payload);
   },
 };
 

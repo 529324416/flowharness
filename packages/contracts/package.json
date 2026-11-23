@@ -1,0 +1,23 @@
+{
+  "name": "@flowharness/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "FlowHarness 跨进程契约：IPC 通道、DTO、错误码。不依赖 React / Electron / Node。",
+  "sideEffects": false,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

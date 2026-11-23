@@ -51,35 +51,52 @@
 
 ---
 
-## Phase 2.6 — UI 打磨（当前，2–3 轮逐轮验收）
+## Phase 2.6 — UI 打磨：Shell v2 + SciFi 画布（当前）
 
-### R1 视觉系统 v2
+> 已确认：VS Code 布局逻辑；无边框 + 自绘标题栏；单一 Session Sidebar；内部浮动 Panel；SciFi 节点/连线；半透明先 spike。
+> 色彩角色：**中性深色底**；**青绿只用于选中/焦点/链接/部分强调文字**（不做大面积底色）；
+> **橙红只用于节点能量/连线流动**；成功/警告/危险状态色独立，并必须配图标或文本。
 
-- [ ] 明暗两套对比度走查（正文 / 次要文本 / 边框 / 画布网格）
-- [ ] 表面层级：背景 / 面板 / 浮层 / 节点 拉开层次，减少“一片黑”
-- [ ] 字体：字号阶梯、字重、行高、数字与中文混排
-- [ ] 图标：统一 stroke 与尺寸（16 / 18 / 20），Rail 与 TopBar 对齐
-- [ ] 组件状态：hover / focus-visible / active / disabled / invalid
-- [ ] 产出：Styleguide v2 截图（明暗各一张）
+### S0 可行性 Spike（0.5 轮）
 
-### R2 画布优先布局
+- [ ] `frame: false` + 自绘 TitleBar + 窗口 IPC（minimize / toggle-maximize / close / maximized）
+- [ ] 拖拽区、双击最大化、多显示器/DPI 下的窗口 bounds 恢复
+- [ ] Snap Layouts 对比：全自绘按钮 vs `titleBarOverlay`（记录取舍）
+- [ ] 半透明方案对比：原生 Mica/Acrylic vs `transparent + backdrop-filter` vs CSS 模拟
+- [ ] 截图兼容：`PrintWindow` 在透明/材质窗口下的表现
+- [ ] 产出：对比截图 + 决策记录（不接业务）
 
-- [ ] 主区域改为「节点库 240 + 画布 + 检查器 320」，弱化卡片式结构
-- [ ] 顶部运行控制收进画布浮动工具栏；TopBar 只留全局入口
-- [ ] 底部面板默认收起，展开高度 160–200；空状态不再占满
-- [ ] 画布空态 / 运行态 / 失败态的真实 mock 内容
-- [ ] 窗口：标题栏与内容区的关系、最小尺寸与默认尺寸再确认
-- [ ] 产出：Designer 截图（默认 / 运行 / 失败）
+### 1 Shell v2（1A + 1B 合并，1 轮）
 
-### R3 细节、动效与验收
+- [ ] TitleBar：应用图标 / 菜单 / 命令中心 / 窗口按钮
+- [ ] 布局：Ribbon 48 + Session Sidebar 260（可收起/拖宽）+ Canvas + StatusBar 22
+- [ ] Hero 空态：新建 / 打开工作区、最近项目、模板
+- [ ] 菜单与快捷键（Ctrl+W 等）在无 Electron 菜单后仍可用
+- [ ] Session Sidebar 先用 mock 数据，接口按未来 `SessionSummary` 设计
+- [ ] 产出：`pnpm capture:ui` 截图
 
-- [ ] 菜单 / 弹窗 / Tooltip / ContextMenu 的间距与层级
-- [ ] 空 / 加载 / 错误 / 权限状态
-- [ ] 微交互：节点 hover、连线流动、面板展开、焦点迁移
-- [ ] `prefers-reduced-motion` 走查
-- [ ] 产出：逐页截图 + 最终确认
+### 2 Panels（1 轮）
 
-> 验收方式：每轮用 `pnpm capture:ui` 截取 FlowHarness 窗口（Windows），配合 Styleguide 人工确认后再进入下一轮。
+- [ ] Panel 外框：Header / Body / 可选 Footer
+- [ ] FloatingPanel：拖动、缩放、z-index 聚焦、折叠、关闭、位置钳制
+- [ ] Panel 管理器：打开列表、默认位置、层级；首版不做 docking
+- [ ] 接入运行日志与属性检查两个 Panel
+- [ ] 产出：面板截图
+
+### 3 Canvas 视觉（并入 Phase 3，1–2 轮）
+
+- [ ] SciFi NodeCard v2：切角/细描边/等宽标签/状态符号
+- [ ] 端口、连线、流动/数据包/脉冲动画
+- [ ] 性能约束与 `prefers-reduced-motion`
+- [ ] 与 Canvas core/view 一起落地，不做一次性假节点
+
+### 4 半透明应用（0.5 轮）
+
+- [ ] 按 S0 结论应用到 TitleBar / Ribbon / Panel / StatusBar
+- [ ] 内容区保持接近不透明，保证文字与节点可读性
+- [ ] 性能与截图回归
+
+> 验收方式：每轮用 `pnpm capture:ui` 截取 FlowHarness 窗口（Windows），人工确认后再进入下一轮。
 
 ---
 

@@ -1,59 +1,132 @@
-# FlowHarness 架构概览
+# 架构总览
 
-## 目标
+## 1. 定位
 
-FlowHarness 是一个 Agent 工作台（Agent Workbench）：用户在桌面端编排、运行、观察 Agent 工作流。它本身不实现 Agent 运行时，而是**宿主**——底层执行能力来自 Wireclaw。
+FH 是一个 **Agent 工作台宿主**：负责工作区数据的编辑与持久化、工作流在画布上的编排与运行态呈现，以及多工作台的组织。执行与 Agent 能力来自 wireclaw，FH 不重复实现引擎。
 
-```plaintext
-┌──────────────────────────────────────────────────┐
-│ apps/desktop                                     │
-│                                                  │
-│  renderer (Vite + TS, ESM)   ──IPC──▶  main      │
-│        │  import "wireclaw"           (Electron, │
-│        ▼                               CJS)      │
-│  wireclaw 浏览器构建打包进产物      wireclaw 打包进 │
-│                                     main bundle  │
-└──────────────────────────────────────────────────┘
-                       ▲
-                       │ workspace:*（pnpm 软链）
-┌──────────────────────┴───────────────────────────┐
-│ vendor/wireclaw（git submodule）                  │
-│   src/ ─ tsup ─▶ dist/browser + dist/node         │
-│   tsconfig.build.json ─▶ dist/types               │
-└──────────────────────────────────────────────────┘
+**非目标**（当前阶段）：
+
+- 云端同步与多人协作；
+- 插件市场与第三方沙箱；
+- 多窗口编辑；
+- 替代 wireclaw 的 Session / Graph / Tool 能力。
+
+## 2. 分层
+
+```text
+L0  contracts        跨进程类型、IPC 契约、模块接口（无框架、无 Electron、无 Node 依赖）
+L1  main platform    窗口生命周期、IPC 路由、自定义协议、路径、nativeTheme、safeStorage
+L2  main services    AppConfig / Secrets / BlobStore / WorkspaceStore / RunStore /
+                     SessionService / RuntimeHost
+L3  renderer shell   应用外壳、主题、模块宿主与注册表、错误边界
+L4  built-in modules Canvas / Workbench Framework
+L5  workbenches      Harness Designer、其他工作台
 ```
 
-## 分层与边界
+### 依赖规则
 
-| 层 | 位置 | 职责 | 不应做什么 |
-| --- | --- | --- | --- |
-| 宿主 UI | `apps/desktop/src/renderer` | 工作台界面、图编辑与运行态展示 | 直接访问 Node / 文件系统 |
-| 宿主壳 | `apps/desktop/src/main` | 窗口生命周期、系统集成、本地能力编排 | 承载业务 UI 逻辑 |
-| 桥 | `apps/desktop/src/preload` | `contextBridge` 暴露最小可信 API | 暴露任意 IPC 或 `require` |
-| Agent 引擎 | `vendor/wireclaw` | Session、Graph、Tool、Provider、运行时 | 依赖 Electron 或 FlowHarness 的 UI |
+- 依赖只能**向下**，禁止反向（renderer 不得 import main，main 不得 import renderer）。
+- L4 模块之间不互相 import 内部实现；跨模块协作通过 L0 contracts 与公开入口。
+- **Canvas 不依赖 wireclaw、不依赖 Designer**。
+- `contracts` 不依赖 React / Electron / Node，只含类型与常量。
+- 任何 wireclaw 的类实例不得穿过 IPC；传输一律用 `GraphDocument` 等纯 JSON DTO。
 
-依赖方向是单向的：**apps → wireclaw**。wireclaw 不感知 FlowHarness，这样它才能作为独立库被其他宿主复用。
+### 允许的 import 关系
 
-## 为什么 wireclaw 以「包」而不是「源码目录」接入
+| 层 | 允许依赖 |
+| --- | --- |
+| L0 contracts | 无 |
+| L1 platform | contracts |
+| L2 services | contracts、platform |
+| L3 shell | contracts |
+| L4 canvas | contracts |
+| L4 workbench framework | contracts、canvas（公开入口） |
+| L5 workbenches | contracts、canvas（公开入口）、workbench framework |
 
-wireclaw 有独立的 `package.json`、`exports` 映射、构建脚本与版本节奏。把它当作 workspace 包：
+renderer 访问主进程的唯一通道是 preload 暴露的 `window.fh`（类型由 contracts 定义）。
 
-1. `import { Graph } from "wireclaw"` 与真实发布后的用法一致，避免切换成本；
-2. renderer 与 main 各自解析到正确产物（browser / node），不会把 `node:fs` 之类打进渲染进程；
-3. 类型来自 `dist/types`，与应用实际使用的产物同源；
-4. FlowHarness 侧不需要为 wireclaw 的目录结构写任何路径别名。
+## 3. 进程模型
 
-代价是 wireclaw 必须先构建出 `dist/`。这由根目录的 `build:wireclaw` / `watch:wireclaw` 脚本承担。
+```text
+┌─────────────────────────── main (Node) ───────────────────────────┐
+│ platform: 窗口 / IPC 路由 / fh-asset 协议 / nativeTheme / 路径      │
+│ services: AppConfig  Secrets  BlobStore  WorkspaceStore  RunStore  │
+│           SessionService ── AttachmentFileManager ── WorkspaceFileHost
+│           RuntimeHost ── wireclaw Graph.run / Graph.resume          │
+└───────────────▲───────────────────────────────┬───────────────────┘
+                │ typed IPC（invoke + event）    │ GraphDocument / Blob
+┌───────────────┴───────────────┐   ┌───────────▼───────────────────┐
+│ preload（contextBridge）       │   │ renderer（React）              │
+│ window.fh: 白名单 API          │   │ shell: 主题 / 模块宿主          │
+└───────────────────────────────┘   │ modules: Canvas / Workbench    │
+                                    │ workbenches: Designer / ...    │
+                                    └────────────────────────────────┘
+```
 
-## 产物形态
+要点：
 
-- **main / preload**：CommonJS。Electron 的 ESM 主进程在部分平台上仍不稳定，CJS 启动更确定。
-- **renderer**：Vite 打包的 ESM 静态资源。
-- **wireclaw**：以 ESM 发布，因此在 CJS 的 main bundle 中**不能**保持外部依赖（`require()` 一个 ESM 包会失败），构建时将其打包进 main；renderer 由 Vite 正常打包。源码里仍然只写包名 import。
+- **main 拥有全部持久化状态与凭证**；renderer 只持有 UI 投影。
+- preload 是唯一桥；renderer 无 Node 能力。
+- 运行执行在 main；renderer 重载不会中断 run，可通过 `run:get` / 事件回放恢复视图。
+- RuntimeHost 以接口形式暴露，未来可在不改 contracts 的前提下迁到 utility process。
 
-## 当前边界（有意为之）
+## 4. 数据流
 
-- 尚未引入 UI 框架：renderer 是原生 TS + CSS，用于验证环境链路；
-- 尚未引入状态管理与路由；
-- 尚未配置打包分发（electron-builder 等），聚焦开发环境；
-- Graph 运行时能力尚未接入工作台界面——这是接下来与 wireclaw 联调的主线。
+### 编辑流
+
+```text
+用户操作 → React 组件 → Command → window.fh.workspace.applyCommands
+        → WorkspaceStore（校验、原子写、迁移）
+        → workspace:changed 事件 → renderer 投影更新
+```
+
+### 运行流
+
+```text
+运行按钮 → RunController → fh.run.start(graphDocument, input)
+        → RuntimeHost → deserializeGraph + Graph.run
+        → GraphEvent → RunStore（事件日志）→ 节流批量 → run:event
+        → RunController → Workbench 映射 → Canvas 动画
+```
+
+### 资源流
+
+```text
+< img src="fh-asset://<workspaceId>/<contentHash>" >
+        → main 协议处理器 → 校验工作区已打开 → BlobStore → 流式响应
+```
+
+## 5. 模块地图
+
+```text
+apps/desktop/src/
+  main/                        # L1 + L2 装配
+    platform/
+    services/
+  preload/                     # 白名单桥
+  renderer/src/
+    shell/                     # L3
+    modules/
+      canvas/                  # L4：core/ + view/
+      workbench/               # L4：框架
+    workbenches/
+      harness-designer/        # L5
+packages/
+  contracts/                   # L0
+vendor/wireclaw/               # 引擎（submodule）
+```
+
+## 6. 与 wireclaw 的边界
+
+| 归属 | 内容 |
+| --- | --- |
+| wireclaw 负责 | Graph 定义与执行、Session、Provider、工具/MCP、附件管理器、节点目录与预设、序列化 |
+| FH 负责 | 工作区与文档、画布与工作台、运行编排与观测、配置/密钥、文件宿主、导入导出 |
+| 共享方式 | 通过包名 `import { ... } from "wireclaw"`；版本以 submodule commit 固定 |
+| 禁止 | fork wireclaw 源码、复制它的类型到 contracts、绕开 `exports` 引用源码路径 |
+
+同步策略：升级 submodule 时先跑 wireclaw 自身测试，再跑 FH 的 typecheck / build / smoke；`GraphDocument` 的 `version` 与 FH 的 `schemaVersion` 各自独立演进。
+
+## 7. 当前实现状态
+
+本文件描述**目标架构**。当前仓库只有：workspace、submodule、Electron 三端脚手架（renderer 为原生 TS）与三段验证。React renderer、contracts、服务层、Runtime Host、Canvas / Workbench 尚未实现，迁移顺序见 [../todo.md](../todo.md)。

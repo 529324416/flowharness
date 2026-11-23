@@ -1,5 +1,7 @@
 # 开发环境
 
+> 本文描述**当前**可运行的开发环境。目标架构（React renderer、Runtime Host、Canvas 等）见 [README.md](./README.md)；当前 renderer 仍是原生 TS 脚手架，迁移顺序见 [../todo.md](../todo.md)。
+
 ## 工具链
 
 | 组件 | 版本 | 角色 |

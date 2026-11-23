@@ -115,7 +115,18 @@ pnpm smoke       # 启动验证：窗口隐藏运行，输出 [smoke] OK 即通�
 
 ## 文档
 
-- [`architecture/overview.md`](architecture/overview.md) — 仓库分层与模块边界
+**架构（目标态，已定稿）**
+
+- [`architecture/README.md`](architecture/README.md) — 文档地图、关键决策、术语
+- [`architecture/overview.md`](architecture/overview.md) — 分层、依赖规则、进程模型
+- [`architecture/modules.md`](architecture/modules.md) — 模块职责与契约
+- [`architecture/data-model.md`](architecture/data-model.md) — 工作区数据、文档、导入导出
+- [`architecture/runtime.md`](architecture/runtime.md) — 执行、事件、IPC、安全
+- [`architecture/ui.md`](architecture/ui.md) — React、画布、工作台框架、设计器
+- [`architecture/decisions.md`](architecture/decisions.md) — 架构决策记录（ADR）
+
+**工程**
+
 - [`architecture/dev-environment.md`](architecture/dev-environment.md) — 开发环境、构建链路、常见问题
 - [`todo.md`](todo.md) — 当前进度与后续计划
 - `devlog/` — 按时间记录的开发日志

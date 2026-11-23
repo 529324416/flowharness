@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Maximize2, ZoomIn, ZoomOut } from "lucide-react";
 import { CANVAS_METRICS } from "../canvas/metrics";
 import { Badge, IconButton } from "../ui";
@@ -110,17 +110,45 @@ function pathClass(tone: EdgeTone): string {
 
 /** 画布静态视觉样张：验证节点、端口、连线、状态与附属控件。 */
 export function CanvasPreview(): ReactElement {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scale, setScale] = useState(1);
+
+    useEffect(() => {
+        const element = containerRef.current;
+        if (!element) return;
+
+        const update = (): void => {
+            const { width, height } = element.getBoundingClientRect();
+            const next = Math.min(
+                1,
+                (width - 48) / SCENE_WIDTH,
+                (height - 48) / SCENE_HEIGHT,
+            );
+            setScale(Math.max(0.45, next));
+        };
+
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, []);
+
     const minimapScaleX = CANVAS_METRICS.minimapWidth / SCENE_WIDTH;
     const minimapScaleY = CANVAS_METRICS.minimapHeight / SCENE_HEIGHT;
 
     return (
-        <div className={styles.root}>
+        <div className={styles.root} ref={containerRef}>
             <div className={styles.note}>
                 <Badge variant="accent">画布视觉样张</Badge>
                 <span>交互将在 Phase 3 接入</span>
             </div>
 
-            <div className={styles.scene} role="img" aria-label="画布视觉预览：节点与连线">
+            <div
+                className={styles.scene}
+                style={{ transform: `translate(-50%, -50%) scale(${scale})` }}
+                role="img"
+                aria-label="画布视觉预览：节点与连线"
+            >
                 <svg
                     className={styles.edges}
                     viewBox={`0 0 ${SCENE_WIDTH} ${SCENE_HEIGHT}`}

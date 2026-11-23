@@ -4,7 +4,9 @@ import {
     app,
     BrowserWindow,
     ipcMain,
+    Menu,
     nativeTheme,
+    screen,
     safeStorage,
 } from "electron";
 import {
@@ -98,9 +100,16 @@ function resolvePreloadPath(): string {
 const WINDOW_BACKGROUND = { light: "#f3f6fa", dark: "#0b0f15" } as const;
 
 function createWindow(): void {
+    const workArea = screen.getPrimaryDisplay().workAreaSize;
+    const width = Math.min(1440, Math.max(1024, workArea.width - 80));
+    const height = Math.min(900, Math.max(680, workArea.height - 80));
+
     const window = new BrowserWindow({
-        width: 1180,
-        height: 780,
+        width,
+        height,
+        minWidth: 1024,
+        minHeight: 680,
+        center: true,
         show: !isSmokeRun,
         backgroundColor:
             WINDOW_BACKGROUND[nativeTheme.shouldUseDarkColors ? "dark" : "light"],
@@ -239,6 +248,7 @@ async function initialize(): Promise<void> {
     });
 
     registerIpcHandlers();
+    Menu.setApplicationMenu(null);
 
     ipcMain.on(IpcSendChannel.ReportReady, (_event, payload: unknown) => {
         console.log(`[main] renderer-ready ${JSON.stringify(payload)}`);

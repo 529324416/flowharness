@@ -12,6 +12,7 @@
   "scripts": {
     "bootstrap": "pnpm install && pnpm build:wireclaw",
     "ensure:electron": "node ./scripts/ensure-electron.mjs",
+    "capture:ui": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/capture-ui.ps1",
     "build:wireclaw": "pnpm --filter wireclaw build",
     "watch:wireclaw": "concurrently -k -n js,types -c cyan,magenta \"pnpm --dir vendor/wireclaw exec tsup --watch\" \"pnpm --dir vendor/wireclaw exec tsc -p tsconfig.build.json --watch --preserveWatchOutput\"",
     "dev": "pnpm build:wireclaw && pnpm --filter flowharness-desktop dev",

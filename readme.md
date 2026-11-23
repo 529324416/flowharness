@@ -70,6 +70,7 @@ run.bat --sandbox      :: 强制标准沙箱（失败不重试）
 | `pnpm typecheck` | 分别对 main/preload 与 renderer 做类型检查 |
 | `pnpm test` | main 数据层单测（Vitest：config / secrets / blob / workspace / filehost） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与 config/workspace IPC |
+| `pnpm capture:ui` | Windows：启动应用并截取 FlowHarness 窗口（视觉验收） |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |
 
 ## Wireclaw 的引用方式

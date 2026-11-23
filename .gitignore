@@ -19,3 +19,6 @@ release/
 Thumbs.db
 .idea/
 .vscode/
+
+# UI capture scratch output
+devlog/assets/ui-current.png

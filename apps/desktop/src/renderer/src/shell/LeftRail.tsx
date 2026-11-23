@@ -33,7 +33,7 @@ export function LeftRail({ view, onChange }: LeftRailProps): ReactElement {
                             className={view === id ? styles.active : undefined}
                             onClick={() => onChange(id)}
                         >
-                            <Icon size={18} aria-hidden="true" />
+                            <Icon size={20} aria-hidden="true" />
                         </IconButton>
                     </Tooltip>
                 ))}
@@ -43,7 +43,7 @@ export function LeftRail({ view, onChange }: LeftRailProps): ReactElement {
                 <Tooltip label="设置（Phase 3）" side="right">
                     <span>
                         <IconButton label="设置" disabled>
-                            <Settings size={18} aria-hidden="true" />
+                            <Settings size={20} aria-hidden="true" />
                         </IconButton>
                     </span>
                 </Tooltip>

@@ -156,18 +156,23 @@ class WorkspaceFileHost implements IFileHost {
 - 提供 wireclaw `GraphHost.attachments`；
 - 会话历史与附件引用持久化，支持重新打开与回放。
 
+**当前实现（Phase 2）**：已完成「每个工作区一个 `AttachmentFileManager`」的装配（`WorkspaceFileHost` → BlobStore）；
+完整的 Session 生命周期（创建 / 历史 / 回放）随 Provider 接入一并落地。
+
 ## 9. RunStore
 
 **职责**：run 的持久化与恢复。
 
 ```text
 runs/<runId>/meta.json      # 状态、graphId、起止时间、错误摘要
+runs/<runId>/graph.json     # 运行时的 Graph 定义快照（恢复所需）
 runs/<runId>/events.jsonl   # GraphEvent 追加日志
 runs/<runId>/checkpoint.json# GraphCheckpoint（暂停时写入）
 ```
 
 - 追加写事件日志；批量落盘，避免每个事件一次 fsync；
-- 启动时把状态仍为 `running` 的 run 标记为 `interrupted`，有 checkpoint 则可恢复。
+- 启动/打开工作区时把状态仍为 `running` 的 run 标记为 `interrupted`；
+- 写入不可用时只告警一次并继续（内存态），不影响执行。
 
 ## 10. RuntimeHost（main）
 

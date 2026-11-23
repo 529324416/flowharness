@@ -167,3 +167,22 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 - 每个 run 一份事件日志（`events.jsonl`），可回放、可导出为诊断包；
 - main 日志按 run 分文件、分级、脱敏；
 - `traceId` 贯穿 IPC 调用与 run，便于定位问题。
+
+## 13. 当前实现（Phase 2）
+
+| 能力 | 实现 |
+| --- | --- |
+| 执行 | `RuntimeHost` 反序列化 `GraphDocument` → `Graph.run()`；`cancel` 走 `AbortSignal` + `GraphRun.cancel()` |
+| 暂停 / 恢复 | `GraphRun.pause() → GraphCheckpoint`，暂停时落 `checkpoint.json`；`GraphRun.resume()` 进程内恢复 |
+| 事件 | `GraphEvent → RunEventDto` 投影；按 run 缓冲，16ms 或 run 结束时批量广播 |
+| 持久化 | `runs/<runId>/{meta,graph,events,checkpoint}`；打开工作区时把遗留 `running` 标为 `interrupted` |
+| 审批 | main 发 `approval` 事件 → renderer `approval:respond`；5 分钟超时默认 `deny` |
+| 用户输入 | 同上，超时默认 `cancelled: true` |
+| 附件 | `SessionService` 为每个工作区装配 `AttachmentFileManager`，host 以 contentHash 访问 |
+
+**已知限制**
+
+- `resolveProvider` 暂返回 `undefined`：模型/Agent 节点会失败，等 Provider 工厂接入；
+- 审批 / 用户输入目前只有 IPC 管道，没有工作台 UI（Phase 4）；
+- 跨进程重启的 resume 尚未接入：checkpoint 已落盘，但需要工作台绑定与 Graph 定义装载后才能恢复；
+- 受限环境写盘不可用时，RunStore 退化为内存态（日志告警一次），执行本身不受影响。

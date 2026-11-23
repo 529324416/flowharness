@@ -57,11 +57,20 @@ if (!existsSync(mainBundle)) {
       process.exitCode = 1;
       return;
     }
-    if (!output.includes('"phase":"data"') || !output.includes('"configLoaded":true')) {
-      console.error("[smoke] renderer never completed the data-layer round trip");
+    if (
+      !output.includes('"phase":"data"') ||
+      !output.includes('"configLoaded":true') ||
+      !output.includes('"phase":"run"') ||
+      !output.includes('"status":"completed"')
+    ) {
+      console.error(
+        "[smoke] renderer never completed the data layer / self-test run round trip",
+      );
       process.exitCode = 1;
       return;
     }
-    console.log("[smoke] OK — Electron launched; wireclaw + config/workspace IPC are live.");
+    console.log(
+      "[smoke] OK — Electron launched; wireclaw, data layer and run event stream are live.",
+    );
   });
 }

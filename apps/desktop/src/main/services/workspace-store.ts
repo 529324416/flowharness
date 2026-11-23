@@ -171,6 +171,11 @@ export class WorkspaceStore {
         return this.openWorkspaces.has(id);
     }
 
+    /** 已打开工作区的目录；未打开返回 undefined。 */
+    getWorkspaceDir(id: string): string | undefined {
+        return this.openWorkspaces.get(id)?.dir;
+    }
+
     async readDocument(id: string, ref: DocumentRef): Promise<unknown> {
         const workspace = this.requireOpen(id);
         return readJsonFile<unknown>(documentPath(workspace.dir, ref));

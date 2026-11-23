@@ -6,6 +6,18 @@ import type {
     WorkspaceCreateInput,
     WorkspaceSummary,
 } from "./domain";
+import type {
+    ApprovalResponseRequest,
+    RunCancelRequest,
+    RunEventBatch,
+    RunGetRequest,
+    RunListRequest,
+    RunPauseRequest,
+    RunResumeRequest,
+    RunSnapshot,
+    RunStartRequest,
+    UserInputResponseRequest,
+} from "./run";
 
 /**
  * invoke 通道（renderer → main，请求/响应）。
@@ -48,6 +60,7 @@ export const IpcChannel = {
     RunList: "run:list",
 
     ApprovalRespond: "approval:respond",
+    UserInputRespond: "input:respond",
 } as const;
 
 export type IpcChannel = (typeof IpcChannel)[keyof typeof IpcChannel];
@@ -113,4 +126,23 @@ export type IpcInvokeContracts = {
 
     [IpcChannel.BlobStat]: { request: BlobStatRequest; response: BlobMeta | null };
     [IpcChannel.BlobDelete]: { request: BlobDeleteRequest; response: { deleted: boolean } };
+
+    [IpcChannel.RunStart]: { request: RunStartRequest; response: RunSnapshot };
+    [IpcChannel.RunPause]: { request: RunPauseRequest; response: RunSnapshot };
+    [IpcChannel.RunResume]: { request: RunResumeRequest; response: RunSnapshot };
+    [IpcChannel.RunCancel]: { request: RunCancelRequest; response: void };
+    [IpcChannel.RunGet]: { request: RunGetRequest; response: RunSnapshot | null };
+    [IpcChannel.RunList]: { request: RunListRequest; response: RunSnapshot[] };
+
+    [IpcChannel.ApprovalRespond]: {
+        request: ApprovalResponseRequest;
+        response: { accepted: boolean };
+    };
+    [IpcChannel.UserInputRespond]: {
+        request: UserInputResponseRequest;
+        response: { accepted: boolean };
+    };
 };
+
+/** run 事件批量推送的 payload 类型（`fh:event` 的 `topic: "run"`）。 */
+export type { RunEventBatch };

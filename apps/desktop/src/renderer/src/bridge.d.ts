@@ -1,7 +1,10 @@
 import type {
     AppConfig,
     AppConfigUpdate,
+    IpcEventEnvelope,
     IpcResult,
+    RunSnapshot,
+    RunStartRequest,
     WorkspaceCreateInput,
     WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -12,12 +15,15 @@ import type {
  */
 interface FlowHarnessBridge {
     readonly platform: string;
+    /** true 时应用处于 `FLOWHARNESS_SMOKE=1` 自检模式。 */
+    readonly smokeMode: boolean;
     readonly versions: {
         readonly electron: string;
         readonly node: string;
         readonly chrome: string;
     };
     readonly reportReady: (payload: Record<string, unknown>) => void;
+    readonly onEvent: (listener: (envelope: IpcEventEnvelope) => void) => () => void;
 
     readonly getConfig: () => Promise<IpcResult<AppConfig>>;
     readonly updateConfig: (patch: AppConfigUpdate) => Promise<IpcResult<AppConfig>>;
@@ -27,6 +33,10 @@ interface FlowHarnessBridge {
     ) => Promise<IpcResult<WorkspaceSummary>>;
     readonly openWorkspace: (id: string) => Promise<IpcResult<WorkspaceSummary>>;
     readonly closeWorkspace: (id: string) => Promise<IpcResult<void>>;
+
+    readonly startRun: (request: RunStartRequest) => Promise<IpcResult<RunSnapshot>>;
+    readonly cancelRun: (runId: string) => Promise<IpcResult<void>>;
+    readonly getRun: (runId: string) => Promise<IpcResult<RunSnapshot | null>>;
 }
 
 declare global {

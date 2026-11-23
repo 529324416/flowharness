@@ -91,7 +91,7 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 
 ```bash
 pnpm typecheck   # contracts（tsc）+ desktop（node + web 两个 project）
-pnpm test        # vitest：main 服务单测（config / secrets / blob / workspace / filehost）
+pnpm test        # vitest：main 服务单测（40 项：config / secrets / blob / workspace / filehost / run-store / runtime / broker）
 pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
 ```
@@ -102,7 +102,8 @@ pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IP
 2. 以 `--no-sandbox --disable-gpu` 启动已构建的 Electron 应用，窗口隐藏；
 3. 主进程打印 `[main] wireclaw ready: Graph=function ...`；
 4. 渲染进程上报 boot 信息，随后完成 `config:get` + `workspace:list` 往返并上报 `phase: "data"`；
-5. 主进程在收到 data 上报后退出，smoke 校验 wireclaw、`phase: data`、`configLoaded: true` 三个标记。
+5. `FLOWHARNESS_SMOKE=1` 时自动启动一个无 Provider 的最小 Graph（Constant → Output），消费 run 事件流后上报 `phase: "run"`；
+6. 主进程收到 data + run 两份上报后退出，smoke 校验 wireclaw、data、`status: completed` 三类标记。
 
 ## 常见问题
 

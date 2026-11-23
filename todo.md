@@ -42,14 +42,16 @@
 - [x] WorkspaceFileHost（`IFileHost` 桥）
 - [x] Vitest 单测覆盖 data layer（28 项）
 
-### Phase 2 — 执行层
+### Phase 2 — 执行层（已完成）
 
-- [ ] RuntimeHost（`GraphHost` 装配、start/pause/resume/cancel）
-- [ ] RunStore（meta / events.jsonl / checkpoint）
-- [ ] SessionService + AttachmentFileManager 装配
-- [ ] 事件节流与 IPC 事件流
-- [ ] 审批 / 用户输入 IPC 往返
-- [ ] 中断 run 的恢复策略
+- [x] RuntimeHost（`GraphHost` 装配、start/pause/resume/cancel）
+- [x] RunStore（meta / graph / events.jsonl / checkpoint）
+- [x] SessionService + AttachmentFileManager 装配（附件部分）
+- [x] 事件投影与节流、IPC 事件流
+- [x] 审批 / 用户输入 IPC 往返（超时默认拒绝 / 取消）
+- [x] 中断 run 的恢复策略（打开工作区时标记 `interrupted`；跨重启 resume 待工作台绑定后接入）
+- [x] 自检 run：Constant → Output，smoke 校验事件流与 `status: completed`
+- [ ] 完整 Session 生命周期与 Provider 工厂（随 AI 能力接入）
 
 ### Phase 3 — 画布
 

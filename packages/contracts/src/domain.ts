@@ -62,7 +62,9 @@ export type RunStatus =
     | "paused"
     | "completed"
     | "failed"
-    | "cancelled";
+    | "cancelled"
+    /** 进程异常退出后标记；之后可能从 checkpoint 恢复。 */
+    | "interrupted";
 
 /** Blob 的元信息（不包含字节）。 */
 export type BlobMeta = {

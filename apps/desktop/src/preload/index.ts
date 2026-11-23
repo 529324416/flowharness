@@ -1,10 +1,14 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import {
+    IPC_EVENT_CHANNEL,
     IpcChannel,
     IpcSendChannel,
     type AppConfig,
     type AppConfigUpdate,
+    type IpcEventEnvelope,
     type IpcResult,
+    type RunSnapshot,
+    type RunStartRequest,
     type WorkspaceCreateInput,
     type WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -20,6 +24,7 @@ async function invoke<T>(channel: string, payload?: unknown): Promise<IpcResult<
  */
 const bridge = {
     platform: process.platform,
+    smokeMode: process.env.FLOWHARNESS_SMOKE === "1",
     versions: {
         electron: process.versions.electron,
         node: process.versions.node,
@@ -27,6 +32,15 @@ const bridge = {
     },
     reportReady: (payload: Record<string, unknown>): void => {
         ipcRenderer.send(IpcSendChannel.ReportReady, payload);
+    },
+    onEvent: (listener: (envelope: IpcEventEnvelope) => void): (() => void) => {
+        const handler = (_event: IpcRendererEvent, envelope: IpcEventEnvelope): void => {
+            listener(envelope);
+        };
+        ipcRenderer.on(IPC_EVENT_CHANNEL, handler);
+        return () => {
+            ipcRenderer.removeListener(IPC_EVENT_CHANNEL, handler);
+        };
     },
     getConfig: (): Promise<IpcResult<AppConfig>> => invoke(IpcChannel.ConfigGet),
     updateConfig: (patch: AppConfigUpdate): Promise<IpcResult<AppConfig>> =>
@@ -39,6 +53,12 @@ const bridge = {
         invoke(IpcChannel.WorkspaceOpen, { id }),
     closeWorkspace: (id: string): Promise<IpcResult<void>> =>
         invoke(IpcChannel.WorkspaceClose, { id }),
+    startRun: (request: RunStartRequest): Promise<IpcResult<RunSnapshot>> =>
+        invoke(IpcChannel.RunStart, request),
+    cancelRun: (runId: string): Promise<IpcResult<void>> =>
+        invoke(IpcChannel.RunCancel, { runId }),
+    getRun: (runId: string): Promise<IpcResult<RunSnapshot | null>> =>
+        invoke(IpcChannel.RunGet, { runId }),
 };
 
 contextBridge.exposeInMainWorld("flowharness", bridge);

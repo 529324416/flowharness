@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 // Wireclaw 以普通包依赖的方式引入；这里用于自检链路是否打通。
 import { Graph } from "wireclaw";
-import type { AppConfig, WorkspaceSummary } from "@flowharness/contracts";
+import type { AppConfig, RunSnapshot, WorkspaceSummary } from "@flowharness/contracts";
+import { MetaList, type MetaRow } from "./components/MetaList";
+import { RunSelfTest } from "./run/RunSelfTest";
 import { useTheme } from "./theme/ThemeProvider";
 
 const bootGraph = new Graph([], [], {
     id: "flowharness-renderer-boot",
     title: "FlowHarness renderer boot",
 });
-
-type MetaRow = readonly [label: string, value: string];
 
 type DataSnapshot = {
     configOk: boolean;
@@ -19,24 +19,12 @@ type DataSnapshot = {
     error: string | null;
 };
 
-function MetaList({ rows }: { rows: ReadonlyArray<MetaRow> }): ReactElement {
-    return (
-        <dl className="meta-list">
-            {rows.map(([label, value]) => (
-                <div key={label} className="meta-list__row">
-                    <dt>{label}</dt>
-                    <dd>{value}</dd>
-                </div>
-            ))}
-        </dl>
-    );
-}
-
 export function App(): ReactElement {
     const { theme, toggleTheme } = useTheme();
     const bridge = window.flowharness;
     const bootReported = useRef(false);
     const dataReported = useRef(false);
+    const runReported = useRef(false);
 
     const [config, setConfig] = useState<AppConfig | null>(null);
     const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
@@ -112,6 +100,22 @@ export function App(): ReactElement {
         };
     }, [bridge, loadData]);
 
+    const handleRunFinished = useCallback(
+        (snapshot: RunSnapshot) => {
+            if (runReported.current) return;
+            runReported.current = true;
+            bridge.reportReady({
+                phase: "run",
+                data: {
+                    runId: snapshot.runId,
+                    status: snapshot.status,
+                    error: snapshot.error ?? null,
+                },
+            });
+        },
+        [bridge],
+    );
+
     const createDemoWorkspace = useCallback(async () => {
         setBusy(true);
         setDataError(null);
@@ -159,7 +163,7 @@ export function App(): ReactElement {
                 <div>
                     <p className="app__eyebrow">Agent Workbench</p>
                     <h1 className="app__title">FlowHarness</h1>
-                    <p className="app__subtitle">开发环境自检 · Phase 1</p>
+                    <p className="app__subtitle">开发环境自检 · Phase 2</p>
                 </div>
                 <button
                     type="button"
@@ -208,6 +212,8 @@ export function App(): ReactElement {
                     </div>
                     {dataError ? <p className="card__error">{dataError}</p> : null}
                 </article>
+
+                <RunSelfTest autoStart={bridge.smokeMode} onFinished={handleRunFinished} />
             </section>
 
             <footer className="status">

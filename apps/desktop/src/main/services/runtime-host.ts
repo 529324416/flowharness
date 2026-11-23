@@ -1,0 +1,454 @@
+import { randomBytes } from "node:crypto";
+import {
+    ToolRegistry,
+    createBuiltinNodeRegistry,
+    deserializeGraph,
+    type AttachmentFileManager,
+    type Graph,
+    type GraphCheckpoint,
+    type GraphEvent,
+    type GraphHost,
+    type GraphProviderResolver,
+    type GraphRun,
+    type GraphRunOptions,
+    type GraphRunResult,
+    type NodeTypeRegistry,
+    type ToolApprovalDecision,
+    type ToolApprovalRequest,
+    type UserInputRequest,
+    type UserInputResult,
+} from "wireclaw";
+import {
+    FhError,
+    type RunEventBatch,
+    type RunEventDto,
+    type RunSnapshot,
+    type RunStartRequest,
+    type RunStatus,
+} from "@flowharness/contracts";
+import type { RunStorePort } from "./run-store";
+
+export type ApprovalAsk = {
+    requestId: string;
+    runId: string;
+    nodeId: string;
+    request: ToolApprovalRequest;
+};
+
+export type UserInputAsk = {
+    requestId: string;
+    runId: string;
+    nodeId: string;
+    request: UserInputRequest;
+};
+
+export type RuntimeHostOptions = {
+    /** 批量事件出口（main 侧接 IPC 广播）。 */
+    publish: (batch: RunEventBatch) => void;
+    approval: { ask: (request: ApprovalAsk) => Promise<ToolApprovalDecision> };
+    userInput: { ask: (request: UserInputAsk) => Promise<UserInputResult> };
+    registry?: NodeTypeRegistry;
+    attachmentsFor?: (workspaceId: string) => AttachmentFileManager | undefined;
+    resolveProvider?: GraphProviderResolver;
+    storeFor?: (workspaceId: string) => RunStorePort | undefined;
+    now?: () => number;
+    flushIntervalMs?: number;
+};
+
+type ActiveRun = {
+    snapshot: RunSnapshot;
+    graph: Graph;
+    run: GraphRun;
+    controller: AbortController;
+    store?: RunStorePort;
+    buffer: RunEventDto[];
+    flushTimer?: NodeJS.Timeout;
+};
+
+const MAX_FINISHED_RUNS = 100;
+
+/**
+ * FH 唯一的执行入口：反序列化 GraphDocument、装配 GraphHost、管理 run 生命周期，
+ * 把 wireclaw 事件投影成 FH DTO 并节流广播。
+ */
+export class RuntimeHost {
+    private readonly registry: NodeTypeRegistry;
+    private readonly active = new Map<string, ActiveRun>();
+    private readonly finished = new Map<string, RunSnapshot>();
+    private readonly now: () => number;
+    private readonly flushIntervalMs: number;
+
+    constructor(private readonly options: RuntimeHostOptions) {
+        this.registry = options.registry ?? createBuiltinNodeRegistry();
+        this.now = options.now ?? Date.now;
+        this.flushIntervalMs = options.flushIntervalMs ?? 16;
+    }
+
+    async start(request: RunStartRequest): Promise<RunSnapshot> {
+        const graph = this.deserialize(request.graph);
+        const runId = `run_${randomBytes(6).toString("hex")}`;
+        const startedAt = this.now();
+        const controller = new AbortController();
+        const store =
+            request.workspaceId === undefined
+                ? undefined
+                : this.options.storeFor?.(request.workspaceId);
+
+        const snapshot: RunSnapshot = {
+            runId,
+            graphId: graph.id,
+            status: "running",
+            startedAt,
+            ...(request.workspaceId === undefined ? {} : { workspaceId: request.workspaceId }),
+            ...(request.workbenchId === undefined ? {} : { workbenchId: request.workbenchId }),
+        };
+
+        const active: ActiveRun = {
+            snapshot,
+            graph,
+            // 先用占位，随后立即替换；事件在 start 返回前通过 pending 缓冲。
+            run: undefined as unknown as GraphRun,
+            controller,
+            store,
+            buffer: [],
+        };
+
+        const pending: GraphEvent[] = [];
+        let live = false;
+
+        active.run = graph.run({
+            host: this.createHost(runId, request),
+            input: request.input as GraphRunOptions["input"],
+            signal: controller.signal,
+            maxConcurrency: request.maxConcurrency,
+            listener: (event) => {
+                if (live) this.handleEvent(active, event);
+                else pending.push(event);
+            },
+        });
+
+        live = true;
+        this.active.set(runId, active);
+
+        for (const event of pending) {
+            this.handleEvent(active, event);
+        }
+
+        void active.run.done.then(
+            (result) => this.complete(active, result),
+            (error) => this.fail(active, error),
+        );
+
+        if (store) {
+            void store.start(snapshot, request.graph).catch(() => undefined);
+        }
+
+        return { ...snapshot };
+    }
+
+    async pause(runId: string): Promise<RunSnapshot> {
+        const active = this.requireActive(runId);
+
+        if (active.snapshot.status !== "running") {
+            throw new FhError("E_CONFLICT", `run is not running: ${active.snapshot.status}`);
+        }
+
+        let checkpoint: GraphCheckpoint;
+
+        try {
+            checkpoint = await active.run.pause();
+        } catch (error) {
+            throw new FhError("E_RUNTIME", `failed to pause run: ${errorMessage(error)}`);
+        }
+
+        active.snapshot.status = "paused";
+        this.flush(active);
+
+        if (active.store) {
+            void active.store.saveCheckpoint(runId, checkpoint).catch(() => undefined);
+        }
+
+        return { ...active.snapshot };
+    }
+
+    resume(runId: string): RunSnapshot {
+        const active = this.requireActive(runId);
+
+        if (active.snapshot.status !== "paused") {
+            throw new FhError("E_CONFLICT", `run is not paused: ${active.snapshot.status}`);
+        }
+
+        if (!active.run.resume()) {
+            throw new FhError("E_CONFLICT", "run cannot be resumed");
+        }
+
+        active.snapshot.status = "running";
+        this.flush(active);
+        return { ...active.snapshot };
+    }
+
+    cancel(runId: string): void {
+        const active = this.requireActive(runId);
+        active.controller.abort();
+        active.run.cancel();
+    }
+
+    get(runId: string): RunSnapshot | null {
+        const active = this.active.get(runId);
+        if (active) return { ...active.snapshot };
+        const finished = this.finished.get(runId);
+        return finished ? { ...finished } : null;
+    }
+
+    list(workspaceId?: string): RunSnapshot[] {
+        const snapshots = [
+            ...this.active.values(),
+            ...[...this.finished.values()].map((snapshot) => ({ snapshot })),
+        ]
+            .map((entry) => ({ ...entry.snapshot }))
+            .filter(
+                (snapshot) =>
+                    workspaceId === undefined || snapshot.workspaceId === workspaceId,
+            );
+
+        return snapshots.sort((a, b) => b.startedAt - a.startedAt);
+    }
+
+    private createHost(runId: string, request: RunStartRequest): GraphHost {
+        const attachments =
+            request.workspaceId === undefined
+                ? undefined
+                : this.options.attachmentsFor?.(request.workspaceId);
+
+        return {
+            resolveProvider: this.options.resolveProvider ?? (() => undefined),
+            tools: new ToolRegistry(),
+            attachments,
+            onToolApproval: (toolRequest, nodeId) =>
+                this.options.approval.ask({
+                    requestId: `req_${randomBytes(5).toString("hex")}`,
+                    runId,
+                    nodeId,
+                    request: toolRequest,
+                }),
+            onUserInput: (inputRequest, nodeId) =>
+                this.options.userInput.ask({
+                    requestId: `req_${randomBytes(5).toString("hex")}`,
+                    runId,
+                    nodeId,
+                    request: inputRequest,
+                }),
+            parameters: request.parameters,
+            log: (level, message, data) => {
+                if (level === "error") console.error("[run]", message, data);
+                else console.log(`[run] ${level}: ${message}`, data ?? "");
+            },
+        };
+    }
+
+    private handleEvent(active: ActiveRun, event: GraphEvent): void {
+        const dto = toRunEventDto(event);
+        active.buffer.push(dto);
+
+        if (event.type === "run:end") {
+            active.snapshot.status = mapStatus(event.status);
+            active.snapshot.endedAt = event.at;
+            this.flush(active);
+            return;
+        }
+
+        this.scheduleFlush(active);
+    }
+
+    private scheduleFlush(active: ActiveRun): void {
+        if (active.flushTimer) return;
+
+        active.flushTimer = setTimeout(() => {
+            active.flushTimer = undefined;
+            this.flush(active);
+        }, this.flushIntervalMs);
+    }
+
+    private flush(active: ActiveRun): void {
+        if (active.flushTimer) {
+            clearTimeout(active.flushTimer);
+            active.flushTimer = undefined;
+        }
+
+        const events = active.buffer.splice(0);
+        if (events.length === 0) return;
+
+        this.options.publish({
+            runId: active.snapshot.runId,
+            snapshot: { ...active.snapshot },
+            events,
+        });
+
+        if (active.store) {
+            void active.store
+                .appendEvents(active.snapshot.runId, events)
+                .catch(() => undefined);
+        }
+    }
+
+    private complete(active: ActiveRun, result: GraphRunResult): void {
+        active.snapshot.status = mapStatus(result.status);
+        active.snapshot.endedAt = result.endedAt;
+
+        if (result.error !== undefined) {
+            active.snapshot.error = errorMessage(result.error);
+        }
+
+        this.flush(active);
+        this.retire(active);
+    }
+
+    private fail(active: ActiveRun, error: unknown): void {
+        active.snapshot.status = "failed";
+        active.snapshot.endedAt = this.now();
+        active.snapshot.error = errorMessage(error);
+
+        this.flush(active);
+        this.retire(active);
+    }
+
+    private retire(active: ActiveRun): void {
+        const { runId } = active.snapshot;
+
+        if (active.flushTimer) {
+            clearTimeout(active.flushTimer);
+            active.flushTimer = undefined;
+        }
+
+        this.flush(active);
+        this.active.delete(runId);
+        this.finished.set(runId, { ...active.snapshot });
+
+        if (active.store) {
+            void active.store
+                .finish(
+                    runId,
+                    active.snapshot.status,
+                    active.snapshot.endedAt ?? this.now(),
+                    active.snapshot.error,
+                )
+                .catch(() => undefined);
+        }
+
+        if (this.finished.size > MAX_FINISHED_RUNS) {
+            const oldest = this.finished.keys().next().value;
+            if (oldest !== undefined) this.finished.delete(oldest);
+        }
+    }
+
+    private requireActive(runId: string): ActiveRun {
+        const active = this.active.get(runId);
+        if (!active) {
+            throw new FhError("E_NOT_FOUND", `run is not active: ${runId}`);
+        }
+        return active;
+    }
+
+    private deserialize(graph: unknown): Graph {
+        try {
+            return deserializeGraph(graph, { registry: this.registry });
+        } catch (error) {
+            throw new FhError(
+                "E_INVALID_ARGUMENT",
+                `invalid harness graph: ${errorMessage(error)}`,
+            );
+        }
+    }
+}
+
+function toRunEventDto(event: GraphEvent): RunEventDto {
+    switch (event.type) {
+        case "run:start":
+            return {
+                type: "run:start",
+                runId: event.runId,
+                graphId: event.graphId,
+                at: event.at,
+            };
+        case "node:start":
+            return { type: "node:start", runId: event.runId, nodeId: event.nodeId, at: event.at };
+        case "node:stream":
+            return {
+                type: "node:stream",
+                runId: event.runId,
+                nodeId: event.nodeId,
+                port: event.port,
+                chunk: event.chunk,
+                at: event.at,
+            };
+        case "node:end":
+            return {
+                type: "node:end",
+                runId: event.runId,
+                nodeId: event.nodeId,
+                outputs: event.outputs,
+                at: event.at,
+            };
+        case "node:skipped":
+            return {
+                type: "node:skipped",
+                runId: event.runId,
+                nodeId: event.nodeId,
+                at: event.at,
+            };
+        case "node:error":
+            return {
+                type: "node:error",
+                runId: event.runId,
+                nodeId: event.nodeId,
+                message: errorMessage(event.error),
+                at: event.at,
+            };
+        case "custom":
+            return {
+                type: "custom",
+                runId: event.runId,
+                nodeId: event.nodeId,
+                name: event.name,
+                payload: event.payload,
+                seq: event.seq,
+                at: event.at,
+            };
+        case "run:paused":
+            return { type: "run:paused", runId: event.runId, at: event.at };
+        case "run:resumed":
+            return { type: "run:resumed", runId: event.runId, at: event.at };
+        case "run:end":
+            return {
+                type: "run:end",
+                runId: event.runId,
+                status: mapStatus(event.status),
+                outputs: event.outputs,
+                at: event.at,
+            };
+    }
+}
+
+function mapStatus(status: GraphRun["status"]): RunStatus {
+    switch (status) {
+        case "running":
+        case "paused":
+        case "completed":
+        case "failed":
+        case "cancelled":
+            return status;
+        default:
+            return "failed";
+    }
+}
+
+function errorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "string") return error;
+
+    try {
+        return JSON.stringify(error);
+    } catch {
+        return String(error);
+    }
+}

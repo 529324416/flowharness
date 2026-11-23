@@ -111,8 +111,9 @@ pnpm smoke       # 启动验证：窗口隐藏运行，输出 [smoke] OK 即通�
 [prepare-userdata] C:\Users\<you>\AppData\Roaming\FlowHarness
 [main] wireclaw ready: Graph=function graphId=flowharness-main-boot nodes=0
 [main] renderer-ready {"renderer":{"framework":"react","wireclawGraphLoaded":true,...}}
-[main] renderer-ready {"phase":"data","data":{"configLoaded":true,"workspaceCount":0,...}}
-[smoke] OK — Electron launched; wireclaw + config/workspace IPC are live.
+[main] renderer-ready {"phase":"run","data":{"runId":"run_...","status":"completed","error":null}}
+[main] renderer-ready {"phase":"data","data":{"configLoaded":true,"workspacesLoaded":true,...}}
+[smoke] OK — Electron launched; wireclaw, data layer and run event stream are live.
 ```
 
 ## 文档

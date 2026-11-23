@@ -49,7 +49,10 @@
 | React renderer + design tokens + ThemeProvider | ✅ 已实现（Phase 0） |
 | main 服务层（AppConfig / Secrets / BlobStore / WorkspaceStore / WorkspaceFileHost） | ✅ 已实现（Phase 1） |
 | IPC 路由、`fh-asset://` 协议、数据层单测 | ✅ 已实现（Phase 1） |
-| Runtime Host + RunStore + Session 服务 | ⬜ 未开始 |
+| Runtime Host + RunStore（run 持久化 / checkpoint / interrupted） | ✅ 已实现（Phase 2） |
+| 事件投影与节流、审批 / 用户输入 IPC 往返 | ✅ 已实现（Phase 2） |
+| SessionService（AttachmentFileManager 装配） | ✅ 已实现（Phase 2，仅附件管理） |
+| 完整 Session 生命周期（历史 / 回放 / Provider） | ⬜ 未开始 |
 | Canvas + Workbench Framework | ⬜ 未开始 |
 | Harness Designer | ⬜ 未开始 |
 | 打包分发、CI | ⬜ 未开始 |

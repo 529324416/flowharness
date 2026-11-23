@@ -106,7 +106,7 @@ pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
 ```
 
-Windows 快捷启动：双击 `run.bat`（等价于 `pnpm dev`）；受限终端 `run.bat --no-sandbox`。脚本会检查 Node/pnpm、按需 `pnpm install` 与 `build:wireclaw`。
+Windows 快捷启动：双击 `run.bat`。默认先按标准沙箱启动，失败时自动以 `--no-sandbox` 重试（受限终端/CI 无法初始化 Chromium 沙箱）；也可 `run.bat --no-sandbox` 直接兼容模式，或 `run.bat --sandbox` 强制标准模式。脚本会检查 Node/pnpm、按需 `pnpm install` 与 `build:wireclaw`。
 
 `pnpm smoke` 的行为：
 

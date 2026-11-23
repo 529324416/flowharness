@@ -47,10 +47,11 @@ pnpm dev
 
 `pnpm dev` 会先构建 wireclaw，再启动 `electron-vite dev`，Electron 窗口加载 Vite 开发服务器。
 
-Windows 下也可以直接双击根目录的 [`run.bat`](run.bat)：它会检查 Node/pnpm、按需安装依赖并构建 wireclaw，然后启动同一套 dev 环境。受限终端（CI/沙箱）用：
+Windows 下也可以直接双击根目录的 [`run.bat`](run.bat)：它会检查 Node/pnpm、按需安装依赖并构建 wireclaw，然后启动同一套 dev 环境。启动器会先按标准沙箱启动；若 Electron 因受限环境无法初始化沙箱（`-2147483645` / `0x80000003`），会自动以 `--no-sandbox` 重试。也可以显式指定：
 
 ```bat
-run.bat --no-sandbox
+run.bat --no-sandbox   :: 直接使用兼容模式
+run.bat --sandbox      :: 强制标准沙箱（失败不重试）
 ```
 
 > Electron 的预编译二进制在首次启动时懒下载。如果 GitHub 不可达，先执行 `pnpm ensure:electron`（默认走 npmmirror 镜像），再 `pnpm dev`。

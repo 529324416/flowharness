@@ -112,6 +112,51 @@ body {
   color: var(--fh-accent);
 }
 
+.card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.card__error {
+  margin: 10px 0 0;
+  color: var(--fh-danger);
+  font-size: 12px;
+}
+
+.button {
+  padding: 8px 13px;
+  border: 1px solid var(--fh-border);
+  border-radius: var(--fh-radius-sm);
+  background: var(--fh-surface-soft);
+  color: var(--fh-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--fh-border-strong);
+}
+
+.button--primary {
+  border-color: color-mix(in srgb, var(--fh-accent) 45%, var(--fh-border));
+  background: var(--fh-accent-soft);
+  color: var(--fh-accent);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--fh-accent);
+  outline-offset: 2px;
+}
+
 .meta-list {
   margin: 0;
   display: grid;

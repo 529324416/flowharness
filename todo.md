@@ -32,14 +32,15 @@
 - [x] 验证 `@vitejs/plugin-react` 在 Vite 8 / rolldown 下的 peer 配置（额外 peer 均为 optional）
 - [x] 保留并更新 `pnpm smoke`（renderer 上报 `framework: "react"`）
 
-### Phase 1 — main 数据层
+### Phase 1 — main 数据层（已完成）
 
-- [ ] Platform：窗口、IPC 路由、`fh-asset://` 协议
-- [ ] AppConfig（schemaVersion / 原子写 / 迁移）
-- [ ] Secrets（safeStorage，无明文降级）
-- [ ] BlobStore（内容寻址，`objects/<hash[0:2]>/<hash>`）
-- [ ] WorkspaceStore（文档、锁、迁移、导入导出 `.fhws`）
-- [ ] WorkspaceFileHost（`IFileHost` 桥）
+- [x] Platform：窗口、IPC 路由、`fh-asset://` 协议
+- [x] AppConfig（schemaVersion / 原子写 / 迁移 / 损坏回退）
+- [x] Secrets（safeStorage，无明文降级）
+- [x] BlobStore（内容寻址，`objects/<hash[0:2]>/<hash>`，索引可重建）
+- [x] WorkspaceStore（文档、锁、迁移、导入导出 `.fhws`）
+- [x] WorkspaceFileHost（`IFileHost` 桥）
+- [x] Vitest 单测覆盖 data layer（28 项）
 
 ### Phase 2 — 执行层
 

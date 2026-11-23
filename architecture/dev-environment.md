@@ -14,6 +14,7 @@
 | Vite | 8.3.8 | renderer 打包 |
 | React | 19.3.1 | renderer UI |
 | @vitejs/plugin-react | 6.3.0 | JSX 转换与 Fast Refresh（额外 peer 均为 optional） |
+| Vitest | 5.1.1 | main 侧服务单测（node 环境） |
 | tsup | 9.0.0 | wireclaw 库构建 |
 
 ## 目录职责
@@ -25,17 +26,20 @@ apps/desktop/
   tsconfig.node.json        # main + preload（Node 侧）
   tsconfig.web.json         # renderer（DOM 侧）
   tsconfig.json             # 编辑器默认入口
-  src/main/index.ts         # 主进程入口：窗口、IPC、wireclaw 启动自检
+  src/main/index.ts         # 主进程入口：窗口、服务装配、IPC
+  src/main/platform/        # IPC 路由、fh-asset 协议
+  src/main/services/        # AppConfig / Secrets / BlobStore / WorkspaceStore / FileHost
   src/preload/index.ts      # contextBridge 桥
   src/renderer/
     index.html
     src/main.tsx            # React 挂载 + 首帧主题
-    src/App.tsx             # Phase 0 自检界面
+    src/App.tsx             # 自检界面（运行时 / Wireclaw / 数据层）
     src/bridge.d.ts         # window.flowharness 类型
     src/theme/              # ThemeProvider
     src/styles/             # design tokens + 全局样式
   scripts/prepare-userdata.mjs  # 启动前创建 Electron userData 目录
   scripts/smoke.mjs         # 无头启动验证
+  vitest.config.mts         # main 服务单测配置
   out/                      # 构建产物（git 忽略）
 packages/
   contracts/                # L0：IPC 通道/DTO/错误码（以 TS 源码形式被消费）
@@ -80,15 +84,16 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 | 变量 | 作用 |
 | --- | --- |
 | `ELECTRON_RENDERER_URL` | 由 electron-vite dev 注入；有值时主进程加载开发服务器，否则加载 `out/renderer/index.html` |
-| `FLOWHARNESS_SMOKE=1` | 隐藏窗口、渲染进程上报后自动退出，供 `pnpm smoke` 使用 |
+| `FLOWHARNESS_SMOKE=1` | 隐藏窗口；渲染进程完成 config/workspace 往返后主进程自动退出，供 `pnpm smoke` 使用 |
 | `ELECTRON_MIRROR` | `pnpm ensure:electron` 使用的下载镜像，默认 npmmirror |
 
 ## 验证
 
 ```bash
 pnpm typecheck   # contracts（tsc）+ desktop（node + web 两个 project）
+pnpm test        # vitest：main 服务单测（config / secrets / blob / workspace / filehost）
 pnpm build       # wireclaw + desktop 全量构建
-pnpm smoke       # 无头启动 Electron，校验 main / renderer 都加载了 wireclaw
+pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
 ```
 
 `pnpm smoke` 的行为：
@@ -96,8 +101,8 @@ pnpm smoke       # 无头启动 Electron，校验 main / renderer 都加载了 w
 1. `prepare-userdata.mjs` 确保 `%APPDATA%\FlowHarness` 存在；
 2. 以 `--no-sandbox --disable-gpu` 启动已构建的 Electron 应用，窗口隐藏；
 3. 主进程打印 `[main] wireclaw ready: Graph=function ...`；
-4. 渲染进程通过 preload 上报 `renderer-ready`；
-5. 主进程退出，smoke 检查两个标记后输出 `[smoke] OK`。
+4. 渲染进程上报 boot 信息，随后完成 `config:get` + `workspace:list` 往返并上报 `phase: "data"`；
+5. 主进程在收到 data 上报后退出，smoke 校验 wireclaw、`phase: data`、`configLoaded: true` 三个标记。
 
 ## 常见问题
 
@@ -128,6 +133,18 @@ $env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"; pnpm ensure:elec
 1. **包名带作用域**：`"name": "@scope/app"` 会让 Electron 把 userData 解析成含 `/` 的路径并在启动时崩溃。桌面包因此命名为 `flowharness-desktop`，显示名由 `productName` 提供。不要改回带 `@` 的名字。
 2. **userData 目录无法创建**：受限终端/安全软件会拒绝 Chromium 创建 `%APPDATA%\FlowHarness`，进程在 `ready` 前就崩溃。`scripts/prepare-userdata.mjs` 在启动前用 Node 建好该目录。
 3. **Chromium OS 沙箱无法初始化**：在受限会话/CI 中表现为 `STATUS_BREAKPOINT`（`0x80000003`）。此时用 `pnpm dev:no-sandbox`（smoke 已自动加 `--no-sandbox`）。普通桌面终端不需要。
+
+**Electron 进程写盘被拒（`EPERM`）**
+在某些受限会话里，Electron 主进程的 `fs` 写入（AppData、临时目录、甚至工作区）都会返回 `EPERM`，而普通 Node 进程可以写。表现为：
+
+```text
+[config] cannot persist app config; running in memory EPERM: ...
+[workspace] cannot create workspace root; listing will be empty EPERM: ...
+```
+
+当前策略：**可写则持久化，不可写则内存降级并告警**，应用照常启动；`pnpm smoke` 只验证读路径（config/workspace 列表），不验证创建/导出。正常桌面终端不受影响，此时配置与工作区会正常落盘。
+
+同一限制下 `app.requestSingleInstanceLock()` 也无法创建 Chromium 单例锁，因此单实例锁**暂未启用**（见 [modules.md](./modules.md) Platform 一节）。
 
 **改了 wireclaw 源码但界面没变化**
 renderer 的依赖已被 Vite 预打包，需要重启 `pnpm dev`；同时确认 `pnpm build:wireclaw`（或 `watch:wireclaw`）已经跑过。

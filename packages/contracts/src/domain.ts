@@ -34,6 +34,11 @@ export type AppConfig = {
     devtools: boolean;
 };
 
+/** `config:update` 的增量；schemaVersion 只能由主进程维护。 */
+export type AppConfigUpdate = Partial<
+    Pick<AppConfig, "theme" | "workspaceRoot" | "language" | "devtools">
+>;
+
 export type WorkspaceSummary = {
     id: WorkspaceId;
     name: string;
@@ -41,6 +46,9 @@ export type WorkspaceSummary = {
     createdAt: string;
     updatedAt: string;
 };
+
+/** 新建工作区的请求。 */
+export type WorkspaceCreateInput = { name: string };
 
 /** 工作区内的文档引用。 */
 export type DocumentRef =
@@ -64,6 +72,8 @@ export type BlobMeta = {
     size: number;
     createdAt: string;
     refs: BlobRef[];
+    /** 附件原始来源路径（wireclaw 用于恢复宿主文件）。 */
+    sourcePaths?: readonly string[];
 };
 
 export type BlobRef =

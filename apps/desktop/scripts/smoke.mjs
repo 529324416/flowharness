@@ -57,6 +57,11 @@ if (!existsSync(mainBundle)) {
       process.exitCode = 1;
       return;
     }
-    console.log("[smoke] OK — Electron launched; main and renderer both loaded wireclaw.");
+    if (!output.includes('"phase":"data"') || !output.includes('"configLoaded":true')) {
+      console.error("[smoke] renderer never completed the data-layer round trip");
+      process.exitCode = 1;
+      return;
+    }
+    console.log("[smoke] OK — Electron launched; wireclaw + config/workspace IPC are live.");
   });
 }

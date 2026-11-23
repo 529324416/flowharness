@@ -29,7 +29,8 @@
 
 **职责**
 
-- 单实例锁、窗口生命周期、`activate` / `window-all-closed`；
+- 窗口生命周期、`activate` / `window-all-closed`；
+- 单实例锁（目标行为；当前受限会话无法创建 Chromium 单例锁，暂未启用，见 dev-environment）；
 - IPC 路由：注册 channel、参数校验、错误规范化、事件广播；
 - 自定义协议 `fh-asset://`：校验工作区已打开后从 BlobStore 流式响应；
 - `nativeTheme` 与窗口背景同步；安全路径解析（工作区根目录之外一律拒绝）。

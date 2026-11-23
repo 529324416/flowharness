@@ -1,51 +1,80 @@
 import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
+    type ReactNode,
 } from "react";
-import type { ResolvedTheme } from "@flowharness/contracts";
+import type { ResolvedTheme, ThemeMode } from "@flowharness/contracts";
 
 type ThemeContextValue = {
-  /** 当前生效主题（不含 system，首帧已解析）。 */
-  theme: ResolvedTheme;
-  toggleTheme: () => void;
+    /** 当前生效主题（`system` 已解析）。 */
+    theme: ResolvedTheme;
+    /** 配置中的主题模式（保留 system）。 */
+    mode: ThemeMode;
+    toggleTheme: () => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function readInitialTheme(): ResolvedTheme {
-  return document.documentElement.dataset["theme"] === "light" ? "light" : "dark";
+    return document.documentElement.dataset["theme"] === "light" ? "light" : "dark";
+}
+
+function resolveMode(mode: ThemeMode): ResolvedTheme {
+    if (mode === "system") {
+        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    return mode;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }): ReactNode {
-  const [theme, setTheme] = useState<ResolvedTheme>(readInitialTheme);
+    const [mode, setMode] = useState<ThemeMode>("system");
+    const [theme, setTheme] = useState<ResolvedTheme>(readInitialTheme);
 
-  useEffect(() => {
-    document.documentElement.dataset["theme"] = theme;
-    // 让原生窗口边框/菜单跟随；失败不阻塞 UI（主题仅影响外观）。
-    void window.flowharness.setTheme(theme).catch(() => undefined);
-  }, [theme]);
+    // 启动后读取持久化偏好；首帧仍由 matchMedia 决定，避免闪白。
+    useEffect(() => {
+        let cancelled = false;
 
-  const toggleTheme = useCallback(() => {
-    setTheme((current) => (current === "dark" ? "light" : "dark"));
-  }, []);
+        void (async () => {
+            const result = await window.flowharness.getConfig();
+            if (cancelled || !result.ok) return;
 
-  const value = useMemo<ThemeContextValue>(
-    () => ({ theme, toggleTheme }),
-    [theme, toggleTheme],
-  );
+            setMode(result.data.theme);
+            setTheme(resolveMode(result.data.theme));
+        })();
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        document.documentElement.dataset["theme"] = theme;
+    }, [theme]);
+
+    const toggleTheme = useCallback(() => {
+        const next: ResolvedTheme = theme === "dark" ? "light" : "dark";
+        setMode(next);
+        setTheme(next);
+        // 持久化到 AppConfig；失败只影响下次启动的主题，不阻塞 UI。
+        void window.flowharness.updateConfig({ theme: next });
+    }, [theme]);
+
+    const value = useMemo<ThemeContextValue>(
+        () => ({ theme, mode, toggleTheme }),
+        [theme, mode, toggleTheme],
+    );
+
+    return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme(): ThemeContextValue {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error("useTheme must be used inside <ThemeProvider>");
-  }
-  return context;
+    const context = useContext(ThemeContext);
+    if (!context) {
+        throw new Error("useTheme must be used inside <ThemeProvider>");
+    }
+    return context;
 }

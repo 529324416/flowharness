@@ -25,6 +25,19 @@ export type FhErrorDto = {
 /** 所有 invoke 通道的统一返回。 */
 export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: FhErrorDto };
 
+/** 主进程内部抛出的领域错误；IPC 层负责转成 `FhErrorDto`。 */
+export class FhError extends Error {
+    readonly code: FhErrorCode;
+    readonly details?: unknown;
+
+    constructor(code: FhErrorCode, message: string, details?: unknown) {
+        super(message);
+        this.name = "FhError";
+        this.code = code;
+        this.details = details;
+    }
+}
+
 export function ipcOk<T>(data: T): IpcResult<T> {
     return { ok: true, data };
 }

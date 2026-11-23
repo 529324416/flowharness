@@ -61,7 +61,8 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox`（受限终端 / CI 使用） |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | 分别对 main/preload 与 renderer 做类型检查 |
-| `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 main 与 renderer 都成功加载 wireclaw |
+| `pnpm test` | main 数据层单测（Vitest：config / secrets / blob / workspace / filehost） |
+| `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与 config/workspace IPC |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |
 
 ## Wireclaw 的引用方式
@@ -109,9 +110,9 @@ pnpm smoke       # 启动验证：窗口隐藏运行，输出 [smoke] OK 即通�
 ```text
 [prepare-userdata] C:\Users\<you>\AppData\Roaming\FlowHarness
 [main] wireclaw ready: Graph=function graphId=flowharness-main-boot nodes=0
-[main] renderer-ready {"renderer":{"framework":"react","wireclawGraphLoaded":true,...},"versions":{...}}
-[main] theme-applied request=light resolved=light
-[smoke] OK — Electron launched; main and renderer both loaded wireclaw.
+[main] renderer-ready {"renderer":{"framework":"react","wireclawGraphLoaded":true,...}}
+[main] renderer-ready {"phase":"data","data":{"configLoaded":true,"workspaceCount":0,...}}
+[smoke] OK — Electron launched; wireclaw + config/workspace IPC are live.
 ```
 
 ## 文档

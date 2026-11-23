@@ -1,4 +1,11 @@
-import type { ResolvedTheme, ThemeMode } from "./domain";
+import type {
+    AppConfig,
+    AppConfigUpdate,
+    AppInfo,
+    BlobMeta,
+    WorkspaceCreateInput,
+    WorkspaceSummary,
+} from "./domain";
 
 /**
  * invoke 通道（renderer → main，请求/响应）。
@@ -7,7 +14,6 @@ import type { ResolvedTheme, ThemeMode } from "./domain";
  */
 export const IpcChannel = {
     AppGetInfo: "app:getInfo",
-    ThemeSet: "theme:set",
 
     ConfigGet: "config:get",
     ConfigUpdate: "config:update",
@@ -73,15 +79,38 @@ export type IpcEventEnvelope<T = unknown> = {
     payload: T;
 };
 
-// ---- 已实现的通道 DTO ----
+// ---- 已实现通道的 DTO ----
 
-export type ThemeSetRequest = { theme: ThemeMode };
-export type ThemeSetResponse = { theme: ResolvedTheme };
+export type WorkspaceOpenRequest = { id: string };
+export type WorkspaceCloseRequest = { id: string };
+export type WorkspaceExportRequest = { id: string; targetPath: string };
+export type WorkspaceImportRequest = { sourcePath: string };
+
+export type BlobStatRequest = { workspaceId: string; hash: string };
+export type BlobDeleteRequest = { workspaceId: string; hash: string };
+
+export type SecretsHasRequest = { providerId: string };
+export type SecretsSetRequest = { providerId: string; value: string };
+export type SecretsDeleteRequest = { providerId: string };
 
 /** 已实现 invoke 通道的类型表；每接入一个通道就往这里加一行。 */
 export type IpcInvokeContracts = {
-    [IpcChannel.ThemeSet]: {
-        request: ThemeSetRequest;
-        response: ThemeSetResponse;
-    };
+    [IpcChannel.AppGetInfo]: { request: void; response: AppInfo };
+    [IpcChannel.ConfigGet]: { request: void; response: AppConfig };
+    [IpcChannel.ConfigUpdate]: { request: AppConfigUpdate; response: AppConfig };
+    [IpcChannel.ConfigReset]: { request: void; response: AppConfig };
+
+    [IpcChannel.SecretsHas]: { request: SecretsHasRequest; response: { has: boolean } };
+    [IpcChannel.SecretsSet]: { request: SecretsSetRequest; response: void };
+    [IpcChannel.SecretsDelete]: { request: SecretsDeleteRequest; response: { deleted: boolean } };
+
+    [IpcChannel.WorkspaceList]: { request: void; response: WorkspaceSummary[] };
+    [IpcChannel.WorkspaceCreate]: { request: WorkspaceCreateInput; response: WorkspaceSummary };
+    [IpcChannel.WorkspaceOpen]: { request: WorkspaceOpenRequest; response: WorkspaceSummary };
+    [IpcChannel.WorkspaceClose]: { request: WorkspaceCloseRequest; response: void };
+    [IpcChannel.WorkspaceExport]: { request: WorkspaceExportRequest; response: { path: string } };
+    [IpcChannel.WorkspaceImport]: { request: WorkspaceImportRequest; response: WorkspaceSummary };
+
+    [IpcChannel.BlobStat]: { request: BlobStatRequest; response: BlobMeta | null };
+    [IpcChannel.BlobDelete]: { request: BlobDeleteRequest; response: { deleted: boolean } };
 };

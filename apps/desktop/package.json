@@ -1,0 +1,26 @@
+﻿{
+  "name": "flowharness-desktop",
+  "productName": "FlowHarness",
+  "version": "0.0.0",
+  "private": true,
+  "description": "FlowHarness desktop shell: Electron main / preload / renderer.",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "node ./scripts/prepare-userdata.mjs && electron-vite dev",
+    "dev:no-sandbox": "node ./scripts/prepare-userdata.mjs && electron-vite dev -- --no-sandbox",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "smoke": "node ./scripts/prepare-userdata.mjs && node ./scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "wireclaw": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "electron": "^45.4.1",
+    "electron-vite": "^6.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}

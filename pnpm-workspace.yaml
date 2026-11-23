@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - vendor/wireclaw
+
+# pnpm 10+ blocks dependency lifecycle scripts by default.
+# electron's postinstall downloads its prebuilt binary; esbuild exposes its native binary.
+allowBuilds:
+  electron: true
+  esbuild: true

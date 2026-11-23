@@ -1,0 +1,27 @@
+{
+  "name": "flowharness",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "FlowHarness — a TypeScript + Electron agent workbench built around the Wireclaw harness library.",
+  "packageManager": "pnpm@12.23.0",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "bootstrap": "pnpm install && pnpm build:wireclaw",
+    "ensure:electron": "node ./scripts/ensure-electron.mjs",
+    "build:wireclaw": "pnpm --filter wireclaw build",
+    "watch:wireclaw": "concurrently -k -n js,types -c cyan,magenta \"pnpm --dir vendor/wireclaw exec tsup --watch\" \"pnpm --dir vendor/wireclaw exec tsc -p tsconfig.build.json --watch --preserveWatchOutput\"",
+    "dev": "pnpm build:wireclaw && pnpm --filter flowharness-desktop dev",
+    "dev:no-sandbox": "pnpm build:wireclaw && pnpm --filter flowharness-desktop dev:no-sandbox",
+    "build": "pnpm build:wireclaw && pnpm --filter flowharness-desktop build",
+    "typecheck": "pnpm --filter flowharness-desktop typecheck",
+    "smoke": "pnpm --filter flowharness-desktop smoke",
+    "test:wireclaw": "pnpm --filter wireclaw test"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7"
+  }
+}

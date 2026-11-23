@@ -1,0 +1,3 @@
+[submodule "wireclaw"]
+	path = vendor/wireclaw
+	url = https://github.com/529324416/wireclaw

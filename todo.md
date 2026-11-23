@@ -11,6 +11,7 @@
 - [x] Electron 二进制镜像下载辅助：`pnpm ensure:electron`
 - [x] 三段验证：`typecheck` + `build` + `smoke`
 - [x] wireclaw 增量构建脚本：`pnpm watch:wireclaw`
+- [x] Windows 一键启动：`run.bat`（含 `--no-sandbox`）
 - [x] 首次提交并推送到 GitHub
 
 ### 架构

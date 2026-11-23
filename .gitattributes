@@ -1,0 +1,4 @@
+# Windows launch scripts must keep CRLF so cmd.exe parses labels correctly.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

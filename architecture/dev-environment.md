@@ -22,6 +22,7 @@
 ## 目录职责
 
 ```plaintext
+run.bat                     # Windows 一键启动 GUI（dev，可选 --no-sandbox）
 apps/desktop/
   electron.vite.config.ts   # 三端构建配置
   tsconfig.base.json        # 共享编译选项
@@ -104,6 +105,8 @@ pnpm test        # vitest：main 服务单测（40 项：config / secrets / blob
 pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
 ```
+
+Windows 快捷启动：双击 `run.bat`（等价于 `pnpm dev`）；受限终端 `run.bat --no-sandbox`。脚本会检查 Node/pnpm、按需 `pnpm install` 与 `build:wireclaw`。
 
 `pnpm smoke` 的行为：
 

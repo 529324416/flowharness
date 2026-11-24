@@ -1,6 +1,6 @@
 # TODO
 
-> 当前主线：**M2 节点库与配置表单**（M1 最小可运行 Designer 已完成）。
+> 当前主线：**M3 校验与运行可视化**（M2 节点库 / configSchema 表单 / 预设已完成主体）。
 > 原则：垂直切片；UI 外壳冻结，只改组件；wireclaw 契约先行、submodule 联合开发。
 
 ## 当前里程碑（M1 已完成）
@@ -45,7 +45,7 @@
 #### M1.4 — 编辑与自动保存（已完成 2026-11-25）
 
 - [x] 启用 Canvas 编辑：move / connect / disconnect / delete / setViewport 回写 `GraphDocument`
-- [x] 添加节点：catalog 列表 + 默认 config / typeVersion + 唯一 id + 位置
+- [x] 添加节点：catalog 列表 + typeVersion + 唯一 id + 位置（默认 config 留到 M2）
 - [x] 自动保存 400ms；串行化；saved / saving / conflict / error
 - [x] 冲突暂停并提示重载；切换工作区 / 卸载 flush
 - [x] 测试：SaveCoordinator（fake timers）、命令集成
@@ -67,14 +67,25 @@
 
 ## 后续
 
-### M2 — 节点库与配置表单
+### M2 — 节点库与配置表单（2026-11-25 已完成）
 
-- [ ] 节点库：`createEditorCatalog` + `NodePresetLibrary`
-- [ ] 检查器按节点类型渲染（`configSchema` 表单 + 定制组件）
-- [ ] 配置变化后刷新动态端口；失效边提示
-- [ ] 新节点使用类型默认 config
-- [ ] wireclaw：内置节点补齐 `configSchema`
-- [ ] wireclaw：catalog 默认 config 与分类 / 搜索元数据
+> 已完成：wireclaw 侧 11 个节点补齐 `configSchema` / `defaultConfig` / 分类 / 关键词，catalog v2 并修复 `requirements` 丢失；FH 侧接入 `createEditorCatalog`、右键节点库（分类 + 搜索 + 预设）、新节点默认 config、检查器 schema 表单（JSON 兜底）、3 条内置预设、失效连线提示。
+
+- [x] 节点库面板：分类 / 搜索 / 最近使用；`createEditorCatalog` + `NodePresetLibrary`
+- [x] 检查器按节点类型渲染（`configSchema` 表单 + JSON 兜底）
+- [x] 新节点使用类型默认 config（含 `core.loop.maxIterations` 这类必填项）
+- [x] wireclaw：内置节点补齐 `configSchema`
+- [x] wireclaw：catalog 默认 config、分类 / 搜索元数据；修复 `toDescriptor` 丢失 `requirements`
+- [x] 配置变化后刷新动态端口；失效边提示（端口来自 config 投影；内建节点端口目前全静态）
+
+### 代码一致性收口（2026-11-25 已完成）
+
+- [x] 网格：可见间距与 `snapGrid` 统一为 24px（`CANVAS_METRICS.gridSize`）
+- [x] 端口：视觉 10px / 热区 24px，尺寸来自 `--fh-port-size` / `--fh-port-hit-size`；移除 `react-flow__handle` 的 min 覆盖
+- [x] 边宽：默认与活跃统一 1.4px（`--fh-edge-width`），Styleguide 样张同步
+- [x] 属性面板：默认 280×432，与 `PANEL_MIN_WIDTH` 对齐；折叠高度与 `PanelFrame` 共用 `PANEL_HEADER_HEIGHT=34`
+- [x] 侧栏：默认 260 / 范围 200–360，`tokens.css` 与 `SessionSidebar` 常量一致
+- [x] 文档目标能力（`CanvasAnimationApi`、`Controls`、`modules/*`）均保持“目标/未实现”标注
 
 ### M3 — 校验与运行可视化
 
@@ -201,7 +212,7 @@
 - [x] `prefers-reduced-motion`
 - [ ] 大图性能基线（300 节点）（M8）
 - [x] GraphDocument adapter / 编辑命令 / 自动保存（M1）
-- [ ] 节点库（M2）
+- [x] 节点库（M2）
 - [ ] 撤销 / 复制（M4）
 
 ### Step 4 — 配色 / 真透明 / 商务扁平
@@ -233,9 +244,17 @@
 - [x] 节点描边按 1/zoom 反向缩放，缩小后保持 1px 屏幕描边
 - [x] 输入框移除 focus 高亮；Footer 改回全宽 Chrome 层（仅底部圆角）；TitleBar 移除底边框；移除画布缩放工具栏
 
+### UI 打磨 2（2026-11-25）
+
+- [x] 浮动面板换用比节点更深的 `--fh-panel-bg` / `--fh-panel-header-bg`；节点库浮层同材质
+- [x] Select 改为 Radix DropdownMenu 主题化弹层；Checkbox 自绘方框（保留原生语义）
+- [x] 节点库限高 380px + 内部滚动、最近使用、右键位置锚定
+- [x] 画布几何 / 面板 / 侧栏尺寸收口（24px 网格、10px 端口、1.4px 边、280 面板、260 侧栏）
+
 ### 质量
 
 - [x] 18 个测试文件 / 85 个测试通过（M0 + M1.1 ~ M1.5）
+- [x] 24 个测试文件 / 109 个测试通过（M2 + 一致性收口）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
 

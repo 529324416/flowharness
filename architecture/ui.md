@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | UI 框架 | **React 19** | 画布生态最成熟；与 TypeScript 7 的 `tsc` 直接兼容 |
 | 构建 | Vite 8 + electron-vite 6 | 与现有桌面壳一致 |
-| 画布交互 | **`@xyflow/react` 13** | 只作为 Canvas 视图层的实现细节，对外仍是 FH 自己的类型 |
+| 画布交互 | **`@xyflow/react` 12** | 只作为 Canvas 视图层的实现细节，对外仍是 FH 自己的类型 |
 | 类型检查 | `tsc --noEmit` | 不引入 vue-tsc 一类的额外编译器 |
 | 样式 | design tokens（CSS 变量）+ CSS Modules | 不引完整 UI 套件 |
 | 交互原语 | **Radix Primitives**（Tooltip / Menu / ContextMenu / Dialog / Tabs） | 无障碍与键盘行为交给原语，视觉由 tokens 控制 |
@@ -27,11 +27,12 @@ renderer/src/
   styles/                  # tokens.css（唯一视觉事实源）、global.css
   ui/                      # 组件原语（Button/Menu/Dialog/Tabs/...）
   shell/                   # TitleBar / Ribbon / SessionSidebar / StatusBar / 窗口控制
-  views/                   # Designer / Hero / Diagnostics / Styleguide
+  views/                   # Designer / Diagnostics / Styleguide（HeroView 存在但未接入）
   canvas/core/             # 纯 TS：几何、边 key、类型
   canvas/view/             # React Flow 受控视图、节点/边 renderer
   designer/core/           # GraphDocument adapter / 命令 / validate / run-events
   designer/state/          # 文档加载、SaveCoordinator、运行控制
+  inspector/               # 检查器 model（InspectorModel / InspectorNodeModel）
   canvas/metrics.ts        # 几何常量
   run/                     # 运行自检（Phase 2）
   components/              # 共享展示组件（MetaList）
@@ -42,8 +43,8 @@ Step 3 已落地 `canvas/core` 与 `canvas/view`；`canvas-preview/` 已移除�
 
 规则：
 
-- `modules/*` 只从公开入口互相引用；
-- `workbenches/*` 不得直接调用 `window.fh.run`，必须经 Workbench Framework 的 controller；
+- 跨目录只从公开入口引用：当前 `canvas/*` 不 import `designer/*`，`designer/*` 可以 import `canvas/core` 的类型与 `canvas/view` 的 `CanvasView`；
+- `views/*` 不得直接调用 `window.flowharness.run`，运行控制统一经 `useDesignerRun`；
 - 业务组件不写死颜色，统一用 token。
 
 ## 3. 主题接入
@@ -65,10 +66,10 @@ Step 3 已落地 `canvas/core` 与 `canvas/view`；`canvas-preview/` 已移除�
 
 | 部分 | 内容 | 依赖 |
 | --- | --- | --- |
-| `core`（纯 TS） | 视口变换、命中测试、选择模型、命令（增删改连）、布局应用、动画调度原语、边 key 规则 | 无框架依赖，可单测 |
-| `view`（React） | 视口容器、节点层、连线层、小地图、Controls、ContextMenu；用 react-flow 实现手势与渲染 | React、`@xyflow/react` |
+| `core`（纯 TS） | 屏幕↔世界坐标、矩形包含/相交、稳定边 key、领域类型；**不含**命令与动画（命令在 `designer/core`，动画是 CSS） | 无框架依赖，可单测 |
+| `view`（React） | 视口容器、节点层、连线层、小地图、ContextMenu；用 react-flow 实现手势与渲染 | React、`@xyflow/react` |
 
-> M1 已实现：`geometry`、`edge-key`、纯 `CanvasNode/CanvasEdge/CanvasDocument` 类型、受控 view、per-port Handle、节点 registry、MiniMap/Controls/右键菜单；GraphDocument adapter、语义命令与自动保存位于 `designer/`。
+> M1 已实现：`geometry`、`edge-key`、纯 `CanvasNode/CanvasEdge/CanvasDocument` 类型、受控 view、per-port Handle、节点 registry、MiniMap、自定义右键菜单；GraphDocument adapter、语义命令与自动保存位于 `designer/`。
 
 ### 4.3 类型
 
@@ -107,9 +108,9 @@ type CanvasDocument = {
 - **受控模式**：`CanvasDocument` 是当前视图投影；画布把交互转成语义命令（move / connect / disconnect / remove / setViewport），由 Designer 应用到 `GraphDocument`；
 - `nodeTypes` 来自 **node renderer registry**（`kind → React.ComponentType`），Canvas 不内置任何业务节点；
 - `edgeTypes` 提供至少一个带动画能力的默认边；
-- 小地图/Controls/Background 用官方组件；
+- 小地图 / Background 用官方组件；当前没有 `<Controls>`；
 - react-flow 的使用被限制在 `canvas/view/`，其他代码不 import 它。
-- 当前实现（M1）：`@xyflow/react` 12.12.1 受控模式、`useNodesState` / `useEdgesState`、自定义 `SciFiNode` / `SciFiEdge`、per-port Handle、节点 renderer registry、MiniMap / Controls / 自定义右键菜单。
+- 当前实现（M1）：`@xyflow/react` 12.12.1 受控模式、`useNodesState` / `useEdgesState`、自定义 `SciFiNode` / `SciFiEdge`、per-port Handle、节点 renderer registry、MiniMap、自定义右键菜单；**没有** `<Controls>`（左下缩放工具栏已移除，适配视图在右键菜单）。
 
 ### 4.5 动画原语
 
@@ -122,6 +123,8 @@ interface CanvasAnimationApi {
   reset(): void;
 }
 ```
+
+> **目标，未实现**：当前没有 `CanvasAnimationApi`。运行态只用 `CanvasView` 的 `nodeStatuses` 换节点状态色，连线活跃/失败是 CSS class。
 
 - 由 CSS class + `requestAnimationFrame` 实现，不引入动画库；
 - 事件到动画的映射在**工作台层**完成（见 5.4），Canvas 只提供原语。
@@ -205,18 +208,19 @@ type WorkbenchPlan = {
 ### 5.5 编辑与持久化
 
 - 所有编辑走命令（`addNode` / `removeNode` / `moveNodes` / `connect` / `disconnect` / `updateNodeConfig` / `setViewport`）；
-- 命令栈仅存在于 renderer（会话级），默认 50 步，不持久化；
-- 自动保存：命令合并后 debounce ≈400ms 写回文档；关闭工作台/切换时强制 flush；
-- 写冲突：一期单写者，不做合并。
+- 命令栈（undo/redo）**尚未实现**，计划 M4；当前只有 `applyCanvasCommand` 纯函数；
+- 自动保存：命令合并后 debounce 400ms 写回文档；关闭工作台/切换时强制 flush；
+- 写冲突：一期单写者，不做合并；`E_CONFLICT` 停止自动保存并提示重载。
 
 ## 6. Harness Designer
 
 ### 6.1 数据来源（不要硬编码节点）
 
-- `createEditorCatalog(registry, { presets })` → `NodeCatalogEntry[]` + `NodePresetDocument[]`；
-- `NodeCatalogEntry` 提供 `type / title / description / inputs / outputs / requirements / configSchema / error`；
-- **动态端口**：端口可能依赖 `config`，修改配置后用 `describeNodeType(registry, type, { config })` 重新获取端口，再更新画布；
-- 预设通过 `NodePresetLibrary` 实例化。
+- 当前：`createEditorCatalog(registry, { presets: designerPresetLibrary })` → `{ version: 2, nodeTypes, presets }`（`designer/core/catalog.ts`）；
+- `NodeCatalogEntry` 提供 `type / title / description / builtIn / category / keywords / inputs / outputs / requirements / configSchema / defaultConfig / error`；
+- **动态端口**：wireclaw 的 `describeNodeType(registry, type, { config })` 支持按 config 试创建并取端口，adapter 每次投影也按节点 config 调用；但 16 个内建节点的端口目前都是**静态**的（`get inputs/outputs` 不读 config），该能力尚未被任何节点使用；
+- 预设通过 `NodePresetLibrary` 实例化：FH 内置 3 条（文本常量 / 聊天模型调用 / 只读 Agent），节点库面板可直接插入；
+- 节点库是画布内浮层（`views/NodeLibraryPanel.tsx`），顺序为「最近使用（≤6 条，localStorage）→ 预设 → 分类」，支持标题/类型/关键词搜索；不是 PanelLayer 面板。
 
 ### 6.2 Adapter 与命令
 
@@ -238,20 +242,21 @@ CanvasCommand → GraphDocument
 ### 6.3 编辑与校验
 
 - 拖拽/连线生成/修改 `GraphDocument`；
-- 运行前 `graph.validate({ requirements })`（renderer 用 wireclaw 浏览器构建），`HarnessIssue` 在问题面板展示；
-- 有 error 级问题时禁止运行，可「仍然运行」但需确认。
+- 投影时用 `findInvalidEdges` 检查节点/端口是否存在（端口随 config 投影）；存在失效连线时画布顶部提示，能渲染的边标记为 error；
+- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；`HarnessIssue` 以设计器内 Alert 横幅展示（问题面板留到 M3）；
+- 有 issue 时禁止运行；当前**没有**「仍然运行」的确认路径，也没有 `requirements` 校验（M3）。
 
 ### 6.4 运行与导入导出
 
 - 运行时把 `GraphDocument` 交给 RuntimeHost（main 反序列化并执行）；
-- 导入/导出就是 `GraphDocument` JSON，不做私有封装；
-- 导出时可选「包含布局」，即是否保留 `ui`。
+- 目标：导入/导出就是 `GraphDocument` JSON，不做私有封装 —— **尚未实现**（当前只有 `.fhws` 整工作区导入导出）；
+- 目标：导出时可选「包含布局」；当前 `.fhws` 导出总是包含 `documents/**`（含 `ui`）。
 
 ### 6.5 NodeContent
 
-- 一期：根据 `configSchema` 生成通用表单（JSON Schema 子集）；
+- 一期（M2 已完成）：`inspector/NodeConfigForm.tsx` 根据 `configSchema` 生成通用表单（wireclaw 的 JSON Schema 子集：object / string / number / integer / boolean / array / enum / required / minimum / maximum…）；无法表达的字段用 JSON 文本域兜底，整份 config 仍可在「JSON」页签编辑；
 - 二期：为高频节点（模型调用、Agent、分支、循环）提供定制组件；
-- 节点内容组件通过 registry 注册，Canvas 不感知。
+- 节点内容组件通过 `canvas/view/node-registry.ts` 的 registry 注册，Canvas 不感知；当前所有类型都回落到 `SciFiNode`。
 
 ## 7. 其他工作台
 
@@ -274,11 +279,11 @@ CanvasCommand → GraphDocument
 | --- | --- |
 | tokens | `styles/tokens.css`：表面 / 文本 / 边框 / 主色（去饱和青绿）/ 状态 / 画布 / 阴影 / 圆角 / 间距 / 字体 / 动效 / 尺寸 / 层级；深色默认、亮色覆盖 |
 | 密度 | 非画布文字 125% 基准（16.25px 正文）、控件 32px（sm 28）、节点 220px、4px 间距基线；图标同步放大 |
-| 外壳 | TitleBar 40（不透明，无底边框）/ Ribbon 52 / Session Sidebar 280（可收起/拖宽）/ StatusBar 26（全宽不透明 Chrome 层，仅底部圆角）；Session 与 Canvas 面板化（各 1px 外框 + 6px 圆角，间隙 4px），中间 Body 统一 95% 半透；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
-| 会话入口 | Session Sidebar 使用 mock 数据（M4/M6 接真实 Session）；设计器按工作区加载，无工作区时显示空状态 |
-| 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
-| 画布视觉 | 商务扁平节点：6px 圆角、纯色不透明底、HeaderBar 30 + Body 两层、无 Footer；描边通过 `--fh-canvas-zoom` 反向缩放，屏幕恒为 1px；选中仅换 accent 边框；网格线 24px/低亮度；边 1.4px 贝塞尔，活跃边用主色流动虚线、失败 danger 虚线；缩放工具栏已移除，常量在 `canvas/metrics.ts` |
-| 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张 |
+| 外壳 | TitleBar 40（不透明，无底边框）/ Ribbon 52 / Session Sidebar 200–360（默认 260，可收起/拖宽；token 兜底 280）/ StatusBar 26（全宽不透明 Chrome 层，仅底部圆角）；Session 与 Canvas 面板化（各 1px 外框 + 6px 圆角，间隙 4px），中间 Body 统一 95% 半透；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
+| 会话入口 | Session Sidebar 使用 mock 数据（M6 接真实 Session）；设计器按工作区加载，无工作区时显示空状态 |
+| 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Field、Select、Checkbox、NumberField、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
+| 画布视觉 | 商务扁平节点：6px 圆角、纯色不透明底、HeaderBar 30 + Body 两层、无 Footer；描边通过 `--fh-canvas-zoom` 反向缩放，屏幕恒为 1px；选中仅换 accent 边框；网格线 24px/低亮度，拖拽吸附同为 24px；边 1.4px 贝塞尔，活跃边用主色流动虚线、失败 danger 虚线；缩放工具栏已移除；节点宽、Header、端口、边宽、网格、小地图与缩放范围全部来自 `canvas/metrics.ts`，并通过 CSS 变量下发 |
+| 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张（跟随全局主题，页面内无主题切换） |
 
 smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通启动默认进入设计器视图。
 
@@ -288,11 +293,11 @@ smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通
 | --- | --- |
 | `PanelFrame` | Header / Body / 可选 Footer；Header 拖拽，右侧折叠与关闭 |
 | `FloatingPanel` | 拖动、右/下/右下缩放、z-index 聚焦、折叠、关闭；位置钳制在画布容器 |
-| `PanelLayer` | 铺在 Main 之上；属性面板默认右上 256×432，运行日志左下 448×224（原尺寸 80%） |
+| `PanelLayer` | 铺在 Main 之上；属性面板默认右上 280×432、运行日志左下 448×224（`PANEL_DEFAULTS`，最小宽度 280） |
 | 状态 | `useFloatingPanels` 管理 open / collapsed / x / y / size / z；首版不做 docking |
-| 材质 | 面板默认 95% 不透明（`--fh-panel-alpha`），后续设置 UI 调整该 token；不使用 backdrop-filter |
-| 接入 | 属性检查（实时节点/图信息 + config JSON）、运行日志（`RunLogContent`，含问题 Tab 与 Footer runId；完整问题面板 M3） |
-| 开关 | TitleBar 图标、命令中心、`Ctrl J`；仅设计器且已选中会话时可用 |
+| 材质 | 面板默认 95% 不透明（`--fh-panel-alpha`），底色 `--fh-panel-bg` / 头部 `--fh-panel-header-bg`，比节点更深；后续设置 UI 只调整 alpha；不使用 backdrop-filter |
+| 接入 | 属性检查（节点信息 + configSchema 表单，JSON 页签兜底）、运行日志（`RunLogContent`，含问题 Tab 与 Footer runId；完整问题面板 M3） |
+| 开关 | TitleBar 图标、命令中心、`Ctrl J`；条件为**当前视图是设计器且已打开工作区**（与会话选择无关） |
 | 窗口状态 | `WindowStateStore` 写入 `userData/window-state.json`；校验显示器可见性、尺寸/位置钳制、400ms 防抖 + close 保存 |
 
 Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布局持久化留到 Workbench UI state。
@@ -311,10 +316,10 @@ Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布�
 
 ## 10. 测试策略
 
-| 层级 | 方式 |
-| --- | --- |
-| canvas core | Vitest 纯函数单测 |
-| canvas view | Testing Library 交互测试 |
-| designer adapter | 序列化往返测试（GraphDocument → Canvas → GraphDocument 幂等） |
-| 运行链路 | main 侧集成测试（fake provider + 最小图） |
-| 端到端 | Electron smoke（现有 `pnpm smoke` 扩展） |
+| 层级 | 方式 | 现状 |
+| --- | --- | --- |
+| canvas core | Vitest 纯函数单测 | ✅ `geometry.test.ts` |
+| canvas view | Testing Library 交互测试 | ⬜ 未接入（无 jsdom / @testing-library） |
+| designer adapter | 序列化往返测试（GraphDocument → Canvas → GraphDocument 幂等） | 🚧 有 adapter / commands / layout 单测，无往返幂等测试 |
+| 运行链路 | main 侧集成测试（fake provider + 最小图） | ✅ `runtime-host.test.ts`（无 Provider） |
+| 端到端 | Electron smoke（现有 `pnpm smoke` 扩展） | ✅ |

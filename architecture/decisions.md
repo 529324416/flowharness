@@ -261,6 +261,8 @@ Step 4 之后进入功能开发前的视觉收口：主色与状态色过饱和�
 - 给 Body 和面板各加一层 95% alpha：两层叠加后实际接近不透明，Session 与 Canvas 也难以保持一致；
 - 用 SVG `vector-effect` 修复节点描边：节点是 HTML/CSS transform，祖先的缩放发生在图层合成阶段，非缩放描边不会参与补偿。
 
+**实现备注（2026-11-25）**：属性面板默认宽度已与 `MIN_WIDTH=280` 对齐，折叠高度与 `PanelFrame` 头部共用 `PANEL_HEADER_HEIGHT=34`；早期 256/32 的偏差已消除。见 [../design/components.md](../design/components.md) §2.1。
+
 ---
 
 ## ADR-012：文档保存采用整文档快照 + 内容哈希 revision
@@ -270,7 +272,7 @@ Step 4 之后进入功能开发前的视觉收口：主色与状态色过饱和�
 
 **决定**
 - renderer 每次保存提交整份 `GraphDocument` 快照。
-- main 读取当前文件字节并计算 SHA-256 作为 `revision` 返回。
+- main 读取当前文件字节并计算 SHA-256，以 `sha256:<hex>` 形式作为 `revision` 返回。
 - 保存请求携带 `baseRevision`：`null` 表示创建；非 null 必须与当前 revision 一致，否则返回 `E_CONFLICT`。
 - 文档写入复用原子写；manifest 的 `updatedAt` 属于副作用，写失败只告警，不让调用方误判文档保存失败。
 - 同一文档的保存按 `workspaceId + ref` 串行化，保证 revision 检查与写入之间不被插队。
@@ -352,4 +354,48 @@ Step 4 之后进入功能开发前的视觉收口：主色与状态色过饱和�
 - 单写者下冲突显式、状态可观察；
 - 窗口直接关闭时最后 <400ms 的编辑仍可能丢失（无 main-renderer 退出握手）；
 - undo/redo 与更细粒度的增量保存留到 M4。
+
+---
+
+## ADR-017：节点 configSchema 采用 JSON Schema 子集，catalog 携带默认 config / 分类
+
+**背景**
+M2 需要按节点类型生成参数表单、给新节点预填默认 config、并在节点库里分类与搜索。wireclaw 原本只有 `configSchema?: JsonObject` 字段，既没有任何内建节点填写，也没有默认值或分类语义；FH 侧则只从 `describeNodeTypes` 拿端口。
+
+**决定**
+- wireclaw `NodeTypeDefinition` 增加 `defaultConfig`、`category`、`keywords`，并在注册时做 JSON 安全 / 字符串校验；`toDescriptor` 一并透出（顺带修复 `requirements` 在 catalog 中丢失的问题）；
+- `NodeCatalogEntry` 与 `GRAPH_EDITOR_CATALOG_VERSION = 2` 暴露同一组字段；
+- `configSchema` 使用**受支持子集**（object / string / number / integer / boolean / array / enum / required / properties / items / minimum / maximum / minLength / maxLength / minItems / maxItems / default / format），不引入 ajv 或 JSON Schema 实现；
+- `editor/schema.ts` 提供 `validateNodeConfig()` 与 `defaultConfigFromSchema()`；无法表达的关键字（oneOf / $ref / 联合类型）不参与校验，编辑器回退到 JSON 文本域；
+- 内嵌 GraphDocument（Subgraph / ForEach / Loop）的 `config.graph` 只做 JSON 文本域编辑，模板默认填入最小的 Input → Output 子图；
+- 节点库的默认 config 由 catalog 深拷贝后交给编辑器；FH 用 `createEditorCatalog` 作为唯一目录来源，内置预设放在 `designer/core/presets.ts`。
+
+**后果**
+- 节点元数据只有 wireclaw 一份；新增节点类型时，schema / 默认 config / 分类与实现一起注册；
+- 表单覆盖常见标量、枚举与字符串数组；复杂结构仍可编辑 JSON，不会因 schema 缺失而不可用；
+- 目录版本升到 2，外部消费方需要按版本适配（FH 已同步）；
+- 子集校验只保证「表单能表达、明显错误能提示」，语义校验仍归 `Graph.validate` 与运行时读取函数（M3）。
+
+---
+
+## ADR-018：浮动面板独立深色材质，表单控件主题化
+
+**背景**
+浮动面板此前与菜单、对话框共用 `--fh-surface-overlay`，层次上比节点还亮，不符合「面板应更沉默、比节点更深」的视觉目标；检查器表单里的 `<select>` 与 `<input type="checkbox">` 仍是系统原生控件，弹层与状态样式和 FH 主题割裂。
+
+**决定**
+- 新增面板专用 token：`--fh-panel-bg` / `--fh-panel-header-bg`（深色 #080a0d / #0b0e12，比 `--fh-node-bg` 更深；亮色对应 #eef1f4 / #e7ebef）；透明层仍由 `--fh-panel-alpha` 控制；
+- `PanelFrame` 与节点库浮层使用面板 token；菜单、对话框等瞬态浮层继续使用 `--fh-surface-overlay`，允许略亮于面板以表达层级；
+- `Select` 改为「主题化触发器 + Radix DropdownMenu 弹层」，不再渲染原生 select 弹层；
+- `Checkbox` 隐藏原生外观，自绘方框与主色勾，但保留原生 `input` 的键盘、读屏与表单语义；
+- 面板 / 侧栏尺寸收敛到 `layout-metrics.ts`，画布几何收敛到 `canvas/metrics.ts` 并通过 CSS 变量下发。
+
+**后果**
+- 面板、节点、浮层形成「节点 > 面板 > 背景」的稳定层次；
+- 表单控件在深/亮主题下外观一致，键盘与关闭行为由 Radix 与原生 input 承担；
+- 不新增依赖（复用已安装的 Radix DropdownMenu）。
+
+**否决**
+- 引入 `@radix-ui/react-select`：当前只有单选枚举，DropdownMenu 已覆盖键盘与关闭行为，新增依赖收益不足；
+- 仅用 `accent-color` 美化原生 checkbox：跨平台外观不可控，无法与 FH 表面/描边体系一致。
 

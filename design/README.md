@@ -35,16 +35,18 @@ apps/desktop/src/renderer/src/
   styles/global.css      # reset 与基础排版
   ui/                    # 组件原语（Button / Menu / Dialog / …）
   shell/                 # TitleBar / Ribbon / SessionSidebar / panels
-  views/                 # Designer / Hero / Diagnostics / Styleguide
-  canvas/core/           # 几何 / 边 key / 命令
+  views/                 # Designer / Diagnostics / Styleguide（HeroView 仍在仓库但未接入）
+  canvas/core/           # 几何 / 边 key / 类型
   canvas/view/           # React Flow 画布、SciFi 节点/边
+  designer/              # GraphDocument adapter / 命令 / 文档与运行状态
+  inspector/             # 检查器 model
 ```
 
 规则：
 
-- 组件只消费 `--fh-*` 变量，不写死颜色/间距；
-- 浮层（菜单、弹窗、Tooltip）必须走 Radix 原语，键盘与焦点行为不自己造；
-- 画布几何常量集中在 `canvas/metrics.ts`，不散落在组件里；
+- 组件只消费 `--fh-*` 变量，不写死颜色/间距；已知例外：Dialog scrim、窗口关闭按钮色、画布小地图状态色、画布几何 px，待随原语补 token 收敛；
+- 浮层（菜单、弹窗、Tooltip）必须走 Radix 原语，键盘与焦点行为不自己造；已知例外：画布右键菜单是手写 `div[role="menu"]`，待改用 `ui/ContextMenu`；
+- 画布几何常量约定集中在 `canvas/metrics.ts`，但当前只有 `minZoom/maxZoom/gridSize` 被真正引用；节点 220/Header 30/端口/边宽仍硬编码在 CSS 与组件里，改尺寸需同时改两处；
 - 新组件先加进 Styleguide，再接业务。
 
 ## 文档索引
@@ -64,6 +66,13 @@ apps/desktop/src/renderer/src/
 ```bash
 pnpm build        # 先产出 out/
 pnpm capture:ui   # 启动应用并通过 CDP 截取 renderer（默认 devlog/assets/ui-current.png）
+
+# 选择场景：designer（默认）/ designer-run / designer-edit / designer-drag /
+# designer-config / designer-form / designer-form-edit / designer-schema /
+# designer-preset / designer-library / designer-recent / designer-panels /
+# designer-select / designer-toggle / designer-menu / canvas / canvas-zoom /
+# styleguide / styleguide-nodes / styleguide-form / input-focus
+$env:FH_CAPTURE_SCENARIO='canvas'; pnpm capture:ui
 ```
 
 默认走 CDP `Page.captureScreenshot`，得到 1440×900 的 renderer 视图，不受窗口遮挡/动画合成影响；

@@ -10,23 +10,25 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | --- | --- |
 | 工程链路：pnpm workspace / Electron / Vite / TS | ✅ |
 | main 数据层：Config / Secrets / Blob / Workspace / FileHost | ✅ |
-| RuntimeHost / RunStore / 事件流 / 审批 IPC | ✅ |
-| Shell v2：TitleBar / Ribbon / Session Sidebar / Hero / StatusBar | ✅ |
+| RuntimeHost / RunStore / 事件流 / 审批·输入 handler（main 侧） | ✅ |
+| Shell v2：TitleBar / Ribbon / Session Sidebar / StatusBar（Hero 组件未接入） | ✅ |
 | 浮动 Panel：运行日志 / 属性检查 | ✅ |
 | Canvas：React Flow、节点/连线、小地图、右键菜单 | ✅ |
 | 中性配色 + 真透明窗口 + 商务扁平画布 | ✅ |
 | UI 打磨：去饱和色板 / 125% 字号 / 节点双层 / Session+Canvas 面板化 | ✅ |
 | M1 最小可运行 Designer：GraphDocument / 编辑 / 运行 / 自动保存 / 检查器 | ✅ |
-| M2：节点库 / configSchema 表单 / 预设 | 🚧 下一步 |
+| M2 节点库 / configSchema 表单 / 预设 | ✅ 已完成（内建节点端口静态；失效边会提示） |
+| UI 打磨 2：面板材质加深 / 主题化 Select·Checkbox / 最近使用 | ✅ |
 | Session / Provider 闭环、Workbench Framework、打包 | ⬜ |
 
 **已知限制**
 
 - 真透明窗口可透出桌面，但当前 Chromium/Electron 无法模糊桌面（ADR-009）；
-- Session Sidebar 仍是 mock；设计器当前按工作区加载，Session 绑定在 M4/M6；
+- Session Sidebar 仍是 mock；设计器当前按工作区加载，真实 Session 绑定在 M6；
 - 设计器运行中切换视图会丢失节点状态（run 仍在 main 继续）；
 - 窗口直接关闭时，最后一次 400ms 自动保存可能未完成；
-- 亮色主题只完成 token，尚未做视觉走查；
+- 亮色 token 与切换已接入（`ThemeProvider` + `config:update`），尚未做视觉走查；
+- 表单覆盖标量 / 枚举 / 字符串数组；HarnessValue、内嵌图、hostTools 等复杂字段仍是 JSON 文本域；
 - 300 节点性能基线、真实桌面可读性验收未完成；
 - 透明窗口需要 GPU；`--disable-gpu` 下会退化为不透明。
 
@@ -34,12 +36,15 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 
 ```plaintext
 flowharness/
-  pnpm-workspace.yaml     # pnpm workspace：apps/* + vendor/wireclaw
+  pnpm-workspace.yaml     # pnpm workspace：apps/* + packages/* + vendor/wireclaw
+  run.bat                 # Windows 一键启动（可选 --no-sandbox / --sandbox）
   apps/
-    desktop/              # Electron 桌面应用（main / preload / renderer）
+    desktop/              # Electron 桌面应用（main / preload / renderer + scripts）
+  packages/
+    contracts/            # L0：IPC 通道 / DTO / 错误码（以 TS 源码被 main 与 renderer 消费）
   vendor/
     wireclaw/             # git submodule，作为普通 npm 包被引用
-  scripts/                # 仓库级辅助脚本
+  scripts/                # 仓库级辅助脚本（ensure-electron / capture-ui / capture-cdp）
   architecture/           # 架构与开发环境文档
   design/                 # 视觉与组件契约
   devlog/                 # 每会话一篇总结（YYYY-MM-DD.md）
@@ -54,7 +59,7 @@ flowharness/
 | 工具 | 版本要求 | 当前开发机 |
 | --- | --- | --- |
 | Node.js | >= 22.12.0 | v24.13.0 |
-| pnpm | >= 12（配置使用 `allowBuilds`） | 12.23.0 |
+| pnpm | >= 10（`allowBuilds` 需要 pnpm 10+；当前脚本按 12 验证） | 12.23.0 |
 | Git | 任意近版本 | 2.47.1 |
 
 ## 快速开始
@@ -74,7 +79,7 @@ pnpm build:wireclaw
 pnpm dev
 ```
 
-Windows 下也可以直接双击根目录的 [`run.bat`](run.bat)：它会检查 Node/pnpm、按需安装依赖并构建 wireclaw，然后启动同一套 dev 环境。启动器会先按标准沙箱启动；若 Electron 因受限环境无法初始化沙箱（`-2147483645` / `0x80000003`），会自动以 `--no-sandbox` 重试。也可以显式指定：
+Windows 下也可以直接双击根目录的 [`run.bat`](run.bat)：它会检查 Node/pnpm、按需安装依赖并构建 wireclaw，然后启动同一套 dev 环境。启动器先按标准沙箱启动；**标准启动以任何非 0 码失败**都会自动以 `--no-sandbox` 重试（受限终端/CI 无法初始化 Chromium 沙箱，典型退出码 `-2147483645` / `0x80000003`）。也可以显式指定：
 
 ```bat
 run.bat --no-sandbox   :: 直接使用兼容模式
@@ -101,10 +106,10 @@ pnpm dev
 | `pnpm dev` | 构建 wireclaw 后启动 Electron 开发模式 |
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
-| `pnpm typecheck` | 分别对 main/preload 与 renderer 做类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state 单测（18 files / 85 tests） |
+| `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
+| `pnpm test` | main 数据层 + canvas core + designer core/state 单测（24 files / 109 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
-| `pnpm capture:ui` | Windows：以 opaque frameless 截图，保证 renderer 画面可读 |
+| `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |
 
 真透明截图需要 GPU + 系统屏幕抓取；CDP 截图不包含桌面。
@@ -144,8 +149,8 @@ pnpm watch:wireclaw     # 或在另一个终端持续重建
 ## 验证
 
 ```bash
-pnpm typecheck   # 类型检查：确认 "wireclaw" 的类型解析正常
-pnpm test        # 数据层 + canvas core
+pnpm typecheck   # 类型检查：contracts + main/preload + renderer，确认 "wireclaw" 的类型解析正常
+pnpm test        # main 数据层 + canvas core + designer core/state 单测
 pnpm build       # 构建：确认 Electron 三个 bundle 都能产出
 pnpm smoke       # 启动验证：窗口隐藏运行，输出 [smoke] OK 即通过
 ```

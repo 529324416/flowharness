@@ -43,7 +43,9 @@ L5  workbenches      Harness Designer、其他工作台
 | L4 workbench framework | contracts、canvas（公开入口） |
 | L5 workbenches | contracts、canvas（公开入口）、workbench framework |
 
-renderer 访问主进程的唯一通道是 preload 暴露的 `window.fh`（类型由 contracts 定义）。
+> 上表是目标依赖规则；当前 L5 设计器直接在 `renderer/src/designer` + `views/DesignerView`，尚未引入 Workbench Framework。
+
+renderer 访问主进程的唯一通道是 preload 暴露的 `window.flowharness`（类型由 `renderer/src/bridge.d.ts` 声明，contracts 只提供 DTO / 通道常量）。
 
 ## 3. 进程模型
 
@@ -52,14 +54,14 @@ renderer 访问主进程的唯一通道是 preload 暴露的 `window.fh`（类�
 │ platform: 窗口 / IPC 路由 / fh-asset 协议 / nativeTheme / 路径      │
 │ services: AppConfig  Secrets  BlobStore  WorkspaceStore  RunStore  │
 │           SessionService ── AttachmentFileManager ── WorkspaceFileHost
-│           RuntimeHost ── wireclaw Graph.run / Graph.resume          │
+│           RuntimeHost ── wireclaw Graph.run / GraphRun.pause·resume │
 └───────────────▲───────────────────────────────┬───────────────────┘
                 │ typed IPC（invoke + event）    │ GraphDocument / Blob
 ┌───────────────┴───────────────┐   ┌───────────▼───────────────────┐
 │ preload（contextBridge）       │   │ renderer（React）              │
-│ window.fh: 白名单 API          │   │ shell: 主题 / 模块宿主          │
-└───────────────────────────────┘   │ modules: Canvas / Workbench    │
-                                    │ workbenches: Designer / ...    │
+│ window.flowharness: 白名单 API │   │ shell: 主题 / 视图切换          │
+└───────────────────────────────┘   │ canvas / designer / views      │
+                                    │ （Workbench Framework 未实现）  │
                                     └────────────────────────────────┘
 ```
 
@@ -72,49 +74,61 @@ renderer 访问主进程的唯一通道是 preload 暴露的 `window.fh`（类�
 
 ## 4. 数据流
 
-### 编辑流
+### 编辑流（当前：renderer 内存 + 整文档自动保存）
 
 ```text
-用户操作 → React 组件 → Command → window.fh.workspace.applyCommands
-        → WorkspaceStore（校验、原子写、迁移）
-        → workspace:changed 事件 → renderer 投影更新
+用户操作 → CanvasView / 设计器动作 → 内存中的 GraphDocument（唯一事实源）
+        → 400ms SaveCoordinator → window.flowharness.saveDocument（整文档 + baseRevision）
+        → WorkspaceStore（JSON 校验、4 MB 上限、sha256 revision、原子写）
+        → 新 revision 返回 renderer
 ```
+
+> 目标态（M4+）：`workspace:applyCommands` 增量命令与 `workspace:changed` 事件是给多写者/多窗口预留的，**当前均未实现**；单写者阶段用整文档快照保存（ADR-012）。
 
 ### 运行流
 
 ```text
-运行按钮 → RunController → fh.run.start(graphDocument, input)
+运行按钮 → useDesignerRun → window.flowharness.startRun(graphDocument, input)
         → RuntimeHost → deserializeGraph + Graph.run
-        → GraphEvent → RunStore（事件日志）→ 节流批量 → run:event
-        → RunController → Workbench 映射 → Canvas 动画
+        → GraphEvent → RunStore（events.jsonl）→ 16ms 节流批量 → fh:event（topic: run）
+        → useDesignerRun → nodeStatuses / 运行日志 / StatusBar
 ```
+
+> 当前没有 Workbench 层：运行控制直接从设计器调用 preload；工作台框架（M5）才把这一段收进 controller。
 
 ### 资源流
 
 ```text
 < img src="fh-asset://<workspaceId>/<contentHash>" >
-        → main 协议处理器 → 校验工作区已打开 → BlobStore → 流式响应
+        → main 协议处理器 → 校验工作区已打开 + 哈希格式 → BlobStore → 返回字节
 ```
 
 ## 5. 模块地图
 
 ```text
 apps/desktop/src/
-  main/                        # L1 + L2 装配
-    platform/
-    services/
-  preload/                     # 白名单桥
+  main/
+    index.ts                   # 窗口 + 服务装配 + IPC 注册
+    platform/                  # IPC 路由、fh-asset 协议、审批/输入请求中转
+    services/                  # AppConfig / Secrets / BlobStore / WorkspaceStore /
+                               # WorkspaceFileHost / SessionService / RunStore / RuntimeHost
+  preload/index.ts             # contextBridge 白名单桥（window.flowharness）
   renderer/src/
-    shell/                     # L3
-    modules/
-      canvas/                  # L4：core/ + view/
-      workbench/               # L4：框架
-    workbenches/
-      harness-designer/        # L5
+    App.tsx main.tsx           # L3：视图切换、自检上报、首帧主题
+    shell/                     # TitleBar / Ribbon / SessionSidebar / StatusBar / panels
+    views/                     # Designer / Diagnostics / Styleguide（HeroView 未接入，暂无引用）
+    canvas/core/               # L4：纯 TS 画布领域（几何 / 边 key / 类型）
+    canvas/view/               # L4：react-flow 受控视图 + 节点/边 renderer
+    designer/core/             # L5：GraphDocument adapter / 命令 / validate / run-events
+    designer/state/            # L5：文档加载 / SaveCoordinator / 运行控制
+    inspector/                 # L5：检查器 model
+    ui/ theme/ styles/ components/ run/
 packages/
   contracts/                   # L0
 vendor/wireclaw/               # 引擎（submodule）
 ```
+
+> 与目标层名的对应：`canvas/*` 即 L4 Canvas；`designer/*` + `views/DesignerView` 即 L5 Harness Designer。**`modules/` 与 `workbenches/` 目录尚不存在**——Workbench Framework（含模块注册表）仍是 M5，未开始。
 
 ## 6. 与 wireclaw 的边界
 
@@ -131,4 +145,4 @@ vendor/wireclaw/               # 引擎（submodule）
 
 本文件描述**目标架构**。当前已实现：pnpm workspace + wireclaw submodule、Electron main/preload/renderer 三端、contracts、main 服务层（配置 / 密钥 / Blob / 工作区 / 运行记录 / RuntimeHost）、Shell v2、浮动 Panel、Canvas core + view、UI 打磨，以及 M1 最小可运行 Designer（GraphDocument adapter、编辑命令、运行、自动保存、检查器）。
 
-**尚未实现**：M2 节点库与 configSchema 表单、M3 完整校验问题面板、M4 撤销/复制与多图；Workbench Framework；Provider 闭环。迁移顺序见 [../todo.md](../todo.md)。
+**尚未实现**：M3 完整校验问题面板；M4 撤销/复制与多图；Workbench Framework / 模块注册表；Provider 闭环；`applyCommands` 与 `workspace:changed` 事件。迁移顺序见 [../todo.md](../todo.md)。

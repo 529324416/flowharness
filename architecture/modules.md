@@ -1,27 +1,29 @@
 # 模块构成与契约
 
-本文按层列出每个模块的职责、对外契约与明确不做的事。接口为设计草案，实现时以 `packages/contracts` 为准。
+本文按层列出每个模块的职责、对外契约与明确不做的事。**接口块是设计草案**，实现以 `packages/contracts` 与 `apps/desktop/src` 的代码为准；模块「已实现 / 未实现」以一览表的状态列为准（实现细节见 [README.md](./README.md) 的实现状态表）。
 
 ## 一览
 
-| 层 | 模块 | 一句话 |
-| --- | --- | --- |
-| L1 | Platform | 窗口、IPC 路由、`fh-asset` 协议、路径与主题同步 |
-| L1 | Logging | 主进程日志与运行诊断 |
-| L2 | AppConfig | 应用级配置（工作区位置、偏好） |
-| L2 | Secrets | Provider 密钥，主进程独占 |
-| L2 | BlobStore | 内容寻址的二进制存储 |
-| L2 | WorkspaceStore | 工作区文档、索引、迁移、导入导出 |
-| L2 | WorkspaceFileHost | wireclaw `IFileHost` 的 FH 实现 |
-| L2 | SessionService | Session 生命周期与附件管理器装配 |
-| L2 | RunStore | run 记录、事件日志、checkpoint |
-| L2 | RuntimeHost | Graph 执行、事件流、暂停/恢复/取消 |
-| L0 | Contracts | IPC 契约、DTO、错误码、模块接口 |
-| L3 | App Shell | 应用外壳、主题 provider、模块宿主 |
-| L4 | Canvas | 无框架画布核心 + React 视图 |
-| L4 | Workbench Framework | 工作台契约、运行控制、命令与保存 |
-| L5 | Harness Designer | 默认工作台，框架的参考实现 |
-| L5 | Other Workbenches | 面向不同目标的工作台 |
+| 层 | 模块 | 一句话 | 状态 |
+| --- | --- | --- | --- |
+| L1 | Platform | 窗口、IPC 路由、`fh-asset` 协议、路径与主题同步 | ✅ |
+| L1 | Logging | 主进程日志与运行诊断 | ⬜ 未实现（当前用 `console.*`） |
+| L2 | AppConfig | 应用级配置（工作区位置、偏好） | ✅ |
+| L2 | Secrets | Provider 密钥，主进程独占 | ✅ |
+| L2 | BlobStore | 内容寻址的二进制存储 | ✅ |
+| L2 | WorkspaceStore | 工作区文档、索引、迁移、导入导出 | ✅（无 `applyCommands`、无迁移） |
+| L2 | WorkspaceFileHost | wireclaw `IFileHost` 的 FH 实现 | ✅ |
+| L2 | SessionService | Session 生命周期与附件管理器装配 | 🚧 仅按工作区装配附件管理器 |
+| L2 | RunStore | run 记录、事件日志、checkpoint | ✅ |
+| L2 | RuntimeHost | Graph 执行、事件流、暂停/恢复/取消 | ✅（`resolveProvider` 未接） |
+| L0 | Contracts | IPC 契约、DTO、错误码 | ✅ |
+| L3 | App Shell | 应用外壳、主题 provider、模块宿主 | 🚧 外壳与主题已实现，模块注册表未开始 |
+| L4 | Canvas | 无框架画布核心 + React 视图 | ✅（core 仅几何/边 key/类型） |
+| L4 | Workbench Framework | 工作台契约、运行控制、命令与保存 | ⬜ 未实现 |
+| L5 | Harness Designer | 默认工作台，框架的参考实现 | ✅ 最小版本（M1） |
+| L5 | Other Workbenches | 面向不同目标的工作台 | ⬜ 未实现 |
+
+图例：✅ 已实现 ｜ 🚧 部分实现 ｜ ⬜ 未开始
 
 ---
 
@@ -46,6 +48,8 @@ interface Platform {
 ```
 
 **不做**：业务逻辑、数据模型、执行调度。
+
+> 现状：没有名为 `Platform` 的类。窗口生命周期在 `main/index.ts`；IPC 路由是 `platform/ipc.ts` 的 `registerHandler`；`fh-asset://` 由 `platform/asset-protocol.ts` 的 `registerAssetScheme` / `registerAssetProtocol` 注册；工作区路径由 `WorkspaceStore.getWorkspaceDir` 提供。
 
 ## 2. AppConfig
 
@@ -83,7 +87,7 @@ type AppConfig = {
 - `design tokens`：语义化 CSS 变量（`--fh-bg`、`--fh-surface`、`--fh-text`、`--fh-accent`…），组件禁止写死颜色；
 - renderer：`<html data-theme="light|dark">`，偏好来自 AppConfig；
 - main：`nativeTheme.themeSource` + 窗口 `backgroundColor` 同步，避免闪白；
-- 首帧：preload 暴露初始主题，renderer 在挂载 React 前写入 `data-theme`。
+- 首帧：`renderer/src/main.tsx` 在挂载 React 前读 `localStorage["fh.theme"]` 写入 `data-theme`；`ThemeProvider` 随后读 AppConfig 覆盖；preload 只暴露 `platform / smokeMode / windowMode / versions`，不提供主题。
 
 **不做**：多主题市场、按工作台换肤（预留 token 扩展即可）。
 
@@ -128,6 +132,8 @@ interface WorkspaceStore {
 - 锁：应用单实例 + 工作区 `lock` 文件（pid + 时间戳，支持陈旧检测）；
 - **单写者**：一期只允许一个窗口写一个工作区。
 
+> 现状（以代码为准）：已实现 `list / create / open / close / readDocument / saveDocument / exportWorkspace / importWorkspace / getBlobStore / getWorkspaceDir / isOpen`；文档保存是整文档快照 + sha256 revision（`baseRevision` 不匹配返回 `E_CONFLICT`），**没有** `applyCommands`、`workspace:changed` 事件、迁移表与备份；`lock` 只写 pid/startedAt/appVersion，陈旧判定看 pid 是否存活，单实例锁未启用。
+
 ## 7. WorkspaceFileHost
 
 **职责**：实现 wireclaw 的 `IFileHost`，把 contentHash 映射到 BlobStore。
@@ -145,8 +151,8 @@ class WorkspaceFileHost implements IFileHost {
 ```
 
 - 去重、索引、缓存、GC 由 wireclaw `AttachmentFileManager` 负责，FH 不重写；
-- 引用关系写入 `objects/index.json` 的 `refs`（`{ kind: "session" | "run" | "document", id }`）；
-- GC roots 由 WorkspaceStore / SessionService 提供。
+- 引用关系设计上写入 `objects/index.json` 的 `refs`（`{ kind: "session" | "run" | "document", id }`）；**当前 `BlobStore.addRef/removeRef` 无调用方**，`refs` 恒为空；
+- 目标（未实现）：GC roots 由 WorkspaceStore / SessionService 汇总；`BlobStore.gc()` 目前只在单测里调用。
 
 ## 8. SessionService
 
@@ -156,8 +162,7 @@ class WorkspaceFileHost implements IFileHost {
 - 提供 wireclaw `GraphHost.attachments`；
 - 会话历史与附件引用持久化，支持重新打开与回放。
 
-**当前实现（Phase 2）**：已完成「每个工作区一个 `AttachmentFileManager`」的装配（`WorkspaceFileHost` → BlobStore）；
-完整的 Session 生命周期（创建 / 历史 / 回放）随 Provider 接入一并落地。
+**当前实现（M1 之后）**：每个**已打开的工作区**装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore），还没有 Session 维度；完整的 Session 生命周期（创建 / 历史 / 回放）随 M6 落地。
 
 ## 9. RunStore
 
@@ -170,8 +175,8 @@ runs/<runId>/events.jsonl   # GraphEvent 追加日志
 runs/<runId>/checkpoint.json# GraphCheckpoint（暂停时写入）
 ```
 
-- 追加写事件日志；批量落盘，避免每个事件一次 fsync；
-- 启动/打开工作区时把状态仍为 `running` 的 run 标记为 `interrupted`；
+- 追加写事件日志：按批次（RuntimeHost 每 16ms flush）追加，避免每事件一次 write；
+- **打开工作区时**把状态仍为 `running` 的 run 标记为 `interrupted`（启动流程里没有这一步）；
 - 写入不可用时只告警一次并继续（内存态），不影响执行。
 
 ## 10. RuntimeHost（main）
@@ -188,11 +193,13 @@ interface RuntimeHost {
 }
 ```
 
-- 输入是 `GraphDocument` + 输入值 + 可选 checkpoint，内部 `deserializeGraph` 后调用 `graph.run(...)` / `graph.resume(...)`；
-- 实现 wireclaw `GraphHost`：`resolveProvider`（Secrets + Provider 配置）、`tools`、`attachments`、`onToolApproval`、`onUserInput`、`parameters`、`log`；
+- 输入是 `GraphDocument` + 输入值 + 可选 checkpoint，内部 `deserializeGraph` 后调用 `graph.run(...)`；暂停/恢复走 `GraphRun.pause()/resume()`，**不使用** `Graph.resume(checkpoint)`；
+- 实现 wireclaw `GraphHost`：`resolveProvider`（Secrets + Provider 配置）、`tools`、`attachments`、`onToolApproval`、`onUserInput`、`parameters`、`log`；当前 `tools` 是空 `ToolRegistry`，`resolveProvider` 返回 `undefined`；
 - 事件：`GraphRun.onEvent` → RunStore + 节流广播；
-- 并发：每个工作台默认 1 个活动 run，可配置；
+- 并发（目标，未实现）：每个工作台默认 1 个活动 run，可配置；
 - 详见 [runtime.md](./runtime.md)。
+
+> 当前实现：`start / pause / resume / cancel / get / list` 都已在 main 注册；`resolveProvider` 返回 `undefined`（Provider 工厂未接）；pause/resume 只是进程内恢复；并发限制与跨重启 resume 未实现。
 
 ## 11. Contracts（L0）
 
@@ -200,8 +207,9 @@ interface RuntimeHost {
 
 - IPC channel 常量、请求/响应 DTO、事件 topic 与 payload；
 - `FhError` 错误码与结构；
-- 模块接口（`FhModule`、`WorkbenchDefinition` 的**无框架部分**）；
 - 领域标识（workspaceId / graphId / workbenchId / runId / sessionId）。
+
+> 目标：模块接口（`FhModule`、`WorkbenchDefinition` 的无框架部分）也放这里；**当前 contracts 没有这些类型**（只有 `ids / errors / domain / run / ipc`），随 M5 增加。
 
 **不做**：不 import React / Electron / Node；不放类实例；不做运行时逻辑（校验函数除外）。
 
@@ -209,8 +217,8 @@ interface RuntimeHost {
 
 **职责**：通用画布能力，**与 Harness 无关**。
 
-- core（纯 TS）：坐标变换、命中测试、选择、命令、布局应用、动画原语；
-- view（React）：视口、节点层、连线层、小地图、Controls、ContextMenu；
+- core（纯 TS）：当前只有 `geometry`（屏幕↔世界坐标、矩形包含/相交）、`edge-key` 与 `CanvasNode/CanvasEdge/CanvasDocument/CanvasCommand` 类型；**命令**（`applyCanvasCommand` / `addNode` / `updateNodeConfig`）在 `designer/core/commands.ts`，**动画**是 CSS 实现（流动虚线等），没有 `CanvasAnimationApi`；
+- view（React）：视口、节点层、连线层、小地图、ContextMenu；没有 `<Controls>`（左下缩放工具栏已移除）；
 - NodeContent 由 registry 注入，画布本身不渲染任何业务节点。
 
 ```ts
@@ -221,7 +229,7 @@ type CanvasDocument = { nodes: CanvasNode[]; edges: CanvasEdge[]; viewport: View
 
 **不做**：不 import wireclaw、不定义 Harness 语义、不持有运行状态。
 
-## 13. Workbench Framework（L4）
+## 13. Workbench Framework（L4，未实现）
 
 **职责**：把「一个工作台」抽象为「画布 + 文档 + 运行控制」。
 
@@ -251,11 +259,13 @@ interface WorkbenchController {
 
 **职责**：默认工作台，可拖拽、连线、校验、运行、导入导出。
 
-- 节点面板数据来自 wireclaw：`createEditorCatalog(registry, { presets })` → `NodeCatalogEntry[]` + presets；
-- `GraphDocument` ⇄ `CanvasDocument` 的 adapter 由设计器实现；
-- 布局写入 `GraphDocument.ui`（节点 `ui` 与图级 `ui`），实例级覆盖写入工作台文档；
-- 运行前 `graph.validate({ requirements })`，问题以 `HarnessIssue` 展示；
-- 导入导出就是 `GraphDocument` 的 JSON，不做私有加工。
+**当前实现（M1）**：加载/保存工作区 `main` 图、画布编辑（移动 / 连线 / 删除 / 添加节点 / viewport）、400ms 自动保存与冲突、运行前 `validate()`、运行日志与检查器（原始 JSON config）。
+
+- 节点面板数据来自 wireclaw：`createEditorCatalog(registry, { presets })` → `NodeCatalogEntry[]` + presets（M2 已接入，含默认 config / configSchema / 分类 / 关键词）；
+- `GraphDocument` → `CanvasDocument` 单向 adapter 由设计器实现（`designer/core/adapter.ts`）；
+- 布局写入 `GraphDocument.ui`（节点 `ui` 与图级 `ui`）；实例级覆盖（`layout.overrides`）随 Workbench Framework 落地；
+- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；`requirements` 校验留到 M3；
+- 目标：导入导出就是 `GraphDocument` 的 JSON —— **尚未实现**，当前只有 `.fhws` 整工作区导入导出。
 
 ## 15. Other Workbenches（L5）
 
@@ -265,16 +275,16 @@ interface WorkbenchController {
 
 ## 16. Import / Export
 
-| 格式 | 内容 | 用途 |
-| --- | --- | --- |
-| Harness JSON | 单个 `GraphDocument` | 工作流互通、版本管理 |
-| `.fhws` | zip：manifest + documents + objects（可选 runs/sessions） | 整工作区迁移 |
-| 备份 | 迁移前的自动副本 | 恢复 |
+| 格式 | 内容 | 用途 | 状态 |
+| --- | --- | --- | --- |
+| Harness JSON | 单个 `GraphDocument` | 工作流互通、版本管理 | ⬜ 未实现 |
+| `.fhws` | zip：`export.json` + `manifest.json` + `documents/**` + `objects/**` | 整工作区迁移 | ✅ 已实现（不含 runs/sessions） |
+| 备份 | 迁移前的自动副本 | 恢复 | ⬜ 未实现（无迁移表） |
 
 两者不混用：Harness JSON 不包含工作台实例信息，`.fhws` 才包含。
 
-## 17. Observability
+## 17. Observability（目标，基本未实现）
 
-- main 日志：分级、按 run 分文件、脱敏（密钥永不出现）；
-- run 事件日志：可回放、可导出；
-- renderer 错误边界：捕获 UI 异常，上报到 main 日志，不拖垮整个应用。
+- main 日志：分级、按 run 分文件、脱敏（密钥永不出现）——当前统一用 `console.*`，未分级/未分文件；
+- run 事件日志：`runs/<runId>/events.jsonl` 已落盘、可回放；导出诊断包未实现；
+- renderer 错误边界：**尚未实现**（没有 ErrorBoundary 组件），UI 异常会冒泡到整棵 React 树。

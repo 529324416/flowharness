@@ -7,7 +7,11 @@
 | `Button` | primary / secondary / ghost / danger；sm / md | 键盘可聚焦；disabled 时不触发 |
 | `IconButton` | ghost / secondary；sm / md | 必须提供 `aria-label`；配 Tooltip |
 | `Input` | 默认 / 错误 | label、hint、error 三段式；错误用 `aria-invalid` |
-| `Badge` | neutral / accent / success / warning / danger | 小号状态文本，不承载交互 |
+| `Field` | — | 表单行：标签 / 必填标记 / 错误或提示；控件自身负责输入样式 |
+| `Select` | 主题化下拉 / 禁用 | 枚举字段；触发器 + Radix DropdownMenu 弹层，不再使用原生 select 弹层 |
+| `Checkbox` | — | 自绘方框（隐藏原生外观）；选中用主色描边与勾，焦点态走 `focus-visible` |
+| `NumberField` | — | 失焦提交；空值表示未设置；整数/小数由 `step` 区分 |
+| `Badge` | neutral / accent / success / warning / danger / info | 小号状态文本，不承载交互 |
 | `StatusDot` | 语义色；`pulse` | 仅视觉；旁边必须有文本或 aria-label |
 | `Kbd` | — | 展示快捷键，不响应点击 |
 | `Panel` | — | 标题 + 操作区 + 内容；shell 与卡片共用 |
@@ -15,7 +19,7 @@
 | `Alert` | info / success / warning / danger | 内联提示，不用 toast 承载错误 |
 | `Tabs` | 下划线 | Radix 行为；键盘左右切换 |
 | `Tooltip` | — | Radix；延迟 300ms；不承载关键信息 |
-| `DropdownMenu` | — | Radix；支持快捷键提示与分隔线 |
+| `Menu` | Radix DropdownMenu；支持快捷键提示与分隔线 |
 | `ContextMenu` | — | Radix；用于画布节点/边/空白 |
 | `Dialog` | — | Radix；标题 + 描述 + 底部操作；Esc 关闭 |
 
@@ -30,14 +34,14 @@
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│ TitleBar 40（不透明）：品牌 / 菜单 / 命令中心 / 主题 / 窗口控制│
+│ TitleBar 40（不透明）：品牌 / 菜单 / 运行·取消 / 面板 / 主题 / 窗口 │
 ├────┬─────────────────┬───────────────────────────────────────┤
 │    │ Session         │ Canvas                                 │
-│Rib │ Sidebar 280     │ 各自 1px 外框 + 6px 圆角               │
+│Rib │ Sidebar 260     │ 各自 1px 外框 + 6px 圆角               │
 │52  │ 独立面板         │ 面板化；与 Session 间隙 4px            │
-│    │ 搜索 / 会话     │ 可滚动/自适应                          │
+│    │ 搜索 / 会话     │ 可滚动 / 自适应                        │
 ├────┴─────────────────┴───────────────────────────────────────┤
-│ StatusBar 26：全宽不透明 Chrome 层，仅底部圆角                          │
+│ StatusBar 26：全宽不透明 Chrome 层，仅底部圆角                  │
 └──────────────────────────────────────────────────────────────┘
      ↑ 中间 Body（Session + Canvas）统一 95% 半透
 ```
@@ -46,11 +50,11 @@
 
 - TitleBar 是拖拽区（`-webkit-app-region: drag`），按钮/输入自动 `no-drag`；双击空白处切换最大化；
 - Ribbon 是工作台切换栏：会话栏开关 + 设计器 / 诊断 / 样式指南，底部设置；
-- **只有一个 Session Sidebar**（当前为 mock 会话，Phase 5 接真实数据）；可收起、可拖宽，宽度记入 localStorage；
+- **只有一个 Session Sidebar**（当前为 mock 会话，M6 接真实 Session）；可收起、可拖宽，宽度记入 localStorage；
 - Session 与 Canvas 各自带 1px 外框和 6px 圆角，用 4px 间隙分隔，不再用共享分隔线“拼”在一起；
 - TitleBar 与 StatusBar 使用不透明表面，中间 Body 统一 95% 半透；Session 与 Canvas 处于同一层，最终不透明度一致；
-- 设计器在无选中会话时显示 Hero；选中/新建会话后进入全宽画布；
-- Inspector 与运行日志不再占固定区域，后续以**内部浮动 Panel**（step 2）出现；
+- 设计器按工作区加载：无工作区时显示设计器空状态（「新建工作区」），有工作区时直接进入画布；Session 侧栏目前只是 mock 列表，选中会话不会切换 canvas 文档；
+- Inspector 与运行日志已是内部浮动 Panel，默认不占固定区域；
 - TitleBar 不画底部边框：下方 Session/Canvas 已有各自 panel 边框，表面色差足以完成分割，再加一条线会显得拥挤；
 - 状态栏只读，不放主操作；Footer 与 TitleBar 同级，是全宽 Chrome 层（不内缩、不属于 Body），只保留底部 `--fh-window-radius` 圆角；
 
@@ -58,16 +62,26 @@
 
 - `PanelFrame`：Header / Body / 可选 Footer；Header 是拖拽手柄，右侧固定折叠与关闭；
 - `FloatingPanel`：拖动、右/下/右下缩放、z-index 聚焦、折叠、关闭；位置钳制在画布容器内；
-- `PanelLayer`：铺在 Main 之上，默认属性面板右上（256×432）、运行日志左下（448×224），为原尺寸的 80%；
-- 面板背景默认 95% 不透明（`--fh-panel-alpha`），后续设置项只改该 token；
+- `PanelLayer`：铺在 Main 之上，默认属性面板右上（280×432）、运行日志左下（448×224）；
+- 面板背景默认 95% 不透明（`--fh-panel-alpha`），底色用比节点更深的 `--fh-panel-bg`、头部 `--fh-panel-header-bg`，后续设置项只改 alpha；
 - 开关：TitleBar 图标、命令中心、`Ctrl J`；首版不做 docking；
-- 面板只存在于设计器且已选中会话时；Hero 与其他视图不渲染 PanelLayer。
+- PanelLayer 只在设计器视图渲染（设计器内始终挂载）；面板开关要求「设计器 + 已打开工作区」，与会话选择无关；Diagnostics / Styleguide 不渲染 PanelLayer。
+
+## 2.2 节点库浮层
+
+- 入口：画布右键 →「添加节点」；浮层锚定在右键位置（超出可视区时向内钳制）；
+- 画布内浮层（不是独立 Panel），点击外部 / Esc 关闭；
+- 内容顺序：最近使用（有记录时）→ 预设（`NodePresetLibrary`）→ 按 `category` 分组的内建节点；
+- 最近使用最多 6 条，类型与预设分别记录，存 `localStorage["fh.nodeLibrary.recent.v1"]`；搜索时隐藏最近使用组；
+- 搜索匹配标题、类型、描述与 `keywords`；选中后立即插入节点并关闭；
+- 新节点写入类型 `defaultConfig`；预设插入时写入预设参数默认值；
+- 面板宽度 328px，最大高度 380px（`NODE_LIBRARY_MAX_HEIGHT`）；超出后列表内部滚动，使用细滚动条；背景与浮动面板一致（`--fh-panel-bg`）；当前不做「最近使用」之外的排序。`canvas.md` §5 的右键菜单仍只保留删除/适配视图。
 
 ## 3. 视图
 
 | 视图 | 用途 | Phase |
 | --- | --- | --- |
-| Designer | 画布与工作台（React Flow 受控画布 + 示例图） | 3 |
+| Designer | 画布与工作台（React Flow 受控画布 + 主工作流模板 + 节点库 + schema 表单） | 3 → M2 |
 | Diagnostics | 运行时 / Wireclaw / 数据层 / 运行自检 | 已有 |
 | Styleguide | tokens、组件、节点与状态样张 | 2.5 / 3 |
 
@@ -84,8 +98,8 @@ smoke 模式默认打开 Diagnostics，保证自检 run 正常触发。
 
 ## 5. 评审清单
 
-- [ ] Styleguide 能在深/亮两套主题下完整浏览；
+- [ ] 用 TitleBar 的主题开关切换后，Styleguide 在深/亮两套 token 下都完整可读（页面本身没有主题切换）；
 - [ ] 所有组件有 hover / focus-visible / disabled 状态；
-- [ ] 画布样张包含 idle / running / completed / failed / skipped / selected 六种状态；
+- [ ] 画布样张覆盖 idle / running / completed / failed / paused / skipped；selected 目前只与 running 合并展示，需补独立样张；
 - [ ] 键盘可完成：打开菜单、关闭弹窗、切换 Tab；
-- [ ] 无硬编码颜色；无孤立 px 间距（几何常量除外）。
+- [ ] 组件样式无硬编码颜色；已知例外：Dialog scrim、窗口关闭按钮、小地图状态色、画布几何 px（待随原语补 token 收敛）。

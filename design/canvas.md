@@ -4,9 +4,9 @@
 
 ## 1. 背景
 
-- 底色 `--fh-canvas-bg`；
-- **网格线**（不是网点）：24px 间距、1px、`--fh-canvas-grid`，整体 opacity 0.45；
-- 不使用装饰性渐变/发光；左上角显示 `CANVAS / LIVE`、会话名、节点/边计数。
+- 画布本体透明，露出 Body 的 95% 底色；`--fh-canvas-bg` 目前只用于连线端点填充（`SciFiEdge`）与 Styleguide 色块；
+- **网格线**（不是网点）：24px 间距、1px、`--fh-canvas-grid`，整体 opacity 0.45，由 React Flow `Background` 绘制；拖拽吸附共用 `CANVAS_METRICS.gridSize`（24px），与可见网格一致；
+- 不使用装饰性渐变/发光；左上角显示 `CANVAS / LIVE`、图标题（缺省回退工作区名）、节点/边计数。
 
 ## 2. 节点（Node）
 
@@ -24,7 +24,7 @@
 - 结构固定为 **HeaderBar + Body** 两层；Footer 已移除，不再展示 type/meta/ports/id；
 - HeaderBar 30px（`--fh-surface-raised`），body padding 8/9px；
 - 节点内字体与画布外统一为 `Microsoft YaHei UI`；标题 12px/600，kind 9px mono，summary 11px（画布内字号不参与 125% 缩放）；
-- 状态点位于 Header 右侧；端口左入右出，8px 圆点，hover 仅换边框色；
+- 状态点位于 Header 右侧；端口左入右出，10px 圆点、24px 透明热区（`--fh-port-size` / `--fh-port-hit-size`），hover 仅换边框色；
 - 选中只改变边框颜色为 `--fh-accent`，**没有辉光/外描边**。
 
 ## 3. 状态
@@ -47,6 +47,7 @@
 - 默认 `--fh-edge`（低对比）；
 - 活跃：`--fh-edge-active`（主色）+ 流动虚线（`stroke-dashoffset`），`prefers-reduced-motion` 时静止；
 - 失败：danger 虚线；
+- 失效连线（节点或端口不存在）：能渲染的边用 danger 虚线，同时在画布顶部提示「存在失效连线」并列出原因；
 - 不使用 drop-shadow / 发光；能量色 token 已移除；
 - 重复端口由稳定 `edgeKey` 去重。
 
@@ -54,9 +55,9 @@
 
 | 控件 | 位置 | 规格 |
 | --- | --- | --- |
-| 小地图 | 右下 16px 内边距 | 168×96，圆角 10，状态色块 |
-| 画布状态条 | 左上 | `CANVAS / LIVE`、会话名、节点/边计数 |
-| 右键菜单 | 跟随指针 | 删除节点 / 适配视图 / 重置示例图 |
+| 小地图 | 右下 15px 内边距（React Flow 默认 margin） | 168×96，圆角 10，状态色块 |
+| 画布状态条 | 左上 | `CANVAS / LIVE`、图标题（缺省回退工作区名）、节点/边计数 |
+| 右键菜单 | 跟随指针 | 任何位置「添加节点」与「适配视图」；选中节点时另有「删除节点」（Del） |
 
 > 左下角的微型缩放工具栏已移除；缩放交给滚轮 / Ctrl+滚轮，适配视图放在右键菜单。
 
@@ -69,19 +70,20 @@
 | 连线 | ✅ 端口拖拽，重复边去重 |
 | 删除 | ✅ Delete / Backspace / 右键菜单 |
 | 适配视图 | ✅ 右键菜单（缩放工具栏已移除） |
+| 节点库 | ✅ 右键「添加节点」；预设 + 分类 + 搜索，选中即插入 |
 | 撤销/重做、复制 | ⬜ M4 |
 | 右键 | ✅ 空白/节点菜单；边菜单后续 |
 
 ## 7. 空状态与异常
 
 - 无工作区：由设计器空状态承担；
-- 空画布：M2 与节点库一起完善；
-- 运行失败：节点 failed；问题面板显示问题。
+- 空画布：节点库（分类 + 搜索 + 预设）已可用，但画布还没有空态引导，待后续补；
+- 运行失败：节点 failed；校验/运行错误目前以设计器内 Alert 横幅展示，问题面板留到 M3。
 
 ## 8. 窗口与面板
 
 - 默认真透明，窗口内容 12px 圆角（透明窗口的圆角外露出桌面）；
 - TitleBar 与 StatusBar 完全不透明（`--fh-surface-solid`）；中间的 Body（Session + Canvas）统一 95% 半透（`--fh-body-bg`），两者最终 alpha 相同；
-- 浮动 Panel：默认 95% 不透明（`--fh-panel-alpha`），圆角 8；默认尺寸为属性 256×432、运行日志 448×224；不加 backdrop-filter（透明窗口下会变黑）；
+- 浮动 Panel：默认 95% 不透明（`--fh-panel-alpha`），底色为比节点更深的 `--fh-panel-bg`、头部 `--fh-panel-header-bg`，圆角 8；默认尺寸为属性 280×432、运行日志 448×224；不加 backdrop-filter（透明窗口下会变黑）；
 - 桌面本身**不会模糊**（Chromium/Electron 限制，见 ADR-009）；
 - `prefers-reduced-motion` 下关闭连线流动。

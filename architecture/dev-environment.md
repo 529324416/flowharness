@@ -1,6 +1,6 @@
 # 开发环境
 
-> 本文描述**当前**可运行的开发环境。目标架构见 [README.md](./README.md)；实现进度见 [../todo.md](../todo.md)（Phase 0 已完成：`packages/contracts` + React renderer + 主题系统）。
+> 本文描述**当前**可运行的开发环境。目标架构见 [README.md](./README.md)；实现进度见 [../todo.md](../todo.md)（M1 最小可运行 Designer 已完成）。
 
 ## 工具链
 
@@ -17,7 +17,7 @@
 | @vitejs/plugin-react | 6.3.0 | JSX 转换与 Fast Refresh（额外 peer 均为 optional） |
 | Radix Primitives | tooltip 1.4 / dropdown 2.2 / context-menu 2.4 / dialog 1.3 / tabs 1.2 | 浮层与菜单的无障碍行为 |
 | Lucide React | 1.78.0 | 图标 |
-| Vitest | 5.1.1 | main 服务 + canvas core 单测（node 环境） |
+| Vitest | 5.1.1 | main 服务 + canvas core + designer core/state 单测（node 环境，无 jsdom） |
 | tsup | 9.0.0 | wireclaw 库构建 |
 
 ## 目录职责
@@ -32,7 +32,8 @@ apps/desktop/
   tsconfig.json             # 编辑器默认入口
   src/main/index.ts         # 主进程入口：窗口、服务装配、IPC
   src/main/platform/        # IPC 路由、fh-asset 协议
-  src/main/services/        # AppConfig / Secrets / BlobStore / WorkspaceStore / FileHost
+  src/main/services/        # AppConfig / Secrets / BlobStore / WorkspaceStore / FileHost /
+                            # SessionService / RunStore / RuntimeHost
   src/preload/index.ts      # contextBridge 桥
   src/renderer/
     index.html
@@ -41,21 +42,26 @@ apps/desktop/
     src/styles/             # tokens.css（唯一视觉事实源）+ global.css
     src/ui/                 # 组件原语（Button / Menu / Dialog / Tabs / ...）
     src/shell/              # TitleBar / Ribbon / SessionSidebar / panels / StatusBar
-    src/views/              # Designer / Hero / Diagnostics / Styleguide
-    src/canvas/core/        # 几何 / 边 key / 命令
+    src/views/              # Designer / Diagnostics / Styleguide（HeroView 未接入）
+    src/canvas/core/        # 几何 / 边 key / 类型（命令在 designer/core）
     src/canvas/view/        # React Flow 画布、节点/边 renderer
+    src/designer/core/      # GraphDocument adapter / 命令 / validate / run-events
+    src/designer/state/     # 文档加载、SaveCoordinator、运行控制
+    src/inspector/          # 检查器 model
     src/run/                # 运行自检组件
     src/components/         # 共享展示组件
     src/theme/              # ThemeProvider
   scripts/prepare-userdata.mjs  # 启动前创建 Electron userData 目录
   scripts/smoke.mjs         # 无头启动验证
-  vitest.config.mts         # main 服务 + canvas core 单测配置
+  vitest.config.mts         # main 服务 + canvas core + designer core/state 单测配置（node 环境）
   out/                      # 构建产物（git 忽略）
 design/                     # 设计契约：tokens / canvas / components
 packages/
   contracts/                # L0：IPC 通道/DTO/错误码（以 TS 源码形式被消费）
 scripts/
   ensure-electron.mjs       # 触发 Electron 二进制下载（可配镜像）
+  capture-ui.ps1            # Windows 截图入口（默认 opaque frameless；-NativeWindow 抓原生窗口）
+  capture-cdp.mjs           # CDP 截图实现；FH_CAPTURE_SCENARIO 选择场景
 ```
 
 ## 构建链路
@@ -95,17 +101,19 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 | 变量 | 作用 |
 | --- | --- |
 | `ELECTRON_RENDERER_URL` | 由 electron-vite dev 注入；有值时主进程加载开发服务器，否则加载 `out/renderer/index.html` |
-| `FLOWHARNESS_SMOKE=1` | 隐藏窗口；渲染进程完成 config/workspace 往返后主进程自动退出，供 `pnpm smoke` 使用 |
+| `FLOWHARNESS_SMOKE=1` | 隐藏窗口；渲染进程上报 data + run 后主进程退出，供 `pnpm smoke` 使用 |
+| `FLOWHARNESS_WINDOW_MODE` | `transparent`（默认）/ `frameless` / `standard` / `overlay` / `mica` / `acrylic` |
 | `FLOWHARNESS_WORKSPACE_ROOT` | 覆盖工作区根目录（受限终端 / CI 截图用）；不写入 AppConfig |
+| `FH_CAPTURE_SCENARIO` | `pnpm capture:ui` 的场景名（`designer` / `designer-run` / `designer-edit` / `designer-drag` / `designer-config` / `designer-form` / `designer-form-edit` / `designer-schema` / `designer-preset` / `designer-library` / `designer-recent` / `designer-panels` / `designer-select` / `designer-toggle` / `designer-menu` / `canvas` / `canvas-zoom` / `styleguide` / `styleguide-nodes` / `styleguide-form` / `input-focus`） |
 | `ELECTRON_MIRROR` | `pnpm ensure:electron` 使用的下载镜像，默认 npmmirror |
 
-开发模式下如果 AppConfig 的工作区根目录不可写（例如受限会话中的 `Documents`），主进程会依次尝试 `%TEMP%/FlowHarness/workspaces` 与仓库内 `.flowharness-workspaces/`，并在日志中打印 `[workspace] ... dev fallback`。打包版本不会静默换目录，而是返回明确的 `E_IO` 错误。
+开发模式下如果 AppConfig 的工作区根目录不可写（例如受限会话中的 `Documents`），主进程会依次尝试 `%TEMP%/FlowHarness/workspaces` 与仓库内 `.flowharness-workspaces/`，并在日志中打印 `[workspace] ... dev fallback`。打包版本不做目录回退：仍使用配置的根目录，`WorkspaceStore.init` 失败时只告警，工作区列表可能为空。
 
 ## 验证
 
 ```bash
 pnpm typecheck   # contracts（tsc）+ desktop（node + web 两个 project）
-pnpm test        # vitest：main 服务 + canvas core + designer core/state（85 项：config / secrets / blob / workspace / filehost / run-store / runtime / broker / window-state / geometry / designer adapter / commands / layout / validate / run-events / save-coordinator）
+pnpm test        # vitest：main 服务 + canvas core + designer core/state（24 文件 / 109 项：config / secrets / blob / workspace / session-service / filehost / run-store / runtime / broker / window-state / geometry / designer adapter / document / commands / edges / layout / layout-metrics / validate / run-events / save-coordinator / catalog / config-path / presets / recent-nodes）
 pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
 pnpm capture:ui  # Windows：CDP 截取 renderer（加 -NativeWindow 可抓原生窗口）
@@ -130,7 +138,7 @@ Windows 快捷启动：双击 `run.bat`。默认先按标准沙箱启动，失�
 wireclaw 的 `dist/` 还没构建：`pnpm build:wireclaw`。
 
 **pnpm 报 `ERR_PNPM_IGNORED_BUILDS` 或拒绝执行安装脚本**
-pnpm 12 使用 `pnpm-workspace.yaml` 里的 `allowBuilds`（映射形式）：
+pnpm 10+ 使用 `pnpm-workspace.yaml` 里的 `allowBuilds`（映射形式；`package.json` 的 engines 只要求 `>=10`，当前开发机是 12.23.0）：
 
 ```yaml
 allowBuilds:
@@ -162,7 +170,7 @@ $env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"; pnpm ensure:elec
 [workspace] cannot create workspace root; listing will be empty EPERM: ...
 ```
 
-当前策略：**可写则持久化，不可写则内存降级并告警**，应用照常启动；`pnpm smoke` 只验证读路径（config/workspace 列表），不验证创建/导出。正常桌面终端不受影响，此时配置与工作区会正常落盘。
+当前策略：**可写则持久化，不可写则内存降级并告警**，应用照常启动；`pnpm smoke` 的数据层部分只验证读路径（config/workspace 列表），不验证创建/导出；随后会再跑一个无 Provider 的最小 Graph（Constant → Output）验证运行链路。正常桌面终端不受影响，此时配置与工作区会正常落盘。
 
 同一限制下 `app.requestSingleInstanceLock()` 也无法创建 Chromium 单例锁，因此单实例锁**暂未启用**（见 [modules.md](./modules.md) Platform 一节）。
 

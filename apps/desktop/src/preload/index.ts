@@ -26,7 +26,7 @@ async function invoke<T>(channel: string, payload?: unknown): Promise<IpcResult<
 const bridge = {
     platform: process.platform,
     smokeMode: process.env.FLOWHARNESS_SMOKE === "1",
-    windowMode: process.env.FLOWHARNESS_WINDOW_MODE ?? "frameless",
+    windowMode: process.env.FLOWHARNESS_WINDOW_MODE ?? "transparent",
     versions: {
         electron: process.versions.electron,
         node: process.versions.node,

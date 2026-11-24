@@ -54,6 +54,7 @@
 | SessionService（AttachmentFileManager 装配） | ✅ 已实现（Phase 2，仅附件管理） |
 | UI 基础：tokens / 组件原语 / 画布样张 / Styleguide | ✅ 已实现（Phase 2.5） |
 | Shell v2：无边框标题栏 / Ribbon / 会话侧栏 / Hero / 状态栏 | ✅ 已实现（Phase 2.6） |
+| 中性黑配色 + 真透明窗口（桌面清晰、无 blur） | ✅ 已实现（Step 4） |
 | 内部浮动 Panel（运行日志 / 属性检查） | ✅ 已实现（Phase 2.6 step 2） |
 | 窗口 bounds 持久化（多显示器/DPI） | ✅ 已实现（step 2） |
 | 完整 Session 生命周期（历史 / 回放 / Provider） | ⬜ 未开始 |

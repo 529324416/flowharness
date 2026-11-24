@@ -7,6 +7,7 @@
   border: 1px solid var(--fh-border-strong);
   border-radius: var(--fh-radius-md);
   background: var(--fh-surface-overlay);
+  backdrop-filter: blur(14px) saturate(115%);
   box-shadow: var(--fh-shadow-3);
 }
 

@@ -93,25 +93,27 @@
 - [x] `prefers-reduced-motion`
 - [x] 与 Canvas core/view 一起落地，不做一次性假节点
 
-### 4 Step 4 — 色彩收敛 + 半透明（当前，Phase 3.5 之前）
+### 4 Step 4 — 色彩收敛 + 半透明（已完成；桌面 blur 受平台限制）
 
 #### 4A 全局色彩/表面收敛
 
-- [ ] 底色从青绿倾向改为中性黑/石墨（`--fh-bg` / `--fh-surface` / 边框）
-- [ ] 青绿只保留给选中、焦点、链接、少量强调文字
-- [ ] 橙红 energy 只用于节点运行态、活跃连线
-- [ ] TitleBar / Ribbon / Sidebar / Panel / StatusBar / Hero 统一同一套表面层级
-- [ ] 亮色主题同步（不追求与暗色同等氛围，保证可用）
-- [ ] 产出：Hero / Canvas / Panels 三张截图
+- [x] 底色从青绿倾向改为中性黑/石墨（`--fh-bg` / `--fh-surface` / 边框）
+- [x] 青绿只保留给选中、焦点、链接、少量强调文字
+- [x] 橙红 energy 只用于节点运行态、活跃连线
+- [x] TitleBar / Ribbon / Sidebar / Panel / StatusBar / Hero 统一同一套表面层级
+- [ ] 亮色主题同步（token 已改中性，视觉走查未做）
+- [x] 产出：`step4-neutral.png` / `step4-canvas.png`
 
 #### 4B 半透明
 
-- [ ] 用禁用后台节流后的截图复测原生 Acrylic / Mica
-- [ ] 对比 `transparent + backdrop-filter` 与原生材质
-- [ ] 决定默认方案；需要时保留设置开关
-- [ ] 应用到 TitleBar / Ribbon / Sidebar / Panel / StatusBar（内容区保持可读）
-- [ ] 可读性 / 性能 / 窗口阴影 / 缩放回归
-- [ ] 产出：半透明截图
+- [x] 用禁用后台节流后的截图复测原生 Acrylic / Mica（当前 Electron/Win11 仍不透明）
+- [x] 对比 `transparent + backdrop-filter` 与原生材质（CSS 不采样桌面，桌面 blur 不可用）
+- [x] 默认改为真透明；`FLOWHARNESS_WINDOW_MODE=frameless` 为不透明 fallback
+- [x] 应用到 TitleBar / Ribbon / Sidebar / Panel / StatusBar（内容区 alpha 0.5–0.94）
+- [ ] 可读性 / 性能 / 窗口阴影 / 缩放回归（受控背景截图已通过；真实桌面待用户验收）
+- [x] 产出：`step4-glass.png`（受控渐变背景）
+
+> 平台限制：真透明可用，但 Chromium 的 `backdrop-filter` 与当前 Electron 的 Acrylic/Mica 都无法模糊桌面；详见 ADR-009。
 
 ---
 

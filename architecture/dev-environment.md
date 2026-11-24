@@ -110,7 +110,7 @@ pnpm capture:ui  # Windows：CDP 截取 renderer（加 -NativeWindow 可抓原�
 
 Windows 快捷启动：双击 `run.bat`。默认先按标准沙箱启动，失败时自动以 `--no-sandbox` 重试（受限终端/CI 无法初始化 Chromium 沙箱）；也可 `run.bat --no-sandbox` 直接兼容模式，或 `run.bat --sandbox` 强制标准模式。脚本会检查 Node/pnpm、按需 `pnpm install` 与 `build:wireclaw`。
 
-窗口模式实验（S0）：默认 `frameless`；可用 `FLOWHARNESS_WINDOW_MODE=standard|overlay|mica|acrylic|transparent pnpm dev` 启动对比。透明模式目前仅作 spike，不作为默认外观。
+窗口模式：默认 `transparent`（真透明 + 中性黑）。可用 `FLOWHARNESS_WINDOW_MODE=frameless` 回到不透明无边框作为 fallback；`standard|overlay|mica|acrylic` 仍保留为对比模式。透明窗口需要 GPU，`--disable-gpu` 会退化为不透明；桌面 blur 在当前 Chromium/Electron 不可用（ADR-009）。
 
 `pnpm smoke` 的行为：
 

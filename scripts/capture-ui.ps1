@@ -33,10 +33,15 @@ $port = Get-Random -Minimum 9300 -Maximum 9399
 
 try {
     Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-    if (-not [string]::IsNullOrWhiteSpace($WindowMode)) {
+    if ([string]::IsNullOrWhiteSpace($WindowMode)) {
+        # The app defaults to true transparency; CI captures default to the
+        # opaque frameless mode so renderer screenshots remain readable.
+        $env:FLOWHARNESS_WINDOW_MODE = "frameless"
+        $effectiveMode = "frameless"
+    } else {
         $env:FLOWHARNESS_WINDOW_MODE = $WindowMode
+        $effectiveMode = $WindowMode
     }
-    $effectiveMode = if ([string]::IsNullOrWhiteSpace($WindowMode)) { "frameless" } else { $WindowMode }
     Write-Host "window mode: $effectiveMode"
 
     $electronArgs = @(

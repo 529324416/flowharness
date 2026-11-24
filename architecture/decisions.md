@@ -172,7 +172,7 @@ Phase 3 画布会大量定义视觉与交互；若没有 token、组件原语与
 **决定**
 - 默认 `frame: false`，TitleBar 自绘：拖拽区、最小化/最大化/关闭、双击最大化；窗口状态通过 IPC 暴露给 renderer。
 - 保留 `standard`（原生框）与 `overlay`（`titleBarOverlay` 原生按钮）作为 fallback。
-- 半透明**默认关闭**；`FLOWHARNESS_WINDOW_MODE=transparent` 为实验模式：内容表面高不透明度 + `backdrop-filter: blur()`。
+- 半透明在 S0 中默认关闭（**Step 4 已由 ADR-009 改为默认真透明**）；`FLOWHARNESS_WINDOW_MODE=transparent` 曾是实验模式。
 - `mica` / `acrylic` 作为实验分支保留；当前环境截图无可辨收益，不作为默认。
 
 **后果**
@@ -183,3 +183,27 @@ Phase 3 画布会大量定义视觉与交互；若没有 token、组件原语与
 **否决**
 - 继续使用原生标题栏：视觉割裂，无法统一拖拽区/命令区。
 - 直接默认真透明：可读性、性能与截图链路风险过高。
+
+---
+
+## ADR-009：默认真透明 + 中性黑；桌面 blur 不可用
+
+**背景**
+Step 4 需要在保持可读性的前提下，把全局配色从“青绿倾向的暗色”收敛为中性黑，并落地真透明。用户确认：真透明 + 背景模糊、青绿只做语义色、橙红只做能量色。
+
+**决定**
+- 默认窗口 `transparent: true`、`frame: false`、`thickFrame: true`、`backgroundColor: "#00000000"`。
+- 深色 token 改为中性石墨黑；青绿只保留选中/焦点/链接/少量文字；橙红 energy 只用于节点运行与活跃连线。
+- 透明模式内容表面使用 0.5–0.94 alpha，并叠加极低透明度 scanline；Panel 内部用 `backdrop-filter` 模糊画布，不依赖桌面。
+- **不使用 CSS `backdrop-filter` 模糊桌面**：透明窗口里 Chromium 不采样桌面/其他窗口，实测 blur 与无 blur 完全一致。
+- **不使用原生 Acrylic/Mica / DWM AccentState 作为默认**：当前 Electron 45 + Win11 26H2 实测仍为不透明；外部 DWM API 测试无效果，且属于未文档化接口。
+- fallback：`FLOWHARNESS_WINDOW_MODE=frameless` 回到不透明无边框窗口。
+
+**后果**
+- 桌面会清晰透出，但不会被模糊；无原生窗口阴影，只有 inset 1px 边框。
+- 透明窗口需要 GPU 合成；`--disable-gpu` 会退化为不透明，截图/CI 需区分。
+- 若必须实现桌面模糊，需要原生模块或桌面捕获方案，留到后续单独评估。
+
+**否决**
+- 用未文档化 DWM API 强行 blur：跨版本风险高，已验证无效。
+- 为透明牺牲正文可读性：alpha 不低于 0.5，节点/面板保持接近不透明。

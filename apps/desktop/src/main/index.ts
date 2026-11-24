@@ -59,7 +59,7 @@ registerAssetScheme();
 
 const isSmokeRun = process.env.FLOWHARNESS_SMOKE === "1";
 const APPROVAL_TIMEOUT_MS = 5 * 60_000;
-const WINDOW_MODE = (process.env.FLOWHARNESS_WINDOW_MODE ?? "frameless") as WindowMode;
+const WINDOW_MODE = (process.env.FLOWHARNESS_WINDOW_MODE ?? "transparent") as WindowMode;
 
 const bootGraph = new Graph([], [], {
     id: "flowharness-main-boot",
@@ -183,7 +183,6 @@ function createWindow(saved: SavedWindowState | null = savedWindowState): void {
         options.thickFrame = true;
 
         if (WINDOW_MODE === "mica" || WINDOW_MODE === "acrylic") {
-            options.transparent = true;
             options.backgroundColor = "#00000000";
             options.backgroundMaterial = WINDOW_MODE;
         } else if (WINDOW_MODE === "transparent") {

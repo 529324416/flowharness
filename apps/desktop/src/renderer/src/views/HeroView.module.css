@@ -30,7 +30,7 @@
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    var(--fh-accent-soft) 0%,
+    color-mix(in srgb, var(--fh-energy) 16%, transparent) 0%,
     transparent 68%
   );
   opacity: 0.85;

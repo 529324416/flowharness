@@ -290,6 +290,17 @@ smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通
 
 Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布局持久化留到 Workbench UI state。
 
+## 9.2 窗口材质与透明（Step 4）
+
+| 项 | 实现 |
+| --- | --- |
+| 默认窗口 | `transparent: true` + `frame: false`；内容 alpha 0.5–0.94，深色基底为中性石墨黑 |
+| 透明 fallback | `FLOWHARNESS_WINDOW_MODE=frameless` 回到不透明无边框窗口 |
+| 桌面 blur | **不可用**：CSS `backdrop-filter` 在透明窗口中不采样桌面；当前 Electron 45 + Win11 26H2 的 Acrylic/Mica 仍不透明（ADR-009） |
+| 面板玻璃 | PanelFrame 使用 `backdrop-filter` 模糊画布内容（页面内），不是桌面 |
+| 截图 | `capture:ui` 默认以 opaque frameless 抓 renderer；真透明截图需要 GPU + 屏幕抓取 |
+| 窗口状态 | bounds 持久化见 `WindowStateStore`；透明窗口没有原生阴影，使用 1px inset 边框 |
+
 ## 10. 测试策略
 
 | 层级 | 方式 |

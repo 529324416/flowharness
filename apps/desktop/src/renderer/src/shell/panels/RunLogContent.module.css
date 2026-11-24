@@ -5,35 +5,10 @@
   min-height: 0;
 }
 
-.head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--fh-space-2);
-  border-bottom: 1px solid var(--fh-border);
-  padding-right: var(--fh-space-2);
-  flex: none;
-}
-
 .list {
-  border-bottom: 0;
+  flex: none;
+  border-bottom: 1px solid var(--fh-border);
   padding: 0 var(--fh-space-2);
-}
-
-.count {
-  margin-left: var(--fh-space-1);
-}
-
-.headActions {
-  display: flex;
-  align-items: center;
-  gap: var(--fh-space-2);
-}
-
-.runId {
-  color: var(--fh-text-subtle);
-  font-family: var(--fh-font-mono);
-  font-size: 10px;
 }
 
 .content {

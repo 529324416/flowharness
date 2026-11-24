@@ -75,15 +75,16 @@
 - [x] 菜单与快捷键（Ctrl+N / B / W / K / 1–3）
 - [x] Session Sidebar 先用 mock 数据，接口按未来 `SessionSummary` 设计
 - [x] 产出：`shell-v2-hero.png` / `shell-v2-canvas.png` / `shell-v2-collapsed.png`
-- [ ] 窗口 bounds 持久化（多显示器/DPI 校正；step 2 开头补）
+- [x] 窗口 bounds 持久化（多显示器/DPI 校正；step 2 完成）
 
-### 2 Panels（1 轮）
+### 2 Panels（已完成）
 
-- [ ] Panel 外框：Header / Body / 可选 Footer
-- [ ] FloatingPanel：拖动、缩放、z-index 聚焦、折叠、关闭、位置钳制
-- [ ] Panel 管理器：打开列表、默认位置、层级；首版不做 docking
-- [ ] 接入运行日志与属性检查两个 Panel
-- [ ] 产出：面板截图
+- [x] Panel 外框：Header / Body / 可选 Footer
+- [x] FloatingPanel：拖动、缩放、z-index 聚焦、折叠、关闭、位置钳制
+- [x] Panel 管理器：打开列表、默认位置、层级；首版不做 docking
+- [x] 接入运行日志与属性检查两个 Panel
+- [x] 窗口 bounds 持久化 + 单测
+- [x] 产出：`panels-default.png` / `panels-collapsed.png`
 
 ### 3 Canvas 视觉（并入 Phase 3，1–2 轮）
 

@@ -2,8 +2,10 @@ import { useEffect, useState, type ReactElement } from "react";
 import {
     FolderOpen,
     Moon,
+    PanelBottom,
     PanelLeft,
     PanelLeftClose,
+    PanelRight,
     Plus,
     Search,
     Sun,
@@ -38,6 +40,11 @@ export type TitleBarProps = {
     onToggleSidebar: () => void;
     onToggleTheme: () => void;
     onCloseWindow: () => void;
+    panelsEnabled: boolean;
+    runLogOpen: boolean;
+    inspectorOpen: boolean;
+    onToggleRunLog: () => void;
+    onToggleInspector: () => void;
 };
 
 export function TitleBar({
@@ -51,6 +58,11 @@ export function TitleBar({
     onToggleSidebar,
     onToggleTheme,
     onCloseWindow,
+    panelsEnabled,
+    runLogOpen,
+    inspectorOpen,
+    onToggleRunLog,
+    onToggleInspector,
 }: TitleBarProps): ReactElement {
     const windowMode = window.flowharness.windowMode;
     const overlay = windowMode === "overlay";
@@ -132,6 +144,17 @@ export function TitleBar({
                             <MenuItem onSelect={onToggleTheme}>
                                 {theme === "dark" ? "切换到亮色主题" : "切换到暗色主题"}
                             </MenuItem>
+                            <MenuSeparator />
+                            <MenuItem onSelect={onToggleRunLog} disabled={!panelsEnabled}>
+                                运行日志
+                                <MenuShortcut>Ctrl J</MenuShortcut>
+                            </MenuItem>
+                            <MenuItem
+                                onSelect={onToggleInspector}
+                                disabled={!panelsEnabled}
+                            >
+                                属性检查
+                            </MenuItem>
                         </MenuContent>
                     </Menu>
                 </nav>
@@ -175,6 +198,14 @@ export function TitleBar({
                         </MenuItem>
                         <MenuSeparator />
                         <MenuItem onSelect={onToggleTheme}>切换主题</MenuItem>
+                        <MenuSeparator />
+                        <MenuItem onSelect={onToggleRunLog} disabled={!panelsEnabled}>
+                            运行日志
+                            <MenuShortcut>Ctrl J</MenuShortcut>
+                        </MenuItem>
+                        <MenuItem onSelect={onToggleInspector} disabled={!panelsEnabled}>
+                            属性检查
+                        </MenuItem>
                     </MenuContent>
                 </Menu>
             </div>
@@ -202,6 +233,32 @@ export function TitleBar({
                         ) : (
                             <PanelLeft size={15} aria-hidden="true" />
                         )}
+                    </IconButton>
+                </Tooltip>
+
+                <Tooltip label="运行日志">
+                    <IconButton
+                        label="切换运行日志"
+                        size="sm"
+                        variant={runLogOpen ? "secondary" : "ghost"}
+                        aria-pressed={runLogOpen}
+                        disabled={!panelsEnabled}
+                        onClick={onToggleRunLog}
+                    >
+                        <PanelBottom size={15} aria-hidden="true" />
+                    </IconButton>
+                </Tooltip>
+
+                <Tooltip label="属性检查">
+                    <IconButton
+                        label="切换属性检查"
+                        size="sm"
+                        variant={inspectorOpen ? "secondary" : "ghost"}
+                        aria-pressed={inspectorOpen}
+                        disabled={!panelsEnabled}
+                        onClick={onToggleInspector}
+                    >
+                        <PanelRight size={15} aria-hidden="true" />
                     </IconButton>
                 </Tooltip>
 

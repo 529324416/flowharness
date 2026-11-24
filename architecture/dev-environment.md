@@ -101,7 +101,7 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 
 ```bash
 pnpm typecheck   # contracts（tsc）+ desktop（node + web 两个 project）
-pnpm test        # vitest：main 服务单测（40 项：config / secrets / blob / workspace / filehost / run-store / runtime / broker）
+pnpm test        # vitest：main 服务单测（43 项：config / secrets / blob / workspace / filehost / run-store / runtime / broker / window-state）
 pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
 pnpm capture:ui  # Windows：CDP 截取 renderer（加 -NativeWindow 可抓原生窗口）

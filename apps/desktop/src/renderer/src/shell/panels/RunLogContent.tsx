@@ -1,17 +1,15 @@
 import type { ReactElement } from "react";
-import { ChevronDown } from "lucide-react";
-import type { RunEventDto, RunSnapshot } from "@flowharness/contracts";
+import type { RunEventDto } from "@flowharness/contracts";
 import {
     Badge,
     EmptyState,
-    IconButton,
     Tabs,
     TabsContent,
     TabsList,
     TabsTrigger,
     type BadgeVariant,
-} from "../ui";
-import styles from "./BottomPanel.module.css";
+} from "../../ui";
+import styles from "./RunLogContent.module.css";
 
 function badgeFor(event: RunEventDto): BadgeVariant {
     if (event.type === "node:error") return "danger";
@@ -50,35 +48,20 @@ function formatTime(at: number): string {
     return new Date(at).toTimeString().slice(0, 8);
 }
 
-export type BottomPanelProps = {
+export type RunLogContentProps = {
     events: readonly RunEventDto[];
-    snapshot: RunSnapshot | null;
-    onCollapse: () => void;
 };
 
-export function BottomPanel({ events, snapshot, onCollapse }: BottomPanelProps): ReactElement {
+/** 运行日志面板内容；面板外框由 PanelFrame 提供。 */
+export function RunLogContent({ events }: RunLogContentProps): ReactElement {
     const visible = events.slice(-120);
 
     return (
         <Tabs defaultValue="log" className={styles.root}>
-            <div className={styles.head}>
-                <TabsList className={styles.list}>
-                    <TabsTrigger value="log">
-                        运行日志
-                        <Badge className={styles.count}>{events.length}</Badge>
-                    </TabsTrigger>
-                    <TabsTrigger value="problems">问题</TabsTrigger>
-                </TabsList>
-
-                <div className={styles.headActions}>
-                    {snapshot ? (
-                        <span className={styles.runId}>{snapshot.runId}</span>
-                    ) : null}
-                    <IconButton label="收起底部面板" size="sm" onClick={onCollapse}>
-                        <ChevronDown size={14} aria-hidden="true" />
-                    </IconButton>
-                </div>
-            </div>
+            <TabsList className={styles.list}>
+                <TabsTrigger value="log">日志</TabsTrigger>
+                <TabsTrigger value="problems">问题</TabsTrigger>
+            </TabsList>
 
             <TabsContent value="log" className={styles.content}>
                 {visible.length === 0 ? (

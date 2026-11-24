@@ -51,6 +51,7 @@ import { RunStore } from "./services/run-store";
 import { RuntimeHost } from "./services/runtime-host";
 import { SecretsStore, type SecretCipher } from "./services/secrets";
 import { SessionService } from "./services/session-service";
+import { WindowStateStore, type SavedWindowState } from "./services/window-state";
 import { WorkspaceStore } from "./services/workspace-store";
 
 // 必须在 app ready 之前注册。
@@ -70,6 +71,8 @@ console.log(
 
 let mainWindow: BrowserWindow | null = null;
 let appConfig: AppConfigStore;
+let windowState: WindowStateStore | null = null;
+let savedWindowState: SavedWindowState | null = null;
 let secrets: SecretsStore;
 let workspaces: WorkspaceStore;
 let sessionService: SessionService;
@@ -104,10 +107,48 @@ function resolvePreloadPath(): string {
 
 const WINDOW_BACKGROUND = { light: "#f3f6fa", dark: "#0b0f15" } as const;
 
-function createWindow(): void {
+function intersects(
+    bounds: { x: number; y: number; width: number; height: number },
+    area: { x: number; y: number; width: number; height: number },
+): boolean {
+    return (
+        bounds.x < area.x + area.width &&
+        bounds.x + bounds.width > area.x &&
+        bounds.y < area.y + area.height &&
+        bounds.y + bounds.height > area.y
+    );
+}
+
+function createWindow(saved: SavedWindowState | null = savedWindowState): void {
     const workArea = screen.getPrimaryDisplay().workAreaSize;
-    const width = Math.min(1440, Math.max(1024, workArea.width - 80));
-    const height = Math.min(900, Math.max(680, workArea.height - 80));
+    const defaultWidth = Math.min(1440, Math.max(1024, workArea.width - 80));
+    const defaultHeight = Math.min(900, Math.max(680, workArea.height - 80));
+
+    let bounds: { x: number; y: number; width: number; height: number } | null = null;
+    if (saved && !isSmokeRun) {
+        const target = screen
+            .getAllDisplays()
+            .find((display) => intersects(saved, display.workArea));
+        if (target) {
+            const width = Math.min(Math.max(saved.width, 1024), target.workArea.width);
+            const height = Math.min(Math.max(saved.height, 680), target.workArea.height);
+            bounds = {
+                width,
+                height,
+                x: Math.min(
+                    Math.max(saved.x, target.workArea.x),
+                    target.workArea.x + target.workArea.width - width,
+                ),
+                y: Math.min(
+                    Math.max(saved.y, target.workArea.y),
+                    target.workArea.y + target.workArea.height - height,
+                ),
+            };
+        }
+    }
+
+    const width = bounds?.width ?? defaultWidth;
+    const height = bounds?.height ?? defaultHeight;
 
     const dark = nativeTheme.shouldUseDarkColors;
     const surfaceColor = WINDOW_BACKGROUND[dark ? "dark" : "light"];
@@ -117,7 +158,9 @@ function createWindow(): void {
         height,
         minWidth: 1024,
         minHeight: 680,
-        center: true,
+        ...(bounds
+            ? { x: bounds.x, y: bounds.y, center: false }
+            : { center: true }),
         show: !isSmokeRun,
         backgroundColor: surfaceColor,
         title: "FlowHarness",
@@ -163,14 +206,46 @@ function createWindow(): void {
         } satisfies WindowStatePayload);
     };
 
-    window.on("maximize", sendWindowState);
-    window.on("unmaximize", sendWindowState);
+    const persistWindowState = (): void => {
+        if (!windowState || window.isDestroyed()) return;
+        const normal = window.getNormalBounds();
+        const next: SavedWindowState = {
+            ...normal,
+            maximized: window.isMaximized(),
+        };
+        savedWindowState = next;
+        void windowState.save(next);
+    };
+
+    let persistTimer: NodeJS.Timeout | null = null;
+    const schedulePersist = (): void => {
+        if (persistTimer) clearTimeout(persistTimer);
+        persistTimer = setTimeout(persistWindowState, 400);
+    };
+
+    window.on("resize", schedulePersist);
+    window.on("move", schedulePersist);
+
+    window.on("maximize", () => {
+        sendWindowState();
+        persistWindowState();
+    });
+    window.on("unmaximize", () => {
+        sendWindowState();
+        persistWindowState();
+    });
+    window.on("close", persistWindowState);
 
     window.on("closed", () => {
+        if (persistTimer) clearTimeout(persistTimer);
         if (mainWindow === window) mainWindow = null;
         approvalBroker.settleAll("deny");
         inputBroker.settleAll({ requestId: "", answers: [], cancelled: true });
     });
+
+    if (saved?.maximized && !isSmokeRun) {
+        window.maximize();
+    }
 
     const devServerUrl = process.env.ELECTRON_RENDERER_URL;
     if (devServerUrl) {
@@ -211,6 +286,9 @@ async function initialize(): Promise<void> {
 
     const config = await appConfig.get();
     nativeTheme.themeSource = config.theme;
+
+    windowState = new WindowStateStore(join(userData, "window-state.json"));
+    savedWindowState = await windowState.load();
 
     workspaces = new WorkspaceStore(config.workspaceRoot, app.getVersion());
     await workspaces.init();
@@ -525,10 +603,10 @@ app.whenReady().then(async () => {
         return;
     }
 
-    createWindow();
+    createWindow(savedWindowState);
 
     app.on("activate", () => {
-        if (BrowserWindow.getAllWindows().length === 0) createWindow();
+        if (BrowserWindow.getAllWindows().length === 0) createWindow(savedWindowState);
     });
 });
 

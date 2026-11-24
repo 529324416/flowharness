@@ -50,6 +50,14 @@
 - Inspector 与运行日志不再占固定区域，后续以**内部浮动 Panel**（step 2）出现；
 - 状态栏只读，不放主操作。
 
+## 2.1 内部浮动 Panel
+
+- `PanelFrame`：Header / Body / 可选 Footer；Header 是拖拽手柄，右侧固定折叠与关闭；
+- `FloatingPanel`：拖动、右/下/右下缩放、z-index 聚焦、折叠、关闭；位置钳制在画布容器内；
+- `PanelLayer`：铺在 Main 之上，默认属性面板右上（320×460）、运行日志左下（560×260）；
+- 开关：TitleBar 图标、命令中心、`Ctrl J`；首版不做 docking；
+- 面板只存在于设计器且已选中会话时；Hero 与其他视图不渲染 PanelLayer。
+
 ## 3. 视图
 
 | 视图 | 用途 | Phase |

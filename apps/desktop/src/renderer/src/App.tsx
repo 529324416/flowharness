@@ -4,6 +4,7 @@ import { Graph } from "wireclaw";
 import type {
     AppConfig,
     RunEventBatch,
+    RunEventDto,
     RunSnapshot,
     WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -14,12 +15,15 @@ import { RibbonBar } from "./shell/RibbonBar";
 import { SessionSidebar } from "./shell/SessionSidebar";
 import { StatusBar } from "./shell/StatusBar";
 import { createSession, INITIAL_SESSIONS, type SessionSummary } from "./shell/sessions";
+import { PanelLayer } from "./shell/panels/PanelLayer";
+import { useFloatingPanels } from "./shell/panels/useFloatingPanels";
 import { VIEW_LABEL, type ViewId } from "./shell/views";
 import { DesignerView } from "./views/DesignerView";
 import { DiagnosticsView } from "./views/DiagnosticsView";
 import { HeroView } from "./views/HeroView";
 import { StyleguideView } from "./views/StyleguideView";
 import { useTheme } from "./theme/ThemeProvider";
+import styles from "./App.module.css";
 
 const bootGraph = new Graph([], [], {
     id: "flowharness-renderer-boot",
@@ -79,9 +83,20 @@ export function App(): ReactElement {
     const [busy, setBusy] = useState(false);
 
     const [runSnapshot, setRunSnapshot] = useState<RunSnapshot | null>(null);
+    const [runEvents, setRunEvents] = useState<RunEventDto[]>([]);
+
+    const {
+        panels,
+        isOpen: isPanelOpen,
+        toggle: togglePanel,
+        close: closePanel,
+        focus: focusPanel,
+        update: updatePanel,
+    } = useFloatingPanels();
 
     const activeSession =
         sessions.find((session) => session.id === activeSessionId) ?? null;
+    const panelsEnabled = view === "designer" && activeSession !== null;
 
     useEffect(() => {
         try {
@@ -111,6 +126,7 @@ export function App(): ReactElement {
                 if (envelope.topic !== "run") return;
                 const batch = envelope.payload as RunEventBatch;
                 setRunSnapshot(batch.snapshot);
+                setRunEvents((current) => [...current, ...batch.events].slice(-300));
             }),
         [bridge],
     );
@@ -250,6 +266,10 @@ export function App(): ReactElement {
                     event.preventDefault();
                     window.dispatchEvent(new Event("fh:command"));
                     break;
+                case "j":
+                    event.preventDefault();
+                    if (panelsEnabled) togglePanel("run-log");
+                    break;
                 case "1":
                     event.preventDefault();
                     setView("designer");
@@ -269,12 +289,22 @@ export function App(): ReactElement {
 
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [bridge, handleNewSession, handleToggleSidebar]);
+    }, [bridge, handleNewSession, handleToggleSidebar, panelsEnabled, togglePanel]);
 
     const main =
         view === "designer" ? (
             activeSession ? (
-                <DesignerView />
+                <div className={styles.stage}>
+                    <DesignerView />
+                    <PanelLayer
+                        panels={panels}
+                        events={runEvents}
+                        snapshot={runSnapshot}
+                        onClose={closePanel}
+                        onFocus={focusPanel}
+                        onUpdate={updatePanel}
+                    />
+                </div>
             ) : (
                 <HeroView
                     sessions={sessions}
@@ -316,6 +346,11 @@ export function App(): ReactElement {
                         onToggleSidebar={handleToggleSidebar}
                         onToggleTheme={toggleTheme}
                         onCloseWindow={() => void bridge.windowClose()}
+                        panelsEnabled={panelsEnabled}
+                        runLogOpen={isPanelOpen("run-log")}
+                        inspectorOpen={isPanelOpen("inspector")}
+                        onToggleRunLog={() => togglePanel("run-log")}
+                        onToggleInspector={() => togglePanel("inspector")}
                     />
                 }
                 ribbon={

@@ -271,6 +271,20 @@ GraphDocument ⇄ CanvasDocument
 
 smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通启动默认进入设计器视图。
 
+## 9.1 内部浮动 Panel（Phase 2.6 step 2）
+
+| 项 | 实现 |
+| --- | --- |
+| `PanelFrame` | Header / Body / 可选 Footer；Header 拖拽，右侧折叠与关闭 |
+| `FloatingPanel` | 拖动、右/下/右下缩放、z-index 聚焦、折叠、关闭；位置钳制在画布容器 |
+| `PanelLayer` | 铺在 Main 之上；属性面板默认右上 320×460，运行日志左下 560×260 |
+| 状态 | `useFloatingPanels` 管理 open / collapsed / x / y / size / z；首版不做 docking |
+| 接入 | 属性检查（`InspectorContent`）、运行日志（`RunLogContent`，含问题 Tab 与 Footer runId） |
+| 开关 | TitleBar 图标、命令中心、`Ctrl J`；仅设计器且已选中会话时可用 |
+| 窗口状态 | `WindowStateStore` 写入 `userData/window-state.json`；校验显示器可见性、尺寸/位置钳制、400ms 防抖 + close 保存 |
+
+Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布局持久化留到 Workbench UI state。
+
 ## 10. 测试策略
 
 | 层级 | 方式 |

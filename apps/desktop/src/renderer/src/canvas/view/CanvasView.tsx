@@ -27,12 +27,12 @@ const EDGE_TYPES = { sciFi: SciFiEdge };
 const HOME_VIEWPORT = { x: 24, y: 28, zoom: 1 };
 
 const STATUS_COLOR: Record<CanvasStatus, string> = {
-    idle: "#566b6e",
-    running: "#ff7a45",
-    paused: "#fbbf24",
-    completed: "#34d399",
-    failed: "#f87171",
-    skipped: "#7b8f92",
+    idle: "#3f4a54",
+    running: "#7b8f91",
+    paused: "#8a7b52",
+    completed: "#5a6b70",
+    failed: "#a85b5b",
+    skipped: "#4a555e",
 };
 
 type MenuState = {
@@ -145,9 +145,10 @@ export function CanvasView({ sessionTitle }: CanvasViewProps): ReactElement {
                 proOptions={{ hideAttribution: true }}
             >
                 <Background
-                    variant={BackgroundVariant.Dots}
-                    gap={CANVAS_METRICS.gridSize}
+                    variant={BackgroundVariant.Lines}
+                    gap={24}
                     size={1}
+                    color="var(--fh-canvas-grid)"
                 />
 
                 <Panel position="top-left" className={styles.label}>

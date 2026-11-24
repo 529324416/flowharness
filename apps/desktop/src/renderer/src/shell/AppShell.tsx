@@ -25,9 +25,19 @@ export function AppShell({
     const style = {
         "--fh-sidebar-current": `${sidebarWidth}px`,
     } as CSSProperties;
+    const rounded =
+        typeof window !== "undefined" &&
+        window.flowharness.windowMode === "transparent";
 
     return (
-        <div className={cx(styles.root, !sidebarOpen && styles.noSidebar)} style={style}>
+        <div
+            className={cx(
+                styles.root,
+                !sidebarOpen && styles.noSidebar,
+                rounded && styles.rounded,
+            )}
+            style={style}
+        >
             <div className={styles.title}>{titleBar}</div>
             <div className={styles.body}>
                 <div className={styles.ribbon}>{ribbon}</div>

@@ -20,7 +20,6 @@ export function HeroView({
     return (
         <section className={styles.root} aria-label="会话欢迎页">
             <div className={styles.grid} aria-hidden="true" />
-            <div className={styles.glow} aria-hidden="true" />
 
             <div className={styles.content}>
                 <div className={styles.eyebrow}>

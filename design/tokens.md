@@ -63,8 +63,8 @@
 
 - 中性石墨黑：`--fh-bg #07080a` → `--fh-surface #0f1216` → `--fh-surface-overlay #1a1f27`，不带青绿倾向；
 - 青绿只保留 `--fh-accent` 系列作为语义色；
-- 默认窗口为真透明：背景 alpha 0.5、面板 0.68–0.88、节点 0.94；
-- **桌面 blur 不可用**：CSS `backdrop-filter` 不采样桌面；Acrylic/Mica 在当前环境不透明；当前视觉是“清晰透出 + 极淡 scanline”，详见 ADR-009。
+- 默认窗口为真透明：背景 alpha 0.5、面板 0.84、节点 0.94；内容区 12px 圆角；
+- **桌面 blur 不可用**：CSS `backdrop-filter` 不采样桌面；Acrylic/Mica 在当前环境不透明；当前视觉是“清晰透出 + 极淡 scanline”，详见 ADR-009。\n- 画布背景使用 24px 网格线、低亮度；节点 6px 圆角纯色，选中只换边框色。
 
 
 ## 画布几何常量

@@ -78,7 +78,7 @@ export function PanelLayer({
                               containerHeight={size.height}
                               title="属性"
                               icon={<SlidersHorizontal size={13} aria-hidden="true" />}
-                              badge={<Badge variant="accent">Model Call</Badge>}
+                              badge={<Badge variant="neutral">Model Call</Badge>}
                               onUpdate={onUpdate}
                               onClose={() => onClose(panel.id)}
                               onFocus={() => onFocus(panel.id)}

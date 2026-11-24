@@ -271,7 +271,7 @@ GraphDocument ⇄ CanvasDocument
 | 外壳 | TitleBar 36（自绘、拖拽、窗口控制）/ Ribbon 48 / Session Sidebar 260（可收起/拖宽）/ StatusBar 22；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
 | 会话入口 | Session Sidebar 使用 mock 数据（Phase 5 接真实 Session）；无选中会话时设计器显示 Hero |
 | 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
-| 画布视觉 | SciFi 节点：切角 1px 边框、等宽 kind/ID、Header 32、端口 10 / 命中 16、状态点；运行节点 energy 橙、选中 accent 青绿；边 1.6px 贝塞尔，活跃 orange 流动虚线、失败 red 虚线；常量在 `canvas/metrics.ts` |
+| 画布视觉 | 商务扁平节点：6px 圆角、纯色底、1px 边框、Header 28、body/footer 紧凑（不缩字号）；选中仅换 accent 边框；网格线 24px/低亮度；边 1.4px 贝塞尔，活跃 energy 流动虚线、失败 danger 虚线；常量在 `canvas/metrics.ts` |
 | 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张 |
 
 smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通启动默认进入设计器视图。
@@ -294,10 +294,10 @@ Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布�
 
 | 项 | 实现 |
 | --- | --- |
-| 默认窗口 | `transparent: true` + `frame: false`；内容 alpha 0.5–0.94，深色基底为中性石墨黑 |
+| 默认窗口 | `transparent: true` + `frame: false`；内容 alpha 0.5–0.94，深色基底为中性石墨黑；内容区 12px 圆角 |
 | 透明 fallback | `FLOWHARNESS_WINDOW_MODE=frameless` 回到不透明无边框窗口 |
 | 桌面 blur | **不可用**：CSS `backdrop-filter` 在透明窗口中不采样桌面；当前 Electron 45 + Win11 26H2 的 Acrylic/Mica 仍不透明（ADR-009） |
-| 面板玻璃 | PanelFrame 使用 `backdrop-filter` 模糊画布内容（页面内），不是桌面 |
+| 面板玻璃 | PanelFrame 84% 表面 alpha；不使用 `backdrop-filter`（透明窗口中会压成黑块） |
 | 截图 | `capture:ui` 默认以 opaque frameless 抓 renderer；真透明截图需要 GPU + 屏幕抓取 |
 | 窗口状态 | bounds 持久化见 `WindowStateStore`；透明窗口没有原生阴影，使用 1px inset 边框 |
 

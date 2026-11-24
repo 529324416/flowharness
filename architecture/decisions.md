@@ -194,7 +194,7 @@ Step 4 需要在保持可读性的前提下，把全局配色从“青绿倾向�
 **决定**
 - 默认窗口 `transparent: true`、`frame: false`、`thickFrame: true`、`backgroundColor: "#00000000"`。
 - 深色 token 改为中性石墨黑；青绿只保留选中/焦点/链接/少量文字；橙红 energy 只用于节点运行与活跃连线。
-- 透明模式内容表面使用 0.5–0.94 alpha，并叠加极低透明度 scanline；Panel 内部用 `backdrop-filter` 模糊画布，不依赖桌面。
+- 透明模式内容表面使用 0.5–0.94 alpha，并叠加极低透明度 scanline；Panel 使用 84% alpha（不加 `backdrop-filter`，否则在透明窗口中会压成黑块）。
 - **不使用 CSS `backdrop-filter` 模糊桌面**：透明窗口里 Chromium 不采样桌面/其他窗口，实测 blur 与无 blur 完全一致。
 - **不使用原生 Acrylic/Mica / DWM AccentState 作为默认**：当前 Electron 45 + Win11 26H2 实测仍为不透明；外部 DWM API 测试无效果，且属于未文档化接口。
 - fallback：`FLOWHARNESS_WINDOW_MODE=frameless` 回到不透明无边框窗口。

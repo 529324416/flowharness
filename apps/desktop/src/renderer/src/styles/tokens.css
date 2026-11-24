@@ -48,7 +48,7 @@
 
   /* Canvas */
   --fh-canvas-bg: #05070a;
-  --fh-canvas-grid: #1b222b;
+  --fh-canvas-grid: #141a21;
   --fh-node-bg: #0d1116;
   --fh-node-border: #2a333e;
   --fh-edge: #3b4552;
@@ -159,7 +159,7 @@
   --fh-energy-glow: rgb(194 65 12 / 0.25);
 
   --fh-canvas-bg: #eef1f4;
-  --fh-canvas-grid: #c8d0d8;
+  --fh-canvas-grid: #c4ccd6;
   --fh-node-bg: #ffffff;
   --fh-node-border: #c9d2db;
   --fh-edge: #8d9aa6;
@@ -242,6 +242,7 @@
     rgb(255 255 255 / 0.16) 0 1px,
     transparent 1px 3px
   );
+  border-radius: 12px;
   content: "";
   opacity: 0.025;
   pointer-events: none;

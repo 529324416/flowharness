@@ -13,28 +13,12 @@
   position: absolute;
   inset: 0;
   z-index: -2;
-  background-image: radial-gradient(var(--fh-canvas-grid) 1px, transparent 1px);
-  background-size: 16px 16px;
-  opacity: 0.55;
-  mask-image: radial-gradient(circle at 50% 42%, #000 0%, transparent 72%);
-}
-
-.glow {
-  position: absolute;
-  top: -30%;
-  left: 50%;
-  z-index: -1;
-  width: 720px;
-  height: 520px;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--fh-energy) 16%, transparent) 0%,
-    transparent 68%
-  );
-  opacity: 0.85;
-  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--fh-canvas-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--fh-canvas-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.42;
+  mask-image: radial-gradient(circle at 50% 42%, #000 0%, transparent 78%);
 }
 
 .content {

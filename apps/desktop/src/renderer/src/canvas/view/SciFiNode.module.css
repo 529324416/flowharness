@@ -4,28 +4,24 @@
 }
 
 .handle {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border: 1px solid var(--node-accent, var(--fh-border-strong));
   border-radius: 50%;
-  background: var(--fh-canvas-bg);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fh-canvas-bg) 70%, transparent);
-  transition:
-    background var(--fh-motion-fast) var(--fh-ease-standard),
-    box-shadow var(--fh-motion-fast) var(--fh-ease-standard);
+  background: var(--fh-node-bg);
+  transition: border-color var(--fh-motion-fast) var(--fh-ease-standard);
 }
 
 .handle:hover {
-  background: var(--node-accent, var(--fh-accent));
-  box-shadow: 0 0 8px var(--node-accent, var(--fh-accent));
+  border-color: var(--fh-accent);
 }
 
 .in {
-  left: -5px;
+  left: -4px;
 }
 
 .out {
-  right: -5px;
+  right: -4px;
 }
 
 .portLabel {
@@ -34,26 +30,26 @@
   color: var(--fh-text-subtle);
   font-family: var(--fh-font-mono);
   font-size: 8px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   transform: translateY(-50%);
   pointer-events: none;
-  opacity: 0.7;
+  opacity: 0.65;
 }
 
 .portIn {
-  left: -22px;
+  left: -20px;
 }
 
 .portOut {
-  right: -26px;
+  right: -24px;
 }
 
 .idle {
-  --node-accent: var(--fh-text-subtle);
+  --node-accent: var(--fh-text-muted);
 }
 
 .running {
-  --node-accent: var(--fh-energy);
+  --node-accent: var(--fh-text-muted);
 }
 
 .paused {
@@ -77,6 +73,5 @@
 }
 
 .selected .handle {
-  background: var(--fh-accent);
-  box-shadow: 0 0 10px var(--fh-accent-soft);
+  border-color: var(--fh-accent);
 }

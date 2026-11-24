@@ -49,14 +49,13 @@ export function SciFiEdge({
                 interactionWidth={20}
                 style={{
                     stroke: tone,
-                    strokeWidth: active ? 1.9 : 1.6,
-                    strokeOpacity: active ? 0.95 : 0.82,
+                    strokeWidth: active ? 1.6 : 1.4,
+                    strokeOpacity: active ? 0.92 : 0.75,
                     strokeDasharray: error ? "5 5" : undefined,
                 }}
             />
 
             {active ? <path d={path} className={styles.flow} /> : null}
-            {error ? <path d={path} className={styles.errorDash} /> : null}
 
             <circle cx={sourceX} cy={sourceY} r={2.2} className={styles.endpoint} />
             <circle cx={targetX} cy={targetY} r={2.2} className={styles.endpoint} />

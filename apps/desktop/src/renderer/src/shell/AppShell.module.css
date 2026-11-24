@@ -11,6 +11,11 @@
   color: var(--fh-text);
 }
 
+.rounded {
+  overflow: hidden;
+  border-radius: 12px;
+}
+
 .title {
   z-index: var(--fh-z-titlebar);
   min-width: 0;

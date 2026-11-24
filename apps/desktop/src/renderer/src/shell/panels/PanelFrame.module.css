@@ -5,10 +5,9 @@
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--fh-border-strong);
-  border-radius: var(--fh-radius-md);
-  background: var(--fh-surface-overlay);
-  backdrop-filter: blur(14px) saturate(115%);
-  box-shadow: var(--fh-shadow-3);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fh-surface-overlay) 84%, transparent);
+  box-shadow: var(--fh-shadow-2);
 }
 
 .header {
@@ -19,7 +18,7 @@
   height: 32px;
   padding: 0 4px 0 9px;
   border-bottom: 1px solid var(--fh-border);
-  background: var(--fh-surface-raised);
+  background: color-mix(in srgb, var(--fh-surface-raised) 90%, transparent);
   cursor: grab;
   user-select: none;
 }

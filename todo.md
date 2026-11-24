@@ -86,20 +86,32 @@
 - [x] 窗口 bounds 持久化 + 单测
 - [x] 产出：`panels-default.png` / `panels-collapsed.png`
 
-### 3 Canvas 视觉（并入 Phase 3，1–2 轮）
+### 3 Canvas 视觉（已完成，见 Phase 3）
 
-- [ ] SciFi NodeCard v2：切角/细描边/等宽标签/状态符号
-- [ ] 端口、连线、流动/数据包/脉冲动画
-- [ ] 性能约束与 `prefers-reduced-motion`
-- [ ] 与 Canvas core/view 一起落地，不做一次性假节点
+- [x] SciFi NodeVisual v2：切角/细描边/等宽标签/状态符号
+- [x] 端口、连线、流动/错误动画
+- [x] `prefers-reduced-motion`
+- [x] 与 Canvas core/view 一起落地，不做一次性假节点
 
-### 4 半透明应用（0.5 轮）
+### 4 Step 4 — 色彩收敛 + 半透明（当前，Phase 3.5 之前）
 
-- [ ] 按 S0 结论应用到 TitleBar / Ribbon / Panel / StatusBar
-- [ ] 内容区保持接近不透明，保证文字与节点可读性
-- [ ] 性能与截图回归
+#### 4A 全局色彩/表面收敛
 
-> 验收方式：每轮用 `pnpm capture:ui` 截取 FlowHarness 窗口（Windows），人工确认后再进入下一轮。
+- [ ] 底色从青绿倾向改为中性黑/石墨（`--fh-bg` / `--fh-surface` / 边框）
+- [ ] 青绿只保留给选中、焦点、链接、少量强调文字
+- [ ] 橙红 energy 只用于节点运行态、活跃连线
+- [ ] TitleBar / Ribbon / Sidebar / Panel / StatusBar / Hero 统一同一套表面层级
+- [ ] 亮色主题同步（不追求与暗色同等氛围，保证可用）
+- [ ] 产出：Hero / Canvas / Panels 三张截图
+
+#### 4B 半透明
+
+- [ ] 用禁用后台节流后的截图复测原生 Acrylic / Mica
+- [ ] 对比 `transparent + backdrop-filter` 与原生材质
+- [ ] 决定默认方案；需要时保留设置开关
+- [ ] 应用到 TitleBar / Ribbon / Sidebar / Panel / StatusBar（内容区保持可读）
+- [ ] 可读性 / 性能 / 窗口阴影 / 缩放回归
+- [ ] 产出：半透明截图
 
 ---
 

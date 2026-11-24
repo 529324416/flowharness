@@ -42,22 +42,127 @@ describe("WorkspaceStore", () => {
         const created = await store.create({ name: "Docs" });
 
         await store.open(created.id);
-        await store.writeDocument(
-            created.id,
-            { kind: "harness", id: "graph-1" },
-            { version: 1, nodes: [], edges: [] },
-        );
+        const ref = { kind: "harness", id: "graph-1" } as const;
+        await store.saveDocument(created.id, ref, { version: 1, nodes: [], edges: [] }, null);
         await store.close(created.id);
 
         const reopened = new WorkspaceStore(root, "0.0.0-test");
         await reopened.open(created.id);
-        const document = await reopened.readDocument(created.id, {
-            kind: "harness",
-            id: "graph-1",
-        });
+        const snapshot = await reopened.readDocument(created.id, ref);
 
-        expect(document).toEqual({ version: 1, nodes: [], edges: [] });
+        expect(snapshot?.document).toEqual({ version: 1, nodes: [], edges: [] });
+        expect(snapshot?.revision).toMatch(/^sha256:[a-f0-9]{64}$/);
         await reopened.close(created.id);
+    });
+
+    it("returns null for a missing document", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Empty" });
+        await store.open(created.id);
+
+        await expect(
+            store.readDocument(created.id, { kind: "harness", id: "graph-missing" }),
+        ).resolves.toBeNull();
+    });
+
+    it("requires the current revision to update a document", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Revisions" });
+        await store.open(created.id);
+
+        const ref = { kind: "harness", id: "graph-1" } as const;
+        const first = await store.saveDocument(created.id, ref, { version: 1 }, null);
+
+        await expect(
+            store.saveDocument(created.id, ref, { version: 2 }, "sha256:stale"),
+        ).rejects.toMatchObject({ code: "E_CONFLICT" });
+
+        const second = await store.saveDocument(
+            created.id,
+            ref,
+            { version: 2 },
+            first.revision,
+        );
+
+        expect(second.revision).not.toBe(first.revision);
+        await expect(store.readDocument(created.id, ref)).resolves.toMatchObject({
+            document: { version: 2 },
+            revision: second.revision,
+        });
+    });
+
+    it("refuses to create over an existing document or update a missing one", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Conflicts" });
+        await store.open(created.id);
+
+        const ref = { kind: "harness", id: "graph-1" } as const;
+        await store.saveDocument(created.id, ref, { version: 1 }, null);
+
+        await expect(
+            store.saveDocument(created.id, ref, { version: 2 }, null),
+        ).rejects.toMatchObject({ code: "E_CONFLICT" });
+
+        await expect(
+            store.saveDocument(
+                created.id,
+                { kind: "harness", id: "graph-2" },
+                { version: 1 },
+                "sha256:missing",
+            ),
+        ).rejects.toMatchObject({ code: "E_CONFLICT" });
+    });
+
+    it("rejects documents that are not JSON values", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Bad JSON" });
+        await store.open(created.id);
+
+        await expect(
+            store.saveDocument(
+                created.id,
+                { kind: "harness", id: "graph-fn" },
+                { version: 1, value: () => undefined },
+                null,
+            ),
+        ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
+    });
+
+    it("rejects documents over the size limit", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Huge" });
+        await store.open(created.id);
+
+        await expect(
+            store.saveDocument(
+                created.id,
+                { kind: "harness", id: "graph-huge" },
+                { version: 1, padding: "x".repeat(4 * 1024 * 1024) },
+                null,
+            ),
+        ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
+    });
+
+    it("reports corrupt document JSON as E_IO", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Corrupt" });
+        await store.open(created.id);
+
+        await writeFile(join(created.path, "documents", "harness", "bad.json"), "{not json");
+
+        await expect(
+            store.readDocument(created.id, { kind: "harness", id: "bad" }),
+        ).rejects.toMatchObject({ code: "E_IO" });
+    });
+
+    it("rejects an invalid document ref", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Bad Ref" });
+        await store.open(created.id);
+
+        await expect(
+            store.readDocument(created.id, { kind: "other", id: "x" } as never),
+        ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
     });
 
     it("rejects documents when the workspace is not open", async () => {
@@ -86,10 +191,11 @@ describe("WorkspaceStore", () => {
         const created = await store.create({ name: "Export Me" });
 
         await store.open(created.id);
-        await store.writeDocument(
+        await store.saveDocument(
             created.id,
             { kind: "harness", id: "graph-a" },
             { version: 1, nodes: [{ id: "n1" }], edges: [] },
+            null,
         );
 
         const archivePath = join(dirs[dirs.length - 1]!, "export.fhws");
@@ -100,9 +206,11 @@ describe("WorkspaceStore", () => {
         expect(imported.id).not.toBe(created.id);
 
         await store.open(imported.id);
-        expect(
-            await store.readDocument(imported.id, { kind: "harness", id: "graph-a" }),
-        ).toEqual({ version: 1, nodes: [{ id: "n1" }], edges: [] });
+        const snapshot = await store.readDocument(imported.id, {
+            kind: "harness",
+            id: "graph-a",
+        });
+        expect(snapshot?.document).toEqual({ version: 1, nodes: [{ id: "n1" }], edges: [] });
     });
 
     it("refuses a workspace written by a newer schema", async () => {
@@ -123,7 +231,7 @@ describe("WorkspaceStore", () => {
         await store.open(created.id);
 
         await expect(
-            store.writeDocument(created.id, { kind: "harness", id: "../evil" }, {}),
+            store.saveDocument(created.id, { kind: "harness", id: "../evil" }, {}, null),
         ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
     });
 });

@@ -6,6 +6,7 @@ export default defineConfig({
         include: [
             "src/main/**/*.test.ts",
             "src/renderer/src/canvas/core/**/*.test.ts",
+            "src/renderer/src/designer/**/*.test.ts",
         ],
         testTimeout: 15_000,
     },

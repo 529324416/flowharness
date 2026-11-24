@@ -1,14 +1,37 @@
 import type { ReactElement } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { cx } from "../../ui/cx";
-import type { CanvasNode } from "../core/types";
+import type { FlowNode } from "./flow-types";
 import { NodeVisual } from "./NodeVisual";
 import styles from "./SciFiNode.module.css";
 
-export function SciFiNode({ data, selected }: NodeProps<CanvasNode>): ReactElement {
-    const hasInput = (data.inputs ?? 0) > 0;
-    const hasOutput = (data.outputs ?? 0) > 0;
+const HEADER_HEIGHT = 30;
+const PORT_TOP = 38;
+const PORT_BOTTOM = 8;
 
+/**
+ * 把第 index 个端口放在 header 与 body 之间。
+ *
+ * top = S + f * (H - S - E) = (S - f*(S+E)) + f*100%，
+ * 这样只需 px + 百分比，不依赖 CSS 乘法。
+ */
+function portTop(index: number, count: number): string {
+    const fraction = (index + 1) / (count + 1);
+    const offset = PORT_TOP - fraction * (PORT_TOP + PORT_BOTTOM);
+    return `calc(${offset.toFixed(2)}px + ${(fraction * 100).toFixed(2)}%)`;
+}
+
+function nodeMinHeight(inputCount: number, outputCount: number): number | undefined {
+    const portCount = Math.max(inputCount, outputCount);
+    if (portCount <= 2) return undefined;
+    return HEADER_HEIGHT + 16 + (portCount - 1) * 14;
+}
+
+export function SciFiNode({
+    data,
+    selected,
+    isConnectable,
+}: NodeProps<FlowNode>): ReactElement {
     return (
         <div
             className={cx(
@@ -23,35 +46,32 @@ export function SciFiNode({ data, selected }: NodeProps<CanvasNode>): ReactEleme
                 status={data.status}
                 summary={data.summary}
                 selected={selected}
+                minHeight={nodeMinHeight(data.inputs.length, data.outputs.length)}
             />
 
-            {hasInput ? (
-                <>
-                    <Handle
-                        type="target"
-                        position={Position.Left}
-                        id="in"
-                        className={cx(styles.handle, styles.in)}
-                    />
-                    <span className={cx(styles.portLabel, styles.portIn)} aria-hidden="true">
-                        IN
-                    </span>
-                </>
-            ) : null}
+            {data.inputs.map((port, index) => (
+                <Handle
+                    key={`in:${port.name}`}
+                    type="target"
+                    position={Position.Left}
+                    id={port.name}
+                    isConnectable={isConnectable}
+                    className={cx(styles.handle, styles.in)}
+                    style={{ top: portTop(index, data.inputs.length) }}
+                />
+            ))}
 
-            {hasOutput ? (
-                <>
-                    <Handle
-                        type="source"
-                        position={Position.Right}
-                        id="out"
-                        className={cx(styles.handle, styles.out)}
-                    />
-                    <span className={cx(styles.portLabel, styles.portOut)} aria-hidden="true">
-                        OUT
-                    </span>
-                </>
-            ) : null}
+            {data.outputs.map((port, index) => (
+                <Handle
+                    key={`out:${port.name}`}
+                    type="source"
+                    position={Position.Right}
+                    id={port.name}
+                    isConnectable={isConnectable}
+                    className={cx(styles.handle, styles.out)}
+                    style={{ top: portTop(index, data.outputs.length) }}
+                />
+            ))}
         </div>
     );
 }

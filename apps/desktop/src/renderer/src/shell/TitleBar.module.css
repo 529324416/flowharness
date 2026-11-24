@@ -124,3 +124,12 @@
   margin-left: auto;
   flex: none;
 }
+
+.runGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 4px;
+  padding-right: 6px;
+  border-right: 1px solid var(--fh-border);
+}

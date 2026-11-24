@@ -12,6 +12,8 @@ export type NodeVisualProps = {
     summary?: string;
     selected?: boolean;
     className?: string;
+    /** 端口较多的节点需要最小高度，避免 Handle 挤在 header 里。 */
+    minHeight?: number;
 };
 
 const ICONS = {
@@ -52,6 +54,7 @@ export function NodeVisual({
     summary,
     selected = false,
     className,
+    minHeight,
 }: NodeVisualProps): ReactElement {
     const Icon = iconFor(kind);
 
@@ -59,6 +62,7 @@ export function NodeVisual({
         <article
             className={cx(styles.node, styles[status], selected && styles.selected, className)}
             data-status={status}
+            style={minHeight === undefined ? undefined : { minHeight }}
         >
             <header className={styles.header}>
                 <Icon size={15} className={styles.icon} aria-hidden="true" />

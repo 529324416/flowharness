@@ -1,12 +1,16 @@
 import type {
     AppConfig,
     AppConfigUpdate,
+    DocumentRef,
+    DocumentSaveResult,
+    DocumentSnapshot,
     IpcEventEnvelope,
     IpcResult,
     RunSnapshot,
     RunStartRequest,
     WindowStatePayload,
     WorkspaceCreateInput,
+    WorkspaceSaveDocumentRequest,
     WorkspaceSummary,
 } from "@flowharness/contracts";
 
@@ -41,6 +45,13 @@ interface FlowHarnessBridge {
     ) => Promise<IpcResult<WorkspaceSummary>>;
     readonly openWorkspace: (id: string) => Promise<IpcResult<WorkspaceSummary>>;
     readonly closeWorkspace: (id: string) => Promise<IpcResult<void>>;
+    readonly readDocument: (
+        workspaceId: string,
+        ref: DocumentRef,
+    ) => Promise<IpcResult<DocumentSnapshot | null>>;
+    readonly saveDocument: (
+        request: WorkspaceSaveDocumentRequest,
+    ) => Promise<IpcResult<DocumentSaveResult>>;
 
     readonly startRun: (request: RunStartRequest) => Promise<IpcResult<RunSnapshot>>;
     readonly cancelRun: (runId: string) => Promise<IpcResult<void>>;

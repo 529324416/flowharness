@@ -57,15 +57,170 @@ try {
     await send("Page.enable");
 
     // Optional deterministic UI state for visual baselines:
-    // designer (panels open) | canvas (panels closed) | styleguide | styleguide-nodes.
+    // designer (panels open) | designer-run (run once) | canvas (panels closed) |
+    // canvas-zoom | styleguide | styleguide-nodes.
     const scenario = process.env.FH_CAPTURE_SCENARIO;
     const evaluate = (expression) =>
-        send("Runtime.evaluate", { expression, userGesture: true });
+        send("Runtime.evaluate", {
+            expression,
+            userGesture: true,
+            returnByValue: true,
+        });
     const settle = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const clickElement = async (expression) => {
+        const rect = await send("Runtime.evaluate", {
+            expression: `(() => { const element = ${expression}; if (!element) return null; const rect = element.getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`,
+            returnByValue: true,
+        });
+        const point = rect.result?.value;
+        if (!point) return false;
+        await send("Input.dispatchMouseEvent", {
+            type: "mousePressed",
+            x: point.x,
+            y: point.y,
+            button: "left",
+            clickCount: 1,
+        });
+        await send("Input.dispatchMouseEvent", {
+            type: "mouseReleased",
+            x: point.x,
+            y: point.y,
+            button: "left",
+            clickCount: 1,
+        });
+        return true;
+    };
 
-    if (scenario === "designer" || scenario === "canvas" || scenario === "canvas-zoom") {
+    if (
+        scenario === "designer" ||
+        scenario === "canvas" ||
+        scenario === "canvas-zoom" ||
+        scenario === "designer-run" ||
+        scenario === "designer-edit" ||
+        scenario === "designer-drag" ||
+        scenario === "designer-config"
+    ) {
         await evaluate(`document.querySelector('[data-session-id]')?.click()`);
         await settle(600);
+
+        // M1.2：设计器按工作区加载；受限环境下先创建一个工作区。
+        await evaluate(
+            `document.querySelector('button[aria-label="新建工作区"]')?.click()`,
+        );
+        await settle(2500);
+
+        const nodeCount = await send("Runtime.evaluate", {
+            expression: "document.querySelectorAll('.react-flow__node').length",
+            returnByValue: true,
+        });
+        console.log(`node count: ${JSON.stringify(nodeCount.result?.value)}`);
+
+        if (scenario === "designer" || scenario === "designer-config") {
+            await clickElement(
+                `document.querySelector('.react-flow__node[data-id="constant"]')`,
+            );
+            await settle(500);
+        }
+
+        if (scenario === "designer-config") {
+            const config = JSON.stringify(
+                { value: { type: "text", text: "edited from inspector" } },
+                null,
+                2,
+            );
+            const applied = await evaluate(
+                `(() => { const textarea = document.querySelector('textarea[aria-label="节点 config JSON"]'); if (!textarea) return false; const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; setter.call(textarea, ${JSON.stringify(config)}); textarea.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`,
+            );
+            console.log(`config editor found: ${JSON.stringify(applied.result?.value)}`);
+            await settle(200);
+            await evaluate(
+                `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '应用')?.click()`,
+            );
+            await settle(1500);
+            const save = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelector('footer [data-state]')?.textContent",
+                returnByValue: true,
+            });
+            console.log(`config save status: ${JSON.stringify(save.result?.value)}`);
+        }
+
+        if (scenario === "designer-drag") {
+            const box = await evaluate(
+                `(() => { const node = document.querySelector('.react-flow__node[data-id="constant"]'); if (!node) return null; const rect = node.getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + 15 }; })()`,
+            );
+            const point = box.result?.value;
+            if (point) {
+                await send("Input.dispatchMouseEvent", {
+                    type: "mousePressed",
+                    x: point.x,
+                    y: point.y,
+                    button: "left",
+                    buttons: 1,
+                    clickCount: 1,
+                });
+                for (let step = 1; step <= 6; step += 1) {
+                    await send("Input.dispatchMouseEvent", {
+                        type: "mouseMoved",
+                        x: point.x + (120 * step) / 6,
+                        y: point.y + (80 * step) / 6,
+                        button: "left",
+                        buttons: 1,
+                    });
+                    await settle(60);
+                }
+                await send("Input.dispatchMouseEvent", {
+                    type: "mouseReleased",
+                    x: point.x + 120,
+                    y: point.y + 80,
+                    button: "left",
+                    buttons: 0,
+                    clickCount: 1,
+                });
+            }
+            await settle(1500);
+            const save = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelector('footer [data-state]')?.textContent",
+                returnByValue: true,
+            });
+            console.log(`drag save status: ${JSON.stringify(save.result?.value)}`);
+        }
+
+        if (scenario === "designer-edit") {
+            await clickElement(
+                `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '添加节点')`,
+            );
+            await settle(400);
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.trim() === 'Constant')`,
+            );
+            await settle(1500);
+            const edited = await send("Runtime.evaluate", {
+                expression: "document.querySelectorAll('.react-flow__node').length",
+                returnByValue: true,
+            });
+            const save = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelector('footer [data-state]')?.textContent",
+                returnByValue: true,
+            });
+            console.log(`edited node count: ${JSON.stringify(edited.result?.value)}`);
+            console.log(`save status: ${JSON.stringify(save.result?.value)}`);
+        }
+
+        if (scenario === "designer-run") {
+            await evaluate(
+                `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '运行')?.click()`,
+            );
+            await settle(2500);
+            const statuses = await send("Runtime.evaluate", {
+                expression:
+                    "[...document.querySelectorAll('.react-flow__node [data-status]')].map((node) => node.getAttribute('data-status'))",
+                returnByValue: true,
+            });
+            console.log(`node statuses: ${JSON.stringify(statuses.result?.value)}`);
+        }
         if (scenario === "canvas") {
             await evaluate(
                 `const close = (label) => { const button = document.querySelector(\`button[aria-label="\${label}"]\`); if (button?.getAttribute('aria-pressed') === 'true') button.click(); };` +
@@ -84,13 +239,7 @@ try {
                 });
                 await settle(180);
             }
-            await settle(300);
-            const width = await send("Runtime.evaluate", {
-                expression:
-                    "document.querySelector('.react-flow__node')?.getBoundingClientRect().width",
-                returnByValue: true,
-            });
-            console.log(`node screen width: ${width.result?.value}`);
+            await settle(900);
         }
     } else if (scenario === "styleguide") {
         await evaluate(`document.querySelector('button[aria-label="样式指南"]')?.click()`);

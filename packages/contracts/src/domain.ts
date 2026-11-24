@@ -55,6 +55,24 @@ export type DocumentRef =
     | { kind: "harness"; id: string }
     | { kind: "workbench"; id: string };
 
+/**
+ * 文档快照。
+ *
+ * `revision` 是文件内容的 SHA-256，用作乐观并发的 baseRevision；
+ * `document` 是纯 JSON，main 侧仍会用 wireclaw 校验 GraphDocument 语义。
+ */
+export type DocumentSnapshot = {
+    ref: DocumentRef;
+    revision: string;
+    document: unknown;
+};
+
+/** 保存成功后的新 revision；renderer 用它继续下一次保存。 */
+export type DocumentSaveResult = {
+    revision: string;
+    updatedAt: string;
+};
+
 /** run 的对外状态。 */
 export type RunStatus =
     | "idle"

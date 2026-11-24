@@ -6,8 +6,10 @@ import {
     PanelLeft,
     PanelLeftClose,
     PanelRight,
+    Play,
     Plus,
     Search,
+    Square,
     Sun,
 } from "lucide-react";
 import type { ResolvedTheme } from "@flowharness/contracts";
@@ -25,6 +27,7 @@ import {
     Tooltip,
 } from "../ui";
 import { cx } from "../ui/cx";
+import type { RunControls } from "../run/run-controls";
 import { WindowControls } from "./WindowControls";
 import type { ViewId } from "./views";
 import styles from "./TitleBar.module.css";
@@ -45,6 +48,7 @@ export type TitleBarProps = {
     inspectorOpen: boolean;
     onToggleRunLog: () => void;
     onToggleInspector: () => void;
+    runControls?: RunControls | null;
 };
 
 export function TitleBar({
@@ -63,6 +67,7 @@ export function TitleBar({
     inspectorOpen,
     onToggleRunLog,
     onToggleInspector,
+    runControls,
 }: TitleBarProps): ReactElement {
     const windowMode = window.flowharness.windowMode;
     const overlay = windowMode === "overlay";
@@ -211,6 +216,32 @@ export function TitleBar({
             </div>
 
             <div className={styles.right}>
+                {runControls ? (
+                    <div className={styles.runGroup}>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={!runControls.canRun}
+                            onClick={runControls.run}
+                        >
+                            <Play size={15} aria-hidden="true" />
+                            运行
+                        </Button>
+                        {runControls.isRunning ? (
+                            <Tooltip label="取消运行">
+                                <IconButton
+                                    label="取消运行"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={runControls.cancel}
+                                >
+                                    <Square size={16} aria-hidden="true" />
+                                </IconButton>
+                            </Tooltip>
+                        ) : null}
+                    </div>
+                ) : null}
+
                 <Tooltip label={theme === "dark" ? "切换到亮色主题" : "切换到暗色主题"}>
                     <IconButton label="切换主题" size="sm" onClick={onToggleTheme}>
                         {theme === "dark" ? (

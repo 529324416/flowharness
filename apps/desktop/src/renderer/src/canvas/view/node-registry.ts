@@ -1,9 +1,9 @@
 import type { ComponentType } from "react";
 import type { NodeProps, NodeTypes } from "@xyflow/react";
-import type { CanvasNode } from "../core/types";
+import type { FlowNode } from "./flow-types";
 import { SciFiNode } from "./SciFiNode";
 
-export type CanvasNodeRenderer = ComponentType<NodeProps<CanvasNode>>;
+export type CanvasNodeRenderer = ComponentType<NodeProps<FlowNode>>;
 
 const registry = new Map<string, CanvasNodeRenderer>();
 
@@ -26,10 +26,10 @@ export function createNodeTypes(kinds: Iterable<string>): NodeTypes {
 // 默认 renderer；后续可按 node type 覆盖（例如 input 专用表单）。
 for (const kind of [
     "core.input",
-    "core.model-call",
+    "core.model.call",
     "core.branch",
     "core.output",
-    "core.log-sink",
+    "core.log",
 ]) {
     registerNodeRenderer(kind, SciFiNode);
 }

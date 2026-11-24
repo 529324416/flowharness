@@ -28,9 +28,10 @@ renderer/src/
   ui/                      # 组件原语（Button/Menu/Dialog/Tabs/...）
   shell/                   # TitleBar / Ribbon / SessionSidebar / StatusBar / 窗口控制
   views/                   # Designer / Hero / Diagnostics / Styleguide
-  canvas/core/             # 纯 TS：几何、边 key、命令（Phase 3）
+  canvas/core/             # 纯 TS：几何、边 key、类型
   canvas/view/             # React Flow 受控视图、节点/边 renderer
-  canvas/sample-graph.ts   # Step 3 示例图（Phase 3.5 换 GraphDocument adapter）
+  designer/core/           # GraphDocument adapter / 命令 / validate / run-events
+  designer/state/          # 文档加载、SaveCoordinator、运行控制
   canvas/metrics.ts        # 几何常量
   run/                     # 运行自检（Phase 2）
   components/              # 共享展示组件（MetaList）
@@ -67,7 +68,7 @@ Step 3 已落地 `canvas/core` 与 `canvas/view`；`canvas-preview/` 已移除�
 | `core`（纯 TS） | 视口变换、命中测试、选择模型、命令（增删改连）、布局应用、动画调度原语、边 key 规则 | 无框架依赖，可单测 |
 | `view`（React） | 视口容器、节点层、连线层、小地图、Controls、ContextMenu；用 react-flow 实现手势与渲染 | React、`@xyflow/react` |
 
-> Step 3 已实现：`geometry`、`edge-key`、`commands`（边去重/删节点联动/移动）以及受控 view、节点 registry、MiniMap/Controls/右键菜单；选择模型、布局应用、动画原语与 `CanvasDocument` adapter 留在 Phase 3.5。
+> M1 已实现：`geometry`、`edge-key`、纯 `CanvasNode/CanvasEdge/CanvasDocument` 类型、受控 view、per-port Handle、节点 registry、MiniMap/Controls/右键菜单；GraphDocument adapter、语义命令与自动保存位于 `designer/`。
 
 ### 4.3 类型
 
@@ -103,12 +104,12 @@ type CanvasDocument = {
 
 ### 4.4 与 react-flow 的集成
 
-- **受控模式**：`CanvasDocument` 是唯一事实来源；react-flow 的 `nodes`/`edges` 由 adapter 生成，`onNodesChange`/`onEdgesChange`/`onConnect` 转成 Canvas 命令，经 `apply` 回到文档；
+- **受控模式**：`CanvasDocument` 是当前视图投影；画布把交互转成语义命令（move / connect / disconnect / remove / setViewport），由 Designer 应用到 `GraphDocument`；
 - `nodeTypes` 来自 **node renderer registry**（`kind → React.ComponentType`），Canvas 不内置任何业务节点；
 - `edgeTypes` 提供至少一个带动画能力的默认边；
 - 小地图/Controls/Background 用官方组件；
-- react-flow 的使用被限制在 `modules/canvas/view/`，其他代码不 import 它。
-- 当前实现（Step 3）：`@xyflow/react` 12.12.1 受控模式、`useNodesState` / `useEdgesState`、自定义 `SciFiNode` / `SciFiEdge`、节点 renderer registry、MiniMap / Controls / 自定义右键菜单；GraphDocument adapter 与命令栈在 Phase 3.5 接入。
+- react-flow 的使用被限制在 `canvas/view/`，其他代码不 import 它。
+- 当前实现（M1）：`@xyflow/react` 12.12.1 受控模式、`useNodesState` / `useEdgesState`、自定义 `SciFiNode` / `SciFiEdge`、per-port Handle、节点 renderer registry、MiniMap / Controls / 自定义右键菜单。
 
 ### 4.5 动画原语
 
@@ -217,16 +218,21 @@ type WorkbenchPlan = {
 - **动态端口**：端口可能依赖 `config`，修改配置后用 `describeNodeType(registry, type, { config })` 重新获取端口，再更新画布；
 - 预设通过 `NodePresetLibrary` 实例化。
 
-### 6.2 Adapter
+### 6.2 Adapter 与命令
 
 ```text
-GraphDocument ⇄ CanvasDocument
-  node: { id, type, config, ui }      ⇄ { id, kind: type, position: ui.x/y, data: config }
-  edge: { from, to }                  ⇄ { id: `from->to`, source, target }
-  graph.ui.viewport                    ⇄ viewport
+GraphDocument → CanvasDocument
+  node: { id, type, typeVersion, config, ui } → { id, kind: type, position: ui.x/y, data }
+  edge: { from, to }                          → { id: from:port->to:port, source, target }
+  graph.ui.viewport                            → viewport
+
+CanvasCommand → GraphDocument
+  moveNodes / removeNodes / connect / disconnect / setViewport
+  addNode / updateNodeConfig（设计器动作）
 ```
 
-- 布局写回 `GraphDocument.ui`（节点 `ui.x/y/width`、图级 `ui.viewport`）；
+- adapter 是单向投影；编辑通过命令只改已知字段，未知字段原样保留，避免整图反向覆盖丢失 `typeVersion / requires / inputs / metadata`；
+- 布局写回 `GraphDocument.ui`（节点 `ui.x/y`、图级 `ui.viewport`）；
 - 工作台实例的 `layout.overrides` 仅覆盖「同一 graph 在实例中的不同摆放」，不写回 graph。
 
 ### 6.3 编辑与校验
@@ -269,7 +275,7 @@ GraphDocument ⇄ CanvasDocument
 | tokens | `styles/tokens.css`：表面 / 文本 / 边框 / 主色（去饱和青绿）/ 状态 / 画布 / 阴影 / 圆角 / 间距 / 字体 / 动效 / 尺寸 / 层级；深色默认、亮色覆盖 |
 | 密度 | 非画布文字 125% 基准（16.25px 正文）、控件 32px（sm 28）、节点 220px、4px 间距基线；图标同步放大 |
 | 外壳 | TitleBar 40（不透明，无底边框）/ Ribbon 52 / Session Sidebar 280（可收起/拖宽）/ StatusBar 26（全宽不透明 Chrome 层，仅底部圆角）；Session 与 Canvas 面板化（各 1px 外框 + 6px 圆角，间隙 4px），中间 Body 统一 95% 半透；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
-| 会话入口 | Session Sidebar 使用 mock 数据（Phase 5 接真实 Session）；无选中会话时设计器显示 Hero |
+| 会话入口 | Session Sidebar 使用 mock 数据（M4/M6 接真实 Session）；设计器按工作区加载，无工作区时显示空状态 |
 | 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
 | 画布视觉 | 商务扁平节点：6px 圆角、纯色不透明底、HeaderBar 30 + Body 两层、无 Footer；描边通过 `--fh-canvas-zoom` 反向缩放，屏幕恒为 1px；选中仅换 accent 边框；网格线 24px/低亮度；边 1.4px 贝塞尔，活跃边用主色流动虚线、失败 danger 虚线；缩放工具栏已移除，常量在 `canvas/metrics.ts` |
 | 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张 |
@@ -285,7 +291,7 @@ smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通
 | `PanelLayer` | 铺在 Main 之上；属性面板默认右上 256×432，运行日志左下 448×224（原尺寸 80%） |
 | 状态 | `useFloatingPanels` 管理 open / collapsed / x / y / size / z；首版不做 docking |
 | 材质 | 面板默认 95% 不透明（`--fh-panel-alpha`），后续设置 UI 调整该 token；不使用 backdrop-filter |
-| 接入 | 属性检查（`InspectorContent`）、运行日志（`RunLogContent`，含问题 Tab 与 Footer runId） |
+| 接入 | 属性检查（实时节点/图信息 + config JSON）、运行日志（`RunLogContent`，含问题 Tab 与 Footer runId；完整问题面板 M3） |
 | 开关 | TitleBar 图标、命令中心、`Ctrl J`；仅设计器且已选中会话时可用 |
 | 窗口状态 | `WindowStateStore` 写入 `userData/window-state.json`；校验显示器可见性、尺寸/位置钳制、400ms 防抖 + close 保存 |
 

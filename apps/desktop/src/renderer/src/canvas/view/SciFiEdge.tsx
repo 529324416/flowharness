@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import { BaseEdge, getBezierPath, type EdgeProps } from "@xyflow/react";
 import { cx } from "../../ui/cx";
-import type { CanvasEdge } from "../core/types";
+import type { FlowEdge } from "./flow-types";
 import styles from "./SciFiEdge.module.css";
 
 export function SciFiEdge({
@@ -14,7 +14,7 @@ export function SciFiEdge({
     targetPosition,
     data,
     selected,
-}: EdgeProps<CanvasEdge>): ReactElement {
+}: EdgeProps<FlowEdge>): ReactElement {
     const [path] = getBezierPath({
         sourceX,
         sourceY,

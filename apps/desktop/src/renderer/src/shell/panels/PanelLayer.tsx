@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { RunEventDto, RunSnapshot } from "@flowharness/contracts";
 import { SlidersHorizontal, Terminal } from "lucide-react";
 import { Badge } from "../../ui";
+import type { InspectorModel } from "../../inspector/model";
 import { FloatingPanel } from "./FloatingPanel";
 import { InspectorContent } from "./InspectorContent";
 import { RunLogContent } from "./RunLogContent";
@@ -12,6 +13,7 @@ export type PanelLayerProps = {
     panels: FloatingPanelState[];
     events: readonly RunEventDto[];
     snapshot: RunSnapshot | null;
+    inspector: InspectorModel | null;
     onClose: (id: PanelId) => void;
     onFocus: (id: PanelId) => void;
     onUpdate: (id: PanelId, patch: Partial<FloatingPanelState>) => void;
@@ -21,6 +23,7 @@ export function PanelLayer({
     panels,
     events,
     snapshot,
+    inspector,
     onClose,
     onFocus,
     onUpdate,
@@ -78,12 +81,16 @@ export function PanelLayer({
                               containerHeight={size.height}
                               title="属性"
                               icon={<SlidersHorizontal size={16} aria-hidden="true" />}
-                              badge={<Badge variant="neutral">Model Call</Badge>}
+                              badge={
+                                  <Badge variant="neutral">
+                                      {inspector?.node?.title ?? "图"}
+                                  </Badge>
+                              }
                               onUpdate={onUpdate}
                               onClose={() => onClose(panel.id)}
                               onFocus={() => onFocus(panel.id)}
                           >
-                              <InspectorContent />
+                              <InspectorContent model={inspector} />
                           </FloatingPanel>
                       ),
                   )

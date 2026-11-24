@@ -5,12 +5,16 @@ import {
     IpcSendChannel,
     type AppConfig,
     type AppConfigUpdate,
+    type DocumentRef,
+    type DocumentSaveResult,
+    type DocumentSnapshot,
     type IpcEventEnvelope,
     type IpcResult,
     type RunSnapshot,
     type RunStartRequest,
     type WindowStatePayload,
     type WorkspaceCreateInput,
+    type WorkspaceSaveDocumentRequest,
     type WorkspaceSummary,
 } from "@flowharness/contracts";
 
@@ -61,6 +65,15 @@ const bridge = {
         invoke(IpcChannel.WorkspaceOpen, { id }),
     closeWorkspace: (id: string): Promise<IpcResult<void>> =>
         invoke(IpcChannel.WorkspaceClose, { id }),
+    readDocument: (
+        workspaceId: string,
+        ref: DocumentRef,
+    ): Promise<IpcResult<DocumentSnapshot | null>> =>
+        invoke(IpcChannel.WorkspaceReadDocument, { workspaceId, ref }),
+    saveDocument: (
+        request: WorkspaceSaveDocumentRequest,
+    ): Promise<IpcResult<DocumentSaveResult>> =>
+        invoke(IpcChannel.WorkspaceSaveDocument, request),
     startRun: (request: RunStartRequest): Promise<IpcResult<RunSnapshot>> =>
         invoke(IpcChannel.RunStart, request),
     cancelRun: (runId: string): Promise<IpcResult<void>> =>

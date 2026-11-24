@@ -1,3 +1,5 @@
+import type { Viewport } from "./types";
+
 export type Point = { x: number; y: number };
 
 export type Rect = {
@@ -5,12 +7,6 @@ export type Rect = {
     y: number;
     width: number;
     height: number;
-};
-
-export type Viewport = {
-    x: number;
-    y: number;
-    zoom: number;
 };
 
 export function clamp(value: number, min: number, max: number): number {

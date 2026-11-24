@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { unzipSync, zipSync } from "fflate";
@@ -20,6 +20,8 @@ export const WORKSPACE_SCHEMA_VERSION = 1;
 const EXPORT_FORMAT = "fhws";
 const EXPORT_FORMAT_VERSION = 1;
 const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
+const MAX_DOCUMENT_BYTES = 4 * 1024 * 1024;
+const REVISION_PREFIX = "sha256:";
 
 type WorkspaceManifest = {
     schemaVersion: number;
@@ -53,6 +55,7 @@ export type ExportOptions = { includeObjects?: boolean };
  */
 export class WorkspaceStore {
     private readonly openWorkspaces = new Map<string, OpenWorkspace>();
+    private readonly documentWrites = new Map<string, Promise<void>>();
     private rootReady = false;
 
     constructor(
@@ -125,12 +128,22 @@ export class WorkspaceStore {
             settings: {},
         };
 
-        await fs.mkdir(join(dir, "documents", "harness"), { recursive: true });
-        await fs.mkdir(join(dir, "documents", "workbenches"), { recursive: true });
-        await fs.mkdir(join(dir, "objects"), { recursive: true });
-        await fs.mkdir(join(dir, "runs"), { recursive: true });
-        await fs.mkdir(join(dir, "sessions"), { recursive: true });
-        await writeJsonFile(join(dir, "manifest.json"), manifest);
+        try {
+            await fs.mkdir(join(dir, "documents", "harness"), { recursive: true });
+            await fs.mkdir(join(dir, "documents", "workbenches"), {
+                recursive: true,
+            });
+            await fs.mkdir(join(dir, "objects"), { recursive: true });
+            await fs.mkdir(join(dir, "runs"), { recursive: true });
+            await fs.mkdir(join(dir, "sessions"), { recursive: true });
+            await writeJsonFile(join(dir, "manifest.json"), manifest);
+        } catch (error) {
+            throw new FhError(
+                "E_IO",
+                `cannot create workspace: ${(error as Error).message}`,
+                { code: (error as NodeJS.ErrnoException).code },
+            );
+        }
 
         return summary(dir, manifest);
     }
@@ -176,17 +189,107 @@ export class WorkspaceStore {
         return this.openWorkspaces.get(id)?.dir;
     }
 
-    async readDocument(id: string, ref: DocumentRef): Promise<unknown> {
+    /**
+     * 读取文档与其内容哈希。
+     *
+     * `revision` 由文件字节计算，保存时作为乐观并发的 baseRevision；
+     * 文件不存在返回 null，损坏的 JSON 报 E_IO（不把绝对路径暴露给 renderer）。
+     */
+    async readDocument(
+        id: string,
+        ref: DocumentRef,
+    ): Promise<{ document: unknown; revision: string } | null> {
         const workspace = this.requireOpen(id);
-        return readJsonFile<unknown>(documentPath(workspace.dir, ref));
+        const file = documentPath(workspace.dir, ref);
+
+        let bytes: Buffer;
+        try {
+            bytes = await fs.readFile(file);
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+            throw error;
+        }
+
+        let document: unknown;
+        try {
+            document = JSON.parse(bytes.toString("utf8"));
+        } catch {
+            throw new FhError("E_IO", "document is not valid JSON");
+        }
+
+        return { document, revision: revisionOf(bytes) };
     }
 
-    async writeDocument(id: string, ref: DocumentRef, value: unknown): Promise<void> {
-        const workspace = this.requireOpen(id);
-        await writeJsonFile(documentPath(workspace.dir, ref), value);
+    /**
+     * 保存整份文档快照（ADR-012）。
+     *
+     * - `baseRevision = null` 表示创建，已存在则冲突；
+     * - 非 null 时必须与当前文件 revision 一致，否则 E_CONFLICT；
+     * - 写入前做 JSON 校验与大小上限检查，原子写，最后更新 manifest.updatedAt。
+     */
+    async saveDocument(
+        id: string,
+        ref: DocumentRef,
+        document: unknown,
+        baseRevision: string | null,
+    ): Promise<{ revision: string; updatedAt: string }> {
+        assertDocumentRef(ref);
 
-        workspace.manifest.updatedAt = new Date().toISOString();
-        await writeJsonFile(join(workspace.dir, "manifest.json"), workspace.manifest);
+        // 同一文档的保存串行化，保证 baseRevision 检查和写入之间不被插队。
+        const key = `${id}:${ref.kind}:${ref.id}`;
+        const previous = this.documentWrites.get(key) ?? Promise.resolve();
+        const result = previous.then(() =>
+            this.saveDocumentNow(id, ref, document, baseRevision),
+        );
+        this.documentWrites.set(
+            key,
+            result.then(
+                () => undefined,
+                () => undefined,
+            ),
+        );
+        return result;
+    }
+
+    private async saveDocumentNow(
+        id: string,
+        ref: DocumentRef,
+        document: unknown,
+        baseRevision: string | null,
+    ): Promise<{ revision: string; updatedAt: string }> {
+        if (baseRevision !== null && typeof baseRevision !== "string") {
+            throw new FhError("E_INVALID_ARGUMENT", "baseRevision must be a string or null");
+        }
+
+        const workspace = this.requireOpen(id);
+        const current = await this.readDocument(id, ref);
+
+        if (baseRevision === null) {
+            if (current !== null) {
+                throw new FhError("E_CONFLICT", "document already exists");
+            }
+        } else if (current === null) {
+            throw new FhError("E_CONFLICT", "document does not exist");
+        } else if (current.revision !== baseRevision) {
+            throw new FhError("E_CONFLICT", "document was modified since it was read");
+        }
+
+        const text = serializeDocument(document);
+        await writeFileAtomic(documentPath(workspace.dir, ref), text);
+
+        const updatedAt = new Date().toISOString();
+        workspace.manifest.updatedAt = updatedAt;
+        try {
+            await writeJsonFile(join(workspace.dir, "manifest.json"), workspace.manifest);
+        } catch (error) {
+            // 文档本身已经原子写入；manifest 时间戳失败不应让调用方误判为保存失败。
+            console.warn(
+                "[workspace] cannot persist manifest timestamp",
+                (error as Error).message,
+            );
+        }
+
+        return { revision: revisionOf(text), updatedAt };
     }
 
     async exportWorkspace(
@@ -388,9 +491,58 @@ function summary(dir: string, manifest: WorkspaceManifest): WorkspaceSummary {
 }
 
 function documentPath(dir: string, ref: DocumentRef): string {
-    assertSafeId(ref.id);
+    assertDocumentRef(ref);
     const sub = ref.kind === "harness" ? "harness" : "workbenches";
     return join(dir, "documents", sub, `${ref.id}.json`);
+}
+
+function assertDocumentRef(ref: DocumentRef): void {
+    if (!ref || (ref.kind !== "harness" && ref.kind !== "workbench")) {
+        throw new FhError("E_INVALID_ARGUMENT", "invalid document ref");
+    }
+    assertSafeId(ref.id);
+}
+
+function revisionOf(value: string | Uint8Array): string {
+    return `${REVISION_PREFIX}${createHash("sha256").update(value).digest("hex")}`;
+}
+
+/** 与 writeJsonFile 相同的序列化；额外拒绝非 JSON 值并限制体积。 */
+function serializeDocument(value: unknown): string {
+    let text: string | undefined;
+
+    try {
+        text = JSON.stringify(
+            value,
+            (_key, candidate: unknown) => {
+                if (
+                    typeof candidate === "bigint" ||
+                    typeof candidate === "function" ||
+                    typeof candidate === "symbol" ||
+                    (typeof candidate === "number" && !Number.isFinite(candidate))
+                ) {
+                    throw new Error("unsupported JSON value");
+                }
+                return candidate;
+            },
+            2,
+        );
+    } catch {
+        throw new FhError("E_INVALID_ARGUMENT", "document must be a JSON value");
+    }
+
+    if (text === undefined) {
+        throw new FhError("E_INVALID_ARGUMENT", "document must be a JSON value");
+    }
+
+    const serialized = `${text}\n`;
+    if (Buffer.byteLength(serialized, "utf8") > MAX_DOCUMENT_BYTES) {
+        throw new FhError("E_INVALID_ARGUMENT", "document is too large", {
+            maxBytes: MAX_DOCUMENT_BYTES,
+        });
+    }
+
+    return serialized;
 }
 
 function normalizeName(name: unknown): string {

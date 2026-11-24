@@ -96,13 +96,16 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 | --- | --- |
 | `ELECTRON_RENDERER_URL` | 由 electron-vite dev 注入；有值时主进程加载开发服务器，否则加载 `out/renderer/index.html` |
 | `FLOWHARNESS_SMOKE=1` | 隐藏窗口；渲染进程完成 config/workspace 往返后主进程自动退出，供 `pnpm smoke` 使用 |
+| `FLOWHARNESS_WORKSPACE_ROOT` | 覆盖工作区根目录（受限终端 / CI 截图用）；不写入 AppConfig |
 | `ELECTRON_MIRROR` | `pnpm ensure:electron` 使用的下载镜像，默认 npmmirror |
+
+开发模式下如果 AppConfig 的工作区根目录不可写（例如受限会话中的 `Documents`），主进程会依次尝试 `%TEMP%/FlowHarness/workspaces` 与仓库内 `.flowharness-workspaces/`，并在日志中打印 `[workspace] ... dev fallback`。打包版本不会静默换目录，而是返回明确的 `E_IO` 错误。
 
 ## 验证
 
 ```bash
 pnpm typecheck   # contracts（tsc）+ desktop（node + web 两个 project）
-pnpm test        # vitest：main 服务 + canvas core（48 项：config / secrets / blob / workspace / filehost / run-store / runtime / broker / window-state / geometry / commands）
+pnpm test        # vitest：main 服务 + canvas core + designer core/state（85 项：config / secrets / blob / workspace / filehost / run-store / runtime / broker / window-state / geometry / designer adapter / commands / layout / validate / run-events / save-coordinator）
 pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
 pnpm capture:ui  # Windows：CDP 截取 renderer（加 -NativeWindow 可抓原生窗口）

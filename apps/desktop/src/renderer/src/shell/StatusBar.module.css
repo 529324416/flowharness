@@ -55,6 +55,27 @@
   background: var(--fh-border);
 }
 
+.save {
+  color: var(--fh-text-subtle);
+  font-size: var(--fh-text-2xs);
+}
+
+.save[data-state="saved"] {
+  color: var(--fh-success);
+}
+
+.save[data-state="saving"] {
+  color: var(--fh-text-muted);
+}
+
+.save[data-state="conflict"] {
+  color: var(--fh-warning);
+}
+
+.save[data-state="error"] {
+  color: var(--fh-danger);
+}
+
 .zoom {
   font-family: var(--fh-font-mono);
   font-size: var(--fh-text-2xs);

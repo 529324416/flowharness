@@ -18,11 +18,12 @@ import { createSession, INITIAL_SESSIONS, type SessionSummary } from "./shell/se
 import { PanelLayer } from "./shell/panels/PanelLayer";
 import { useFloatingPanels } from "./shell/panels/useFloatingPanels";
 import { VIEW_LABEL, type ViewId } from "./shell/views";
-import { DesignerView } from "./views/DesignerView";
+import { DesignerView, type DesignerSaveStatus } from "./views/DesignerView";
 import { DiagnosticsView } from "./views/DiagnosticsView";
-import { HeroView } from "./views/HeroView";
 import { StyleguideView } from "./views/StyleguideView";
 import { useTheme } from "./theme/ThemeProvider";
+import type { RunControls } from "./run/run-controls";
+import type { InspectorModel } from "./inspector/model";
 import styles from "./App.module.css";
 
 const bootGraph = new Graph([], [], {
@@ -67,6 +68,7 @@ export function App(): ReactElement {
     const bootReported = useRef(false);
     const dataReported = useRef(false);
     const runReported = useRef(false);
+    const autoOpenedWorkspace = useRef(false);
 
     const [view, setView] = useState<ViewId>(
         bridge.smokeMode ? "diagnostics" : "designer",
@@ -79,11 +81,20 @@ export function App(): ReactElement {
 
     const [config, setConfig] = useState<AppConfig | null>(null);
     const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
+    const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceSummary | null>(
+        null,
+    );
     const [dataError, setDataError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
     const [runSnapshot, setRunSnapshot] = useState<RunSnapshot | null>(null);
     const [runEvents, setRunEvents] = useState<RunEventDto[]>([]);
+    const [designerRunControls, setDesignerRunControls] =
+        useState<RunControls | null>(null);
+    const [designerSaveStatus, setDesignerSaveStatus] =
+        useState<DesignerSaveStatus | null>(null);
+    const [designerInspector, setDesignerInspector] =
+        useState<InspectorModel | null>(null);
 
     const {
         panels,
@@ -96,7 +107,7 @@ export function App(): ReactElement {
 
     const activeSession =
         sessions.find((session) => session.id === activeSessionId) ?? null;
-    const panelsEnabled = view === "designer" && activeSession !== null;
+    const panelsEnabled = view === "designer" && activeWorkspace !== null;
 
     useEffect(() => {
         try {
@@ -200,6 +211,32 @@ export function App(): ReactElement {
         [bridge],
     );
 
+    const openWorkspaceById = useCallback(
+        async (id: string): Promise<void> => {
+            setBusy(true);
+            setDataError(null);
+
+            try {
+                if (activeWorkspace && activeWorkspace.id !== id) {
+                    await bridge.closeWorkspace(activeWorkspace.id);
+                    setActiveWorkspace(null);
+                }
+
+                const opened = await bridge.openWorkspace(id);
+                if (!opened.ok) {
+                    setDataError(opened.error.message);
+                    return;
+                }
+
+                setActiveWorkspace(opened.data);
+                setView("designer");
+            } finally {
+                setBusy(false);
+            }
+        },
+        [activeWorkspace, bridge],
+    );
+
     const createDemoWorkspace = useCallback(async () => {
         setBusy(true);
         setDataError(null);
@@ -211,14 +248,44 @@ export function App(): ReactElement {
             return;
         }
 
-        const opened = await bridge.openWorkspace(created.data.id);
-        if (!opened.ok) {
-            setDataError(opened.error.message);
-        }
-
+        autoOpenedWorkspace.current = true;
+        await openWorkspaceById(created.data.id);
         await loadData();
         setBusy(false);
-    }, [bridge, loadData]);
+    }, [bridge, loadData, openWorkspaceById]);
+
+    const handleDesignerRunWillStart = useCallback(() => {
+        setRunEvents([]);
+        setRunSnapshot(null);
+    }, []);
+
+    const handleDesignerRunStarted = useCallback((snapshot: RunSnapshot) => {
+        setRunSnapshot((current) => {
+            // 事件可能先于 start 响应到达；已有同 run 的终态时不要回退成 running。
+            if (
+                current !== null &&
+                current.runId === snapshot.runId &&
+                current.status !== "running"
+            ) {
+                return current;
+            }
+            return snapshot;
+        });
+    }, []);
+
+    useEffect(() => {
+        setRunEvents([]);
+        setRunSnapshot(null);
+    }, [activeWorkspace?.id]);
+
+    useEffect(() => {
+        if (bridge.smokeMode) return;
+        if (autoOpenedWorkspace.current) return;
+        if (workspaces.length === 0) return;
+
+        autoOpenedWorkspace.current = true;
+        void openWorkspaceById(workspaces[0]!.id);
+    }, [bridge.smokeMode, workspaces, openWorkspaceById]);
 
     const handleToggleSidebar = useCallback(() => {
         setSidebarOpen((value) => !value);
@@ -293,25 +360,28 @@ export function App(): ReactElement {
 
     const main =
         view === "designer" ? (
-            activeSession ? (
-                <div className={styles.stage}>
-                    <DesignerView sessionTitle={activeSession.title} />
-                    <PanelLayer
-                        panels={panels}
-                        events={runEvents}
-                        snapshot={runSnapshot}
-                        onClose={closePanel}
-                        onFocus={focusPanel}
-                        onUpdate={updatePanel}
-                    />
-                </div>
-            ) : (
-                <HeroView
-                    sessions={sessions}
-                    onNewSession={handleNewSession}
-                    onSelectSession={handleSelectSession}
+            <div className={styles.stage}>
+                <DesignerView
+                    workspace={activeWorkspace}
+                    busy={busy}
+                    error={dataError}
+                    onCreateWorkspace={() => void createDemoWorkspace()}
+                    onRunWillStart={handleDesignerRunWillStart}
+                    onRunStarted={handleDesignerRunStarted}
+                    onRunControlsChange={setDesignerRunControls}
+                    onSaveStatusChange={setDesignerSaveStatus}
+                    onInspectorChange={setDesignerInspector}
                 />
-            )
+                <PanelLayer
+                    panels={panels}
+                    events={runEvents}
+                    snapshot={runSnapshot}
+                    inspector={designerInspector}
+                    onClose={closePanel}
+                    onFocus={focusPanel}
+                    onUpdate={updatePanel}
+                />
+            </div>
         ) : view === "diagnostics" ? (
             <DiagnosticsView
                 config={config}
@@ -336,7 +406,9 @@ export function App(): ReactElement {
             <AppShell
                 titleBar={
                     <TitleBar
-                        activeSessionTitle={activeSession?.title ?? null}
+                        activeSessionTitle={
+                            activeWorkspace?.name ?? activeSession?.title ?? null
+                        }
                         theme={theme}
                         sidebarOpen={sidebarOpen}
                         busy={busy}
@@ -351,6 +423,7 @@ export function App(): ReactElement {
                         inspectorOpen={isPanelOpen("inspector")}
                         onToggleRunLog={() => togglePanel("run-log")}
                         onToggleInspector={() => togglePanel("inspector")}
+                        runControls={designerRunControls}
                     />
                 }
                 ribbon={
@@ -379,8 +452,11 @@ export function App(): ReactElement {
                 statusBar={
                     <StatusBar
                         snapshot={runSnapshot}
-                        workspacePath={config?.workspaceRoot}
-                        sessionTitle={activeSession?.title ?? null}
+                        workspacePath={activeWorkspace?.path ?? config?.workspaceRoot}
+                        sessionTitle={
+                            activeWorkspace?.name ?? activeSession?.title ?? null
+                        }
+                        saveStatus={designerSaveStatus}
                         viewLabel={VIEW_LABEL[view]}
                         zoom="100%"
                     />

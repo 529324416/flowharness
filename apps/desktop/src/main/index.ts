@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { constants as fsConstants, existsSync, promises as fsPromises } from "node:fs";
 import { join } from "node:path";
 import {
     app,
@@ -40,6 +40,8 @@ import {
     type WorkspaceExportRequest,
     type WorkspaceImportRequest,
     type WorkspaceOpenRequest,
+    type WorkspaceReadDocumentRequest,
+    type WorkspaceSaveDocumentRequest,
 } from "@flowharness/contracts";
 // Wireclaw 以普通包依赖方式引入；这里做启动自检并复用其类型。
 import { Graph, type ToolApprovalDecision, type UserInputResult } from "wireclaw";
@@ -60,6 +62,48 @@ registerAssetScheme();
 const isSmokeRun = process.env.FLOWHARNESS_SMOKE === "1";
 const APPROVAL_TIMEOUT_MS = 5 * 60_000;
 const WINDOW_MODE = (process.env.FLOWHARNESS_WINDOW_MODE ?? "transparent") as WindowMode;
+
+/**
+ * 开发/受限环境可把工作区根目录指到可写位置；正常启动仍以 AppConfig 为准。
+ * 不写进 config，避免覆盖用户设置。
+ *
+ * 开发模式下如果配置目录不可写（例如受限会话中的 Documents），
+ * 依次退到 %TEMP%/FlowHarness/workspaces 与仓库内 .flowharness-workspaces，
+ * 保证仍能启动设计器；打包版本不静默换目录。
+ */
+async function resolveWorkspaceRoot(configRoot: string): Promise<string> {
+    const preferred =
+        process.env.FLOWHARNESS_WORKSPACE_ROOT?.trim() || configRoot;
+    const candidates = new Set<string>([preferred]);
+
+    if (!app.isPackaged) {
+        candidates.add(join(app.getPath("temp"), "FlowHarness", "workspaces"));
+        candidates.add(join(process.cwd(), ".flowharness-workspaces"));
+        candidates.add(
+            join(app.getAppPath(), "..", "..", ".flowharness-workspaces"),
+        );
+    }
+
+    for (const candidate of candidates) {
+        try {
+            await fsPromises.mkdir(candidate, { recursive: true });
+            await fsPromises.access(candidate, fsConstants.W_OK);
+            if (candidate !== preferred) {
+                console.warn(
+                    `[workspace] configured root is not writable; using dev fallback ${candidate}`,
+                );
+            }
+            return candidate;
+        } catch (error) {
+            console.warn(
+                `[workspace] root unavailable: ${candidate}`,
+                (error as Error).message,
+            );
+        }
+    }
+
+    return preferred;
+}
 
 const bootGraph = new Graph([], [], {
     id: "flowharness-main-boot",
@@ -289,7 +333,10 @@ async function initialize(): Promise<void> {
     windowState = new WindowStateStore(join(userData, "window-state.json"));
     savedWindowState = await windowState.load();
 
-    workspaces = new WorkspaceStore(config.workspaceRoot, app.getVersion());
+    workspaces = new WorkspaceStore(
+        await resolveWorkspaceRoot(config.workspaceRoot),
+        app.getVersion(),
+    );
     await workspaces.init();
 
     secrets = new SecretsStore(join(userData, "secrets.bin"), createSafeStorageCipher());
@@ -443,7 +490,10 @@ function registerIpcHandlers(): void {
         nativeTheme.themeSource = next.theme;
 
         if (next.workspaceRoot !== before.workspaceRoot) {
-            workspaces = new WorkspaceStore(next.workspaceRoot, app.getVersion());
+            workspaces = new WorkspaceStore(
+                await resolveWorkspaceRoot(next.workspaceRoot),
+                app.getVersion(),
+            );
             await workspaces.init();
             runStores.clear();
         }
@@ -501,6 +551,20 @@ function registerIpcHandlers(): void {
         IpcChannel.WorkspaceImport,
         ({ sourcePath }: WorkspaceImportRequest) =>
             workspaces.importWorkspace(sourcePath),
+    );
+
+    registerHandler(
+        IpcChannel.WorkspaceReadDocument,
+        async ({ workspaceId, ref }: WorkspaceReadDocumentRequest) => {
+            const snapshot = await workspaces.readDocument(workspaceId, ref);
+            return snapshot === null ? null : { ref, ...snapshot };
+        },
+    );
+
+    registerHandler(
+        IpcChannel.WorkspaceSaveDocument,
+        ({ workspaceId, ref, baseRevision, document }: WorkspaceSaveDocumentRequest) =>
+            workspaces.saveDocument(workspaceId, ref, document, baseRevision),
     );
 
     registerHandler(

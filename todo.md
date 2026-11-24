@@ -1,10 +1,145 @@
 # TODO
 
-> 当前状态：Step 4（中性配色 + 真透明 + 商务扁平）已完成；下一步进入 **Phase 3.5 — Harness Designer 工作台**。
->
-> 原则：**UI 先稳定，功能后生长**。每个 Phase 结束做一次 UI 回归，不允许“功能完成、视觉退化”。
+> 当前主线：**M2 节点库与配置表单**（M1 最小可运行 Designer 已完成）。
+> 原则：垂直切片；UI 外壳冻结，只改组件；wireclaw 契约先行、submodule 联合开发。
 
-## 已完成
+## 当前里程碑（M1 已完成）
+
+### M1 — 最小可运行 Harness Designer（5 轮）
+
+每轮结束应用保持可运行；M1.1 是纯重构，用户可见行为不变。
+
+#### M1.1 — 数据与视图契约（已完成 2026-11-25）
+
+- [x] 纯 Canvas 类型：`CanvasNode / CanvasEdge / CanvasDocument / CanvasPort / CanvasCommand`；`canvas/core` 去 `@xyflow/react`
+- [x] 布局 helper：`node.ui.x/y`、`graph.ui.viewport`；缺省网格；保留其他 `ui` 字段
+- [x] `GraphDocument → CanvasDocument` adapter；catalog 解析 title / ports；未知类型降级
+- [x] `CanvasCommand` 回写 `GraphDocument`：`moveNodes / removeNodes / connect / disconnect`，保留未知字段
+- [x] `CanvasView` 改受控：`document + onCommand + selectedNodeId`；示例图改为 `GraphDocument` fixture
+- [x] 测试：adapter / command / layout / 未知类型；`capture:ui` 视觉对比通过
+
+验收：只重构不换数据源；示例画布布局 / 样式不变（类型名 `core.model-call` / `core.log-sink` 修正为 wireclaw 内建名）。
+
+#### M1.2 — 只读设计器（已完成 2026-11-25）
+
+- [x] 工作区入口：打开最近工作区；无工作区时创建；设计器脱离 mock Session
+- [x] 读取 / 创建 `main` `GraphDocument`；revision 进 state
+- [x] 设计器文档 state（只读）：load / selectedNodeId / 错误态
+- [x] `CanvasView` 接真实文档；`readOnly` 禁用编辑；按文档重置视口
+- [x] `SciFiNode` 按端口列表渲染 Handle；节点高度随端口数变化；重拍 `capture:ui`
+- [x] 测试：模板创建、加载、adapter 集成
+
+验收：启动 → 打开工作区 → 真实图渲染；`sample-graph` 已移除。
+
+#### M1.3 — 运行可视化（已完成 2026-11-25）
+
+- [x] renderer 侧 `validate`；有 error 阻断运行
+- [x] 运行 / 取消控件；用当前文档 `run:start`
+- [x] 运行事件 → `nodeStatuses`；`CanvasView` 合并状态
+- [x] 运行日志 / StatusBar 接线
+- [x] 测试：事件映射纯函数
+
+验收：`Constant → Output` 可运行；节点状态、日志、取消正确。
+补充：运行基线见 `devlog/assets/ui-designer-run.png`。
+
+#### M1.4 — 编辑与自动保存（已完成 2026-11-25）
+
+- [x] 启用 Canvas 编辑：move / connect / disconnect / delete / setViewport 回写 `GraphDocument`
+- [x] 添加节点：catalog 列表 + 默认 config / typeVersion + 唯一 id + 位置
+- [x] 自动保存 400ms；串行化；saved / saving / conflict / error
+- [x] 冲突暂停并提示重载；切换工作区 / 卸载 flush
+- [x] 测试：SaveCoordinator（fake timers）、命令集成
+
+验收：编辑 → 自动保存 → 重启恢复；冲突不静默覆盖。
+补充：编辑基线见 `devlog/assets/ui-designer-edit.png`；默认画布与运行基线已重拍。
+
+#### M1.5 — 检查器与收口（已完成 2026-11-25）
+
+- [x] 检查器接选中节点：type / title / typeVersion / ports / requirements / run 状态
+- [x] 原始 JSON config 编辑 + 解析错误；`updateNodeConfig` 回写
+- [x] 空选中显示图级信息
+- [x] 错误 / 空态 / 保存状态收口
+- [x] 质量：`typecheck / test / build / smoke`；`capture:ui`；手工 demo
+- [x] 文档同步：readme / architecture / todo
+
+验收：M1 七条全部满足。
+补充：检查器基线见 `devlog/assets/ui-designer.png`；配置写回已用 `designer-config` 场景验证。
+
+## 后续
+
+### M2 — 节点库与配置表单
+
+- [ ] 节点库：`createEditorCatalog` + `NodePresetLibrary`
+- [ ] 检查器按节点类型渲染（`configSchema` 表单 + 定制组件）
+- [ ] 配置变化后刷新动态端口；失效边提示
+- [ ] 新节点使用类型默认 config
+- [ ] wireclaw：内置节点补齐 `configSchema`
+- [ ] wireclaw：catalog 默认 config 与分类 / 搜索元数据
+
+### M3 — 校验与运行可视化
+
+- [ ] `Graph.validate` 与问题面板；问题定位到节点 / 边
+- [ ] 运行事件 → 画布动画完整映射
+- [ ] 暂停 / 继续 UI；取消后的状态清理
+- [ ] wireclaw：递归校验 Subgraph / Loop / ForEach
+- [ ] wireclaw：requirements 传播与 issue 定位
+
+### M4 — 文档生命周期与编辑体验
+
+- [ ] `workspace:listDocuments`
+- [ ] 多图：新建 / 重命名 / 复制 / 删除 / 最近打开
+- [ ] Harness JSON 导入导出（可选剥离 `ui`）
+- [ ] 撤销 / 重做、复制 / 粘贴
+- [ ] 未保存保护、冲突恢复、外部修改检测
+- [ ] 文档 / 工作台切换入口
+
+### M5 — Workbench Framework（原 Phase 4）
+
+- [ ] `WorkbenchDefinition` / 工作台实例文档 / controller / 命令栈 / 自动保存
+- [ ] 模块注册表与视图宿主
+- [ ] `WorkbenchPlan`（仅独立多 run；优先 subgraph）
+- [ ] 第二个工作台验证框架复用性
+
+### M6 — Session / Provider 闭环（原 Phase 5）
+
+- [ ] Provider 工厂 + Secrets（DeepSeek / Ollama / MiniMax / Qwen）
+- [ ] 模型 / Agent 节点真正可运行
+- [ ] Session 生命周期、历史、附件回放
+- [ ] 审批 / 用户输入 UI
+- [ ] 跨重启 resume（checkpoint + graph 装载）
+- [ ] wireclaw：checkpoint 的 graph hash / node type version
+
+### M7 — 模板、导入导出与多工作台（原 Phase 6）
+
+- [ ] 工作台模板 / 节点预设
+- [ ] `.fhws` 导入导出 UI 与冲突策略
+- [ ] 更多工作台类型
+
+### M8 — 可观测性与工程化（原 Phase 7）
+
+- [ ] run 事件回放 / 诊断包导出
+- [ ] 日志分级、脱敏、traceId 展示
+- [ ] 格式化与 lint
+- [ ] CI：install → ensure:electron → build:wireclaw → typecheck → test → build → smoke
+- [ ] 300 节点性能基线
+- [ ] 亮色主题视觉走查
+- [ ] 真实桌面可读性 / 性能 / 窗口阴影 / 缩放验收
+
+### M9 — 打包与发布（原 Phase 8）
+
+- [ ] electron-builder / electron-forge 打包
+- [ ] 自动更新通道与签名
+- [ ] 发布流程与版本约定
+
+## 历史已完成
+
+### M0 — 文档持久化边界（2026-11-25）
+
+- [x] contracts：`workspace:readDocument` / `workspace:saveDocument` 通道与 DTO
+- [x] main：接入 `WorkspaceStore`；SHA-256 revision；旧 revision 返回 `E_CONFLICT`；缺失返回 `null`；4 MB 上限
+- [x] preload / `bridge.d.ts`：暴露 `readDocument` / `saveDocument`
+- [x] 测试：读写往返、旧 revision 冲突、路径穿越、损坏文档、保存失败
+- [x] ADR-012：快照 + 内容哈希 revision；`applyCommands` 延后
 
 ### 工程与架构
 
@@ -14,8 +149,8 @@
 - [x] Node 24 / pnpm 12 / TypeScript 7 / Electron 45 / electron-vite 6 / Vite 8
 - [x] `typecheck / test / build / smoke` 验证链
 - [x] Windows 一键启动 `run.bat`（沙箱受限自动降级）
-- [x] 六层架构、模块职责、数据模型、执行/IPC、UI 文档
-- [x] ADR-001 ~ ADR-009
+- [x] 六层架构、模块职责、数据模型、执行 / IPC、UI 文档
+- [x] ADR-001 ~ ADR-016
 - [x] 设计契约：tokens / canvas / components
 
 ### Phase 0 — 基础迁移
@@ -38,7 +173,7 @@
 - [x] 事件投影与节流、IPC 事件流
 - [x] 审批 / 用户输入 IPC 往返
 - [x] 自检 run：Constant → Output
-- [ ] 完整 Session 生命周期与 Provider 工厂（Phase 5）
+- [ ] 完整 Session 生命周期与 Provider 工厂（M6）
 
 ### Phase 2.5 — UI 基础
 
@@ -60,12 +195,14 @@
 ### Phase 3 — Canvas 核心与视图
 
 - [x] `canvas/core`：坐标变换、命中测试、边 key、命令 + 单测
-- [x] `canvas/view`：react-flow 12 受控模式、节点/边层、小地图、Controls、自定义右键菜单
+- [x] `canvas/view`：react-flow 12 受控模式、节点 / 边层、小地图、Controls、自定义右键菜单
 - [x] Node renderer registry（`kind → React 组件`）
-- [x] 节点/连线视觉、状态点、端口、流动/错误动画
+- [x] 节点 / 连线视觉、状态点、端口、流动 / 错误动画
 - [x] `prefers-reduced-motion`
-- [ ] 大图性能基线（300 节点）
-- [ ] GraphDocument adapter / 节点库 / 撤销栈（Phase 3.5）
+- [ ] 大图性能基线（300 节点）（M8）
+- [x] GraphDocument adapter / 编辑命令 / 自动保存（M1）
+- [ ] 节点库（M2）
+- [ ] 撤销 / 复制（M4）
 
 ### Step 4 — 配色 / 真透明 / 商务扁平
 
@@ -77,10 +214,8 @@
 - [x] 背景网格线；低亮度
 - [x] 移除选中辉光、节点渐变、连线发光
 - [x] `capture:ui` 默认 opaque frameless，保证 renderer 截图可读
-- [ ] 亮色主题视觉走查
-- [ ] 真实桌面可读性 / 性能 / 窗口阴影 / 缩放验收
-
-> 平台限制：桌面 blur 不可用（CSS `backdrop-filter` 不采样桌面；Acrylic/Mica 在当前环境不透明）。见 ADR-009。
+- [ ] 亮色主题视觉走查（M8）
+- [ ] 真实桌面可读性 / 性能 / 窗口阴影 / 缩放验收（M8）
 
 ### UI 打磨（2026-11-25）
 
@@ -100,53 +235,9 @@
 
 ### 质量
 
-- [x] 12 个测试文件 / 48 个测试通过
+- [x] 18 个测试文件 / 85 个测试通过（M0 + M1.1 ~ M1.5）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
-
-## 下一步 — Phase 3.5 Harness Designer
-
-- [ ] 节点库：`createEditorCatalog` + `NodePresetLibrary`
-- [ ] GraphDocument ⇄ CanvasDocument adapter；布局写入 `ui`
-- [ ] 检查器按节点类型渲染（configSchema 表单 + 定制组件）
-- [ ] `Graph.validate` 与问题面板
-- [ ] 运行事件 → 画布动画映射
-- [ ] Harness JSON 导入导出
-- [ ] 撤销/重做、复制/粘贴
-
-## Phase 4 — Workbench Framework
-
-- [ ] `WorkbenchDefinition` / 实例文档 / controller / 命令栈 / 自动保存
-- [ ] 模块注册表与视图宿主
-- [ ] `WorkbenchPlan`（仅独立多 run 场景；优先 subgraph）
-- [ ] 第二个工作台验证框架复用性
-
-## Phase 5 — Session / Provider 闭环
-
-- [ ] Provider 工厂 + Secrets 接入（DeepSeek / Ollama / MiniMax / Qwen）
-- [ ] 模型 / Agent 节点真正可运行
-- [ ] Session 生命周期、历史、附件回放
-- [ ] 审批 / 用户输入 UI
-- [ ] 跨重启 resume（checkpoint + graph 装载）
-
-## Phase 6 — 模板、导入导出与多工作台
-
-- [ ] 工作台模板 / 节点预设
-- [ ] `.fhws` 导入导出 UI 与冲突策略
-- [ ] 更多工作台类型
-
-## Phase 7 — 可观测性与工程化
-
-- [ ] run 事件回放 / 诊断包导出
-- [ ] 日志分级、脱敏、traceId 展示
-- [ ] 格式化与 lint
-- [ ] CI：install → ensure:electron → build:wireclaw → typecheck → test → build → smoke
-
-## Phase 8 — 打包与发布
-
-- [ ] electron-builder / electron-forge 打包
-- [ ] 自动更新通道与签名
-- [ ] 发布流程与版本约定
 
 ## 远期
 

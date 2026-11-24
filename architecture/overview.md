@@ -129,6 +129,6 @@ vendor/wireclaw/               # 引擎（submodule）
 
 ## 7. 当前实现状态
 
-本文件描述**目标架构**。当前已实现：pnpm workspace + wireclaw submodule、Electron main/preload/renderer 三端、contracts、main 服务层（配置 / 密钥 / Blob / 工作区 / 运行记录 / RuntimeHost）、Shell v2、浮动 Panel、Canvas core + view，以及 2026-11-25 的 UI 打磨（去饱和色板、125% 非画布字号、节点双层、Session/Canvas 面板化）。
+本文件描述**目标架构**。当前已实现：pnpm workspace + wireclaw submodule、Electron main/preload/renderer 三端、contracts、main 服务层（配置 / 密钥 / Blob / 工作区 / 运行记录 / RuntimeHost）、Shell v2、浮动 Panel、Canvas core + view、UI 打磨，以及 M1 最小可运行 Designer（GraphDocument adapter、编辑命令、运行、自动保存、检查器）。
 
-**尚未实现**：Phase 3.5 的 GraphDocument adapter、节点库、检查器联动、校验与撤销；Workbench Framework；Provider 闭环。迁移顺序见 [../todo.md](../todo.md)。
+**尚未实现**：M2 节点库与 configSchema 表单、M3 完整校验问题面板、M4 撤销/复制与多图；Workbench Framework；Provider 闭环。迁移顺序见 [../todo.md](../todo.md)。

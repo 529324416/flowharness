@@ -3,6 +3,9 @@ import type {
     AppConfigUpdate,
     AppInfo,
     BlobMeta,
+    DocumentRef,
+    DocumentSaveResult,
+    DocumentSnapshot,
     WindowStatePayload,
     WorkspaceCreateInput,
     WorkspaceSummary,
@@ -46,6 +49,7 @@ export const IpcChannel = {
     WorkspaceOpen: "workspace:open",
     WorkspaceClose: "workspace:close",
     WorkspaceReadDocument: "workspace:readDocument",
+    WorkspaceSaveDocument: "workspace:saveDocument",
     WorkspaceApplyCommands: "workspace:applyCommands",
     WorkspaceExport: "workspace:export",
     WorkspaceImport: "workspace:import",
@@ -106,6 +110,19 @@ export type WorkspaceCloseRequest = { id: string };
 export type WorkspaceExportRequest = { id: string; targetPath: string };
 export type WorkspaceImportRequest = { sourcePath: string };
 
+export type WorkspaceReadDocumentRequest = {
+    workspaceId: string;
+    ref: DocumentRef;
+};
+
+export type WorkspaceSaveDocumentRequest = {
+    workspaceId: string;
+    ref: DocumentRef;
+    /** 首次创建传 null；更新时传上次读到的 revision。 */
+    baseRevision: string | null;
+    document: unknown;
+};
+
 export type BlobStatRequest = { workspaceId: string; hash: string };
 export type BlobDeleteRequest = { workspaceId: string; hash: string };
 
@@ -136,6 +153,15 @@ export type IpcInvokeContracts = {
     [IpcChannel.WorkspaceClose]: { request: WorkspaceCloseRequest; response: void };
     [IpcChannel.WorkspaceExport]: { request: WorkspaceExportRequest; response: { path: string } };
     [IpcChannel.WorkspaceImport]: { request: WorkspaceImportRequest; response: WorkspaceSummary };
+
+    [IpcChannel.WorkspaceReadDocument]: {
+        request: WorkspaceReadDocumentRequest;
+        response: DocumentSnapshot | null;
+    };
+    [IpcChannel.WorkspaceSaveDocument]: {
+        request: WorkspaceSaveDocumentRequest;
+        response: DocumentSaveResult;
+    };
 
     [IpcChannel.BlobStat]: { request: BlobStatRequest; response: BlobMeta | null };
     [IpcChannel.BlobDelete]: { request: BlobDeleteRequest; response: { deleted: boolean } };

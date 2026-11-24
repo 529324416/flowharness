@@ -32,9 +32,117 @@
 
 .nodeName {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
   color: var(--fh-text);
   font-size: var(--fh-text-md);
   font-weight: var(--fh-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ports {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--fh-space-3);
+}
+
+.portColumn {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.portTitle {
+  color: var(--fh-text-subtle);
+  font-size: var(--fh-text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.portList {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 3px;
+  list-style: none;
+}
+
+.portItem {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--fh-space-2);
+  min-width: 0;
+}
+
+.portName {
+  overflow: hidden;
+  color: var(--fh-text-muted);
+  font-family: var(--fh-font-mono);
+  font-size: var(--fh-text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portType {
+  flex: none;
+  color: var(--fh-text-subtle);
+  font-size: var(--fh-text-2xs);
+}
+
+.requirements {
+  display: flex;
+  margin: 0;
+  padding-left: 16px;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--fh-text-muted);
+  font-size: var(--fh-text-xs);
+}
+
+.editor {
+  width: 100%;
+  min-height: 148px;
+  padding: var(--fh-space-2);
+  border: 1px solid var(--fh-border);
+  border-radius: var(--fh-radius-sm);
+  background: var(--fh-bg-subtle);
+  color: var(--fh-text);
+  font-family: var(--fh-font-mono);
+  font-size: var(--fh-text-xs);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.editor:read-only {
+  color: var(--fh-text-muted);
+  opacity: 0.8;
+}
+
+.editor:focus {
+  outline: none;
+}
+
+.error {
+  margin: 0;
+  color: var(--fh-danger);
+  font-size: var(--fh-text-xs);
+  line-height: 1.4;
+}
+
+.hint {
+  margin: 0;
+  color: var(--fh-text-subtle);
+  font-size: var(--fh-text-2xs);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--fh-space-2);
 }
 
 .checkRow {

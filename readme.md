@@ -16,12 +16,16 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | Canvas：React Flow、节点/连线、小地图、右键菜单 | ✅ |
 | 中性配色 + 真透明窗口 + 商务扁平画布 | ✅ |
 | UI 打磨：去饱和色板 / 125% 字号 / 节点双层 / Session+Canvas 面板化 | ✅ |
-| Phase 3.5：GraphDocument / 节点库 / 检查器联动 / 撤销 | 🚧 下一步 |
+| M1 最小可运行 Designer：GraphDocument / 编辑 / 运行 / 自动保存 / 检查器 | ✅ |
+| M2：节点库 / configSchema 表单 / 预设 | 🚧 下一步 |
 | Session / Provider 闭环、Workbench Framework、打包 | ⬜ |
 
 **已知限制**
 
 - 真透明窗口可透出桌面，但当前 Chromium/Electron 无法模糊桌面（ADR-009）；
+- Session Sidebar 仍是 mock；设计器当前按工作区加载，Session 绑定在 M4/M6；
+- 设计器运行中切换视图会丢失节点状态（run 仍在 main 继续）；
+- 窗口直接关闭时，最后一次 400ms 自动保存可能未完成；
 - 亮色主题只完成 token，尚未做视觉走查；
 - 300 节点性能基线、真实桌面可读性验收未完成；
 - 透明窗口需要 GPU；`--disable-gpu` 下会退化为不透明。
@@ -98,7 +102,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | 分别对 main/preload 与 renderer 做类型检查 |
-| `pnpm test` | main 数据层 + canvas core 单测（12 files / 48 tests） |
+| `pnpm test` | main 数据层 + canvas core + designer core/state 单测（18 files / 85 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：以 opaque frameless 截图，保证 renderer 画面可读 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

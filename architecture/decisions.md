@@ -260,3 +260,96 @@ Step 4 之后进入功能开发前的视觉收口：主色与状态色过饱和�
 - 在缩放到某个阈值时把边框切成 2px：阈值处会跳变，且仍不能覆盖所有分数缩放；
 - 给 Body 和面板各加一层 95% alpha：两层叠加后实际接近不透明，Session 与 Canvas 也难以保持一致；
 - 用 SVG `vector-effect` 修复节点描边：节点是 HTML/CSS transform，祖先的缩放发生在图层合成阶段，非缩放描边不会参与补偿。
+
+---
+
+## ADR-012：文档保存采用整文档快照 + 内容哈希 revision
+
+**背景**
+设计器需要自动保存与并发保护。`workspace:applyCommands` 是给未来多写者 / 批处理预留的；单写者阶段让 main 合并命令会重复 adapter 与 `GraphDocument` 语义，也容易在合并时丢掉未知字段。
+
+**决定**
+- renderer 每次保存提交整份 `GraphDocument` 快照。
+- main 读取当前文件字节并计算 SHA-256 作为 `revision` 返回。
+- 保存请求携带 `baseRevision`：`null` 表示创建；非 null 必须与当前 revision 一致，否则返回 `E_CONFLICT`。
+- 文档写入复用原子写；manifest 的 `updatedAt` 属于副作用，写失败只告警，不让调用方误判文档保存失败。
+- 同一文档的保存按 `workspaceId + ref` 串行化，保证 revision 检查与写入之间不被插队。
+- `workspace:applyCommands` 暂时保留契约但不实现；M4 多图 / 批处理时重新评估。
+
+**后果**
+- 单写者下实现简单，冲突显式暴露，不静默覆盖。
+- 每次保存写整份文档；在 4 MB 上限内可接受，后续需要再做增量命令。
+- 文件被外部修改时 revision 变化，保存失败并提示重载。
+- JSON 校验与大小限制在 main，renderer 不能绕过。
+
+---
+
+## ADR-013：GraphDocument 是设计器唯一事实源，Canvas 只发语义命令
+
+**背景**
+设计器需要编辑节点、连线、config 与 viewport。若把 `CanvasDocument` 当事实源并整图反向转回 `GraphDocument`，容易丢失 `typeVersion / requires / inputs / metadata / parameters / events / toolSet`。
+
+**决定**
+- `GraphDocument` 是唯一持久化事实源；
+- `toCanvasDocument` 只做单向投影；
+- Canvas 发出 `moveNodes / removeNodes / connect / disconnect / setViewport` 语义命令；
+- Designer 的 `applyCanvasCommand` 只修改命令涉及的字段，其余字段原样保留；
+- `addNode / updateNodeConfig` 是设计器动作，不进入 Canvas 命令。
+
+**后果**
+- 编辑不会误删 wireclaw 字段；
+- Canvas 保持对 Harness 零感知；
+- 未来接入 Workbench Framework 时，命令层可直接复用。
+
+---
+
+## ADR-014：Canvas core 纯 TS，react-flow 只存在于 view
+
+**背景**
+原 `canvas/core/types.ts` 直接引用 `@xyflow/react` 的 `Node/Edge`，使 core 与第三方模型耦合，违背 ADR-003。
+
+**决定**
+- `canvas/core` 只定义 `CanvasNode / CanvasEdge / CanvasDocument / CanvasPort / CanvasCommand` 等领域类型；
+- react-flow 的类型与组件集中在 `canvas/view`（`flow-types.ts`）；
+- CanvasView 负责领域文档与 react-flow 节点/边之间的临时视图状态。
+
+**后果**
+- core 可单测、可替换渲染层；
+- 拖拽中间态留在 view，文档只在 `onNodeDragStop` 后更新。
+
+---
+
+## ADR-015：renderer 使用 wireclaw 浏览器构建，IPC 只传 JSON
+
+**背景**
+设计器需要节点 catalog、端口描述与运行前校验，但 renderer 不应把 wireclaw 类实例或 main 能力带进 UI。
+
+**决定**
+- Designer 层使用 `wireclaw` 浏览器构建的 `createBuiltinNodeRegistry / describeNodeType / deserializeGraph / Graph.validate`；
+- `canvas` 模块不引用 wireclaw；
+- 跨 IPC 只传纯 JSON（GraphDocument、事件 DTO）；main 用 wireclaw 再校验并执行。
+
+**后果**
+- 设计器与运行时共享同一套节点定义，但边界仍是 JSON；
+- renderer bundle 会包含 wireclaw 浏览器构建（当前约 1.6 MB），后续按需代码分割；
+- 未知节点类型在 designer 侧降级为占位节点，由校验输出问题。
+
+---
+
+## ADR-016：自动保存采用 400ms 串行协调器
+
+**背景**
+编辑需要自动保存，但不能并发写、不能在 revision 竞争时静默覆盖，也不能在组件卸载后让旧保存结果覆盖新工作区状态。
+
+**决定**
+- `SaveCoordinator` 负责 400ms debounce、串行保存链与 revision 更新；
+- `E_CONFLICT` 立即停止自动保存，进入 conflict 状态，等待用户重新加载；
+- 切换工作区 / 卸载时调用 `flush()`，完成后 dispose；
+- 旧 coordinator 的状态回调通过引用校验丢弃；
+- 保存状态在 StatusBar 展示。
+
+**后果**
+- 单写者下冲突显式、状态可观察；
+- 窗口直接关闭时最后 <400ms 的编辑仍可能丢失（无 main-renderer 退出握手）；
+- undo/redo 与更细粒度的增量保存留到 M4。
+

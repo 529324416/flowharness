@@ -1,8 +1,8 @@
 # FlowHarness 架构文档
 
-> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas 与真透明主题；进度见文末。
+> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题与 M1 最小可运行 Designer；进度见文末。
 >
-> 当前阶段：**Step 4 已完成，Phase 3.5 是下一步**。
+> 当前阶段：**M1 最小可运行 Designer 已完成，M2 节点库与配置表单是下一步**。
 > 术语：FH = FlowHarness。
 
 ## 阅读顺序
@@ -12,7 +12,7 @@
 3. [data-model.md](./data-model.md) — 工作区数据、文档、导入导出
 4. [runtime.md](./runtime.md) — 执行、事件、IPC、安全
 5. [ui.md](./ui.md) — React、画布、工作台框架、设计器
-6. [decisions.md](./decisions.md) — 架构决策记录（ADR-001 ~ ADR-009）
+6. [decisions.md](./decisions.md) — 架构决策记录（ADR-001 ~ ADR-016）
 
 ## 六个已定稿的关键决策
 
@@ -61,10 +61,16 @@
 | 内部浮动 Panel（运行日志 / 属性检查） | ✅ 已实现（Phase 2.6 step 2） |
 | 窗口 bounds 持久化（多显示器/DPI） | ✅ 已实现（step 2） |
 | 完整 Session 生命周期（历史 / 回放 / Provider） | ⬜ 未开始 |
-| Canvas core + react-flow 交互 | ✅ 已实现（Phase 3 Step 3） |\n| 商务扁平节点 / 网格线 / 去辉光 | ✅ 已实现（Step 4C） |
-| GraphDocument adapter / 节点库 / 撤销栈 | 🚧 下一步（Phase 3.5） |\n| 300 节点性能基线 | ⬜ 未开始 |
+| Canvas core + react-flow 交互 | ✅ 已实现（Phase 3 Step 3） |
+| Canvas core 纯 TS / view 薄层（无 react-flow 类型泄漏） | ✅ 已实现（M1.1） |
+| 商务扁平节点 / 网格线 / 去辉光 | ✅ 已实现（Step 4C） |
+| GraphDocument adapter / 语义命令 / 布局与 viewport | ✅ 已实现（M1） |
+| 设计器编辑 / 自动保存 / 冲突处理 / 检查器 | ✅ 已实现（M1.4 / M1.5） |
+| 节点库 / configSchema 表单 / 预设 | 🚧 下一步（M2） |
+| 撤销/重做 / 复制粘贴 / 多图 | ⬜ 未开始（M4） |
+| 300 节点性能基线 | ⬜ 未开始 |
 | Workbench Framework | ⬜ 未开始 |
-| Harness Designer | ⬜ 未开始 |
+| Harness Designer | ✅ 最小版本（M1） |
 | 打包分发、CI | ⬜ 未开始 |
 
 图例：✅ 已实现 ｜ 🚧 进行中 ｜ ⬜ 未开始

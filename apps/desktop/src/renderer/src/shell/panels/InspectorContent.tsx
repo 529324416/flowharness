@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useState, type ReactElement } from "react";
-import { Badge, Button, EmptyState, StatusDot, type StatusTone } from "../../ui";
+import {
+    Badge,
+    Button,
+    EmptyState,
+    StatusDot,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+    type StatusTone,
+} from "../../ui";
 import { MetaList } from "../../components/MetaList";
 import type {
     InspectorGraphModel,
     InspectorModel,
     InspectorNodeModel,
 } from "../../inspector/model";
+import { NodeConfigForm } from "../../inspector/NodeConfigForm";
 import type { CanvasStatus } from "../../canvas/core/types";
 import styles from "./InspectorContent.module.css";
 
@@ -26,15 +37,6 @@ const STATUS_TONE: Record<CanvasStatus, StatusTone> = {
     failed: "failed",
     skipped: "skipped",
 };
-
-function formatConfig(config: unknown): string {
-    if (config === undefined) return "{}";
-    try {
-        return JSON.stringify(config, null, 2);
-    } catch {
-        return "{}";
-    }
-}
 
 /** 属性检查面板内容；面板外框由 PanelFrame 提供。 */
 export function InspectorContent({
@@ -106,39 +108,6 @@ function NodeInspector({
     canEdit: boolean;
     onUpdateConfig: (nodeId: string, config: unknown) => void;
 }): ReactElement {
-    const configText = useMemo(() => formatConfig(node.config), [node.config]);
-    const [draft, setDraft] = useState(configText);
-    const [parseError, setParseError] = useState<string | null>(null);
-
-    useEffect(() => {
-        setDraft(configText);
-        setParseError(null);
-    }, [node.id, configText]);
-
-    const apply = (): void => {
-        let parsed: unknown;
-        try {
-            parsed = JSON.parse(draft);
-        } catch (error) {
-            setParseError(`JSON 解析失败：${errorMessage(error)}`);
-            return;
-        }
-
-        setParseError(null);
-        setDraft(JSON.stringify(parsed, null, 2));
-        onUpdateConfig(node.id, parsed);
-    };
-
-    const format = (): void => {
-        try {
-            const parsed: unknown = JSON.parse(draft);
-            setDraft(JSON.stringify(parsed, null, 2));
-            setParseError(null);
-        } catch (error) {
-            setParseError(`JSON 解析失败：${errorMessage(error)}`);
-        }
-    };
-
     return (
         <div className={styles.sections}>
             <section className={styles.section}>
@@ -154,6 +123,9 @@ function NodeInspector({
                         {STATUS_LABEL[node.status]}
                     </Badge>
                 </div>
+                {node.description === undefined ? null : (
+                    <p className={styles.description}>{node.description}</p>
+                )}
                 <MetaList
                     rows={[
                         ["类型", node.type],
@@ -190,39 +162,117 @@ function NodeInspector({
             ) : null}
 
             <section className={styles.section}>
-                <h3 className={styles.sectionTitle}>参数（JSON）</h3>
-                <textarea
-                    className={styles.editor}
-                    value={draft}
-                    readOnly={!canEdit}
-                    spellCheck={false}
-                    aria-label="节点 config JSON"
-                    onChange={(event) => setDraft(event.target.value)}
-                />
-                {parseError ? <p className={styles.error}>{parseError}</p> : null}
-                {!canEdit ? (
-                    <p className={styles.hint}>运行时或保存冲突时不可编辑</p>
-                ) : null}
-                <div className={styles.actions}>
-                    <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={!canEdit}
-                        onClick={format}
-                    >
-                        格式化
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={!canEdit}
-                        onClick={apply}
-                    >
-                        应用
-                    </Button>
-                </div>
+                <h3 className={styles.sectionTitle}>参数</h3>
+                {node.configSchema === undefined ? (
+                    <ConfigJsonEditor
+                        node={node}
+                        canEdit={canEdit}
+                        onUpdateConfig={onUpdateConfig}
+                    />
+                ) : (
+                    <Tabs defaultValue="form">
+                        <TabsList>
+                            <TabsTrigger value="form">表单</TabsTrigger>
+                            <TabsTrigger value="json">JSON</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="form">
+                            <NodeConfigForm
+                                schema={node.configSchema}
+                                config={node.config}
+                                disabled={!canEdit}
+                                onChange={(next) => onUpdateConfig(node.id, next)}
+                            />
+                        </TabsContent>
+                        <TabsContent value="json">
+                            <ConfigJsonEditor
+                                node={node}
+                                canEdit={canEdit}
+                                onUpdateConfig={onUpdateConfig}
+                            />
+                        </TabsContent>
+                    </Tabs>
+                )}
             </section>
         </div>
+    );
+}
+
+/** 原始 JSON 编辑：解析失败只提示、不写回；「应用」整体替换 config。 */
+function ConfigJsonEditor({
+    node,
+    canEdit,
+    onUpdateConfig,
+}: {
+    node: InspectorNodeModel;
+    canEdit: boolean;
+    onUpdateConfig: (nodeId: string, config: unknown) => void;
+}): ReactElement {
+    const configText = useMemo(() => formatConfig(node.config), [node.config]);
+    const [draft, setDraft] = useState(configText);
+    const [parseError, setParseError] = useState<string | null>(null);
+
+    useEffect(() => {
+        setDraft(configText);
+        setParseError(null);
+    }, [node.id, configText]);
+
+    const apply = (): void => {
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(draft);
+        } catch (error) {
+            setParseError(`JSON 解析失败：${errorMessage(error)}`);
+            return;
+        }
+
+        setParseError(null);
+        setDraft(JSON.stringify(parsed, null, 2));
+        onUpdateConfig(node.id, parsed);
+    };
+
+    const format = (): void => {
+        try {
+            const parsed: unknown = JSON.parse(draft);
+            setDraft(JSON.stringify(parsed, null, 2));
+            setParseError(null);
+        } catch (error) {
+            setParseError(`JSON 解析失败：${errorMessage(error)}`);
+        }
+    };
+
+    return (
+        <>
+            <textarea
+                className={styles.editor}
+                value={draft}
+                readOnly={!canEdit}
+                spellCheck={false}
+                aria-label="节点 config JSON"
+                onChange={(event) => setDraft(event.target.value)}
+            />
+            {parseError ? <p className={styles.error}>{parseError}</p> : null}
+            {!canEdit ? (
+                <p className={styles.hint}>运行时或保存冲突时不可编辑</p>
+            ) : null}
+            <div className={styles.actions}>
+                <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={!canEdit}
+                    onClick={format}
+                >
+                    格式化
+                </Button>
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={!canEdit}
+                    onClick={apply}
+                >
+                    应用
+                </Button>
+            </div>
+        </>
     );
 }
 
@@ -264,6 +314,15 @@ function statusVariant(status: CanvasStatus): "neutral" | "accent" | "success" |
             return "danger";
         default:
             return "neutral";
+    }
+}
+
+function formatConfig(config: unknown): string {
+    if (config === undefined) return "{}";
+    try {
+        return JSON.stringify(config, null, 2);
+    } catch {
+        return "{}";
     }
 }
 

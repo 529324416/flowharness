@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ReactElement } from "react";
 import { PanelLeftClose, Plus, Search } from "lucide-react";
 import { Badge, IconButton, Input, StatusDot, Tooltip } from "../ui";
 import { cx } from "../ui/cx";
+import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "../layout-metrics";
 import { SESSION_TONE, type SessionSummary } from "./sessions";
 import styles from "./SessionSidebar.module.css";
 
@@ -15,11 +16,8 @@ export type SessionSidebarProps = {
     onResize: (width: number) => void;
 };
 
-const MIN_WIDTH = 200;
-const MAX_WIDTH = 360;
-
 function clampWidth(width: number): number {
-    return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, width));
+    return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, width));
 }
 
 export function SessionSidebar({

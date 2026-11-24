@@ -3,7 +3,7 @@
   --node-border: var(--fh-border-strong);
 
   position: relative;
-  width: 220px;
+  width: var(--fh-node-width, 220px);
   overflow: hidden;
   border-style: solid;
   /* 描边按 1/zoom 反向缩放，屏幕始终 1px；圆角保持正常比例缩放 */
@@ -18,7 +18,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
+  height: var(--fh-node-header-height, 30px);
   padding: 0 9px;
   border-bottom: calc(1px / var(--fh-canvas-zoom, 1)) solid var(--fh-border);
   background: var(--fh-surface-raised);

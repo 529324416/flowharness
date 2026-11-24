@@ -1,12 +1,13 @@
 import type { ReactElement } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { cx } from "../../ui/cx";
+import { CANVAS_METRICS } from "../metrics";
 import type { FlowNode } from "./flow-types";
 import { NodeVisual } from "./NodeVisual";
 import styles from "./SciFiNode.module.css";
 
-const HEADER_HEIGHT = 30;
-const PORT_TOP = 38;
+const HEADER_HEIGHT = CANVAS_METRICS.nodeHeaderHeight;
+const PORT_TOP = HEADER_HEIGHT + 8;
 const PORT_BOTTOM = 8;
 
 /**

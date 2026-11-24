@@ -39,11 +39,6 @@
   outline: none;
 }
 
-.flow :global(.react-flow__handle) {
-  min-width: 10px;
-  min-height: 10px;
-}
-
 .flow :global(.react-flow__connection-path) {
   stroke: var(--fh-edge-active);
   stroke-width: 1.5;

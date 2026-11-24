@@ -17,6 +17,18 @@ export { Kbd } from "./Kbd";
 export { Input } from "./Input";
 export type { InputProps } from "./Input";
 
+export { Field } from "./Field";
+export type { FieldProps } from "./Field";
+
+export { Select } from "./Select";
+export type { SelectOption, SelectProps } from "./Select";
+
+export { Checkbox } from "./Checkbox";
+export type { CheckboxProps } from "./Checkbox";
+
+export { NumberField } from "./NumberField";
+export type { NumberFieldProps } from "./NumberField";
+
 export { Panel } from "./Panel";
 export type { PanelProps } from "./Panel";
 

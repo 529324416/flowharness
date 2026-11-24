@@ -27,7 +27,7 @@
 .flow {
   fill: none;
   stroke: var(--fh-edge-active);
-  stroke-width: 1.4;
+  stroke-width: var(--fh-edge-width, 1.4);
   stroke-dasharray: 3 10;
   animation: fh-edge-flow 1.2s linear infinite;
   pointer-events: none;

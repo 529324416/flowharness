@@ -1,25 +1,25 @@
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import type { RunSnapshot, WorkspaceSummary } from "@flowharness/contracts";
 import type { NodeRequirement } from "wireclaw";
-import { Plus } from "lucide-react";
 import {
     Alert,
     Button,
     EmptyState,
-    Menu,
-    MenuContent,
-    MenuItem,
-    MenuLabel,
-    MenuTrigger,
 } from "../ui";
 import { CanvasView } from "../canvas/view/CanvasView";
 import { toCanvasDocument } from "../designer/core/adapter";
-import { NODE_CATALOG } from "../designer/core/catalog";
+import { findInvalidEdges } from "../designer/core/edges";
+import { findNodeCatalogEntry, NODE_CATALOG, NODE_PRESETS } from "../designer/core/catalog";
 import { useDesignerDocument } from "../designer/state/useDesignerDocument";
 import { useDesignerRun } from "../designer/state/useDesignerRun";
+import { useRecentNodes } from "../designer/state/useRecentNodes";
 import type { InspectorModel } from "../inspector/model";
 import type { RunControls } from "../run/run-controls";
-import styles from "./DesignerView.module.css";
+import {
+    NODE_LIBRARY_MAX_HEIGHT,
+    NODE_LIBRARY_WIDTH,
+    NodeLibraryPanel,
+} from "./NodeLibraryPanel";import styles from "./DesignerView.module.css";
 
 export type DesignerSaveStatus = "saved" | "saving" | "conflict" | "error";
 
@@ -56,10 +56,17 @@ export function DesignerView({
         reload,
         applyCommand,
         addNode,
+        addNodeFromPreset,
         updateNodeConfig,
         flush,
     } = useDesignerDocument(workspace?.id ?? null);
+    const canvasRef = useRef<HTMLDivElement>(null);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+    const [libraryOpen, setLibraryOpen] = useState(false);
+    const [libraryAnchor, setLibraryAnchor] = useState<{ x: number; y: number } | null>(
+        null,
+    );
+    const { entries: recentNodes, record: recordRecentNode } = useRecentNodes();
 
     const {
         snapshot,
@@ -76,15 +83,30 @@ export function DesignerView({
 
     useEffect(() => {
         setSelectedNodeId(null);
+        setLibraryOpen(false);
+        setLibraryAnchor(null);
     }, [graph?.id]);
 
     useEffect(() => {
         reset();
     }, [workspace?.id, reset]);
 
-    const canvas = useMemo(
-        () => (graph === null ? null : toCanvasDocument(graph)),
+    const invalidEdges = useMemo(
+        () => (graph === null ? [] : findInvalidEdges(graph)),
         [graph],
+    );
+
+    const edgeStatuses = useMemo(
+        () =>
+            Object.fromEntries(
+                invalidEdges.map((edge) => [edge.id, "error" as const]),
+            ),
+        [invalidEdges],
+    );
+
+    const canvas = useMemo(
+        () => (graph === null ? null : toCanvasDocument(graph, { edgeStatuses })),
+        [edgeStatuses, graph],
     );
 
     const handleRun = useCallback(async (): Promise<void> => {
@@ -97,6 +119,47 @@ export function DesignerView({
     const handleCancel = useCallback((): void => {
         void cancel();
     }, [cancel]);
+
+    /** 右键菜单「添加节点」：把视口坐标换算成画布内坐标，并钳制在可视区域内。 */
+    const openNodeLibrary = useCallback((position: { x: number; y: number }): void => {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect === undefined) {
+            setLibraryAnchor(null);
+            setLibraryOpen(true);
+            return;
+        }
+
+        const panelWidth = NODE_LIBRARY_WIDTH;
+        const panelHeight = NODE_LIBRARY_MAX_HEIGHT;
+        const edge = 12;
+        setLibraryAnchor({
+            x: Math.min(
+                Math.max(edge, position.x - rect.left),
+                Math.max(edge, rect.width - panelWidth - edge),
+            ),
+            y: Math.min(
+                Math.max(edge, position.y - rect.top),
+                Math.max(edge, rect.height - panelHeight - edge),
+            ),
+        });
+        setLibraryOpen(true);
+    }, []);
+
+    const handleAddNode = useCallback(
+        (type: string): void => {
+            addNode(type);
+            recordRecentNode({ kind: "type", id: type });
+        },
+        [addNode, recordRecentNode],
+    );
+
+    const handleAddPreset = useCallback(
+        (presetId: string): void => {
+            addNodeFromPreset(presetId);
+            recordRecentNode({ kind: "preset", id: presetId });
+        },
+        [addNodeFromPreset, recordRecentNode],
+    );
 
     const isRunning = runStatus === "running" || runStatus === "paused";
     const editingDisabled =
@@ -111,6 +174,11 @@ export function DesignerView({
         if (status !== "ready" || graph === null || canvas === null) {
             return null;
         }
+
+        const entry =
+            selectedGraphNode === null
+                ? undefined
+                : findNodeCatalogEntry(selectedGraphNode.type);
 
         const node =
             selectedGraphNode !== null && selectedCanvasNode !== null
@@ -129,6 +197,18 @@ export function DesignerView({
                       ...(selectedCanvasNode.data.error === undefined
                           ? {}
                           : { error: selectedCanvasNode.data.error }),
+                      ...(entry?.configSchema === undefined
+                          ? {}
+                          : { configSchema: entry.configSchema }),
+                      ...(entry?.description === undefined
+                          ? {}
+                          : { description: entry.description }),
+                      ...(entry?.category === undefined
+                          ? {}
+                          : { category: entry.category }),
+                      ...(entry?.builtIn === undefined
+                          ? {}
+                          : { builtIn: entry.builtIn }),
                   }
                 : null;
 
@@ -267,13 +347,14 @@ export function DesignerView({
             ? saveState.error
             : null;
     const hasBanners =
+        invalidEdges.length > 0 ||
         issues.length > 0 ||
         displayError !== null ||
         saveState.status === "conflict" ||
         saveState.status === "error";
 
     return (
-        <div className={styles.canvas}>
+        <div ref={canvasRef} className={styles.canvas}>
             <CanvasView
                 key={workspace.id}
                 document={canvas}
@@ -283,38 +364,24 @@ export function DesignerView({
                 onCommand={applyCommand}
                 nodeStatuses={nodeStatuses}
                 readOnly={editingDisabled}
+                onAddNode={openNodeLibrary}
             />
 
-            <div className={styles.toolbar}>
-                <Menu>
-                    <MenuTrigger asChild>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={editingDisabled}
-                        >
-                            <Plus size={15} aria-hidden="true" />
-                            添加节点
-                        </Button>
-                    </MenuTrigger>
-                    <MenuContent
-                        align="start"
-                        side="bottom"
-                        className={styles.nodeMenu}
-                    >
-                        <MenuLabel>节点类型</MenuLabel>
-                        {NODE_CATALOG.map((entry) => (
-                            <MenuItem
-                                key={entry.type}
-                                disabled={entry.error !== undefined}
-                                onSelect={() => addNode(entry.type)}
-                            >
-                                {entry.title ?? entry.type}
-                            </MenuItem>
-                        ))}
-                    </MenuContent>
-                </Menu>
-            </div>
+            {libraryOpen && !editingDisabled ? (
+                <NodeLibraryPanel
+                    entries={NODE_CATALOG}
+                    presets={NODE_PRESETS}
+                    recent={recentNodes}
+                    anchor={libraryAnchor ?? undefined}
+                    disabled={editingDisabled}
+                    onAdd={handleAddNode}
+                    onAddPreset={handleAddPreset}
+                    onClose={() => {
+                        setLibraryOpen(false);
+                        setLibraryAnchor(null);
+                    }}
+                />
+            ) : null}
 
             {hasBanners ? (
                 <div className={styles.banners}>
@@ -342,6 +409,19 @@ export function DesignerView({
                                     关闭
                                 </Button>
                             </div>
+                        </Alert>
+                    ) : null}
+
+                    {invalidEdges.length > 0 ? (
+                        <Alert tone="warning" title="存在失效连线">
+                            <ul className={styles.issues}>
+                                {invalidEdges.slice(0, 3).map((edge) => (
+                                    <li key={edge.id}>{edge.message}</li>
+                                ))}
+                                {invalidEdges.length > 3 ? (
+                                    <li>还有 {invalidEdges.length - 3} 条失效连线…</li>
+                                ) : null}
+                            </ul>
                         </Alert>
                     ) : null}
 

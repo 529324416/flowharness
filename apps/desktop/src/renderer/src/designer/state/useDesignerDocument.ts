@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GraphDocument } from "wireclaw";
+import { applyPresetParameters } from "wireclaw";
 import type { CanvasCommand } from "../../canvas/core/types";
 import {
     addNode,
@@ -8,7 +9,11 @@ import {
     nextNodePosition,
     updateNodeConfig as updateNodeConfigCommand,
 } from "../core/commands";
-import { findNodeCatalogEntry } from "../core/catalog";
+import {
+    defaultConfigOf,
+    findNodeCatalogEntry,
+    NODE_PRESETS,
+} from "../core/catalog";
 import {
     MAIN_GRAPH_REF,
     cloneMainGraphTemplate,
@@ -34,6 +39,7 @@ export type UseDesignerDocumentResult = DesignerDocumentState & {
     reload: () => void;
     applyCommand: (command: CanvasCommand) => void;
     addNode: (type: string) => void;
+    addNodeFromPreset: (presetId: string) => void;
     updateNodeConfig: (nodeId: string, config: unknown) => void;
     flush: () => Promise<void>;
 };
@@ -190,14 +196,34 @@ export function useDesignerDocument(workspaceId: string | null): UseDesignerDocu
                 type: entry.type,
                 typeVersion: entry.version,
                 position: nextNodePosition(current),
+                config: defaultConfigOf(entry),
             });
             if (next !== current) commit(next);
         },
         [commit],
     );
 
-    const updateNodeConfig = useCallback(
-        (nodeId: string, config: unknown) => {
+    const addNodeFromPreset = useCallback(
+        (presetId: string) => {
+            const current = documentRef.current;
+            if (current === null) return;
+
+            const preset = NODE_PRESETS.find((item) => item.presetId === presetId);
+            if (preset === undefined) return;
+
+            const next = addNode(current, {
+                id: createNodeId(current),
+                type: preset.type,
+                typeVersion: preset.typeVersion,
+                position: nextNodePosition(current),
+                config: applyPresetParameters(preset, {}),
+            });
+            if (next !== current) commit(next);
+        },
+        [commit],
+    );
+
+    const updateNodeConfig = useCallback(        (nodeId: string, config: unknown) => {
             const current = documentRef.current;
             if (current === null) return;
 
@@ -217,6 +243,7 @@ export function useDesignerDocument(workspaceId: string | null): UseDesignerDocu
         reload,
         applyCommand,
         addNode: addNodeByType,
+        addNodeFromPreset,
         updateNodeConfig,
         flush,
     };

@@ -2,6 +2,7 @@ import type { PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { IconButton } from "../../ui";
 import { cx } from "../../ui/cx";
+import { PANEL_HEADER_HEIGHT } from "../../layout-metrics";
 import styles from "./PanelFrame.module.css";
 
 export type PanelFrameProps = {
@@ -43,9 +44,11 @@ export function PanelFrame({
             className={cx(styles.frame, className)}
             aria-label={title}
             data-collapsed={collapsed ? "true" : undefined}
+            style={collapsed ? { height: PANEL_HEADER_HEIGHT } : undefined}
         >
             <header
                 className={styles.header}
+                style={{ height: PANEL_HEADER_HEIGHT }}
                 onPointerDown={onHeaderPointerDown}
                 onPointerMove={onHeaderPointerMove}
                 onPointerUp={onHeaderPointerUp}

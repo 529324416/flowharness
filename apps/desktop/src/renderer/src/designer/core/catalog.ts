@@ -1,20 +1,124 @@
 import {
     createBuiltinNodeRegistry,
+    createEditorCatalog,
     describeNodeType,
-    describeNodeTypes,
+    type JsonObject,
     type JsonValue,
     type NodeCatalogEntry,
+    type NodePresetDocument,
 } from "wireclaw";
+import { designerPresetLibrary } from "./presets";
 
 /** 设计器使用的内建节点注册表；后续可在这里合并宿主注册的节点类型。 */
 export const designerRegistry = createBuiltinNodeRegistry();
 
-/** 添加节点菜单/节点库共用；按默认 config 生成端口与错误信息。 */
-export const NODE_CATALOG: readonly NodeCatalogEntry[] =
-    describeNodeTypes(designerRegistry);
+/**
+ * 编辑器目录：节点类型 + 预设 + 目录版本。
+ *
+ * 用 `createEditorCatalog` 而不是 `describeNodeTypes`，这样默认 config、
+ * configSchema、分类与预设都来自 wireclaw，FH 侧不再维护第二份节点元数据。
+ */
+export const EDITOR_CATALOG = createEditorCatalog(designerRegistry, {
+    presets: designerPresetLibrary,
+});
+
+export const NODE_CATALOG: readonly NodeCatalogEntry[] = EDITOR_CATALOG.nodeTypes;
+
+export const NODE_PRESETS: readonly NodePresetDocument[] = EDITOR_CATALOG.presets;
+
+/** 分类顺序与显示名；未知分类排到最后并使用原始 id。 */
+const CATEGORY_LABELS: Readonly<Record<string, string>> = {
+    io: "输入 / 输出",
+    data: "数据",
+    model: "模型",
+    control: "控制流",
+    composite: "组合",
+    tool: "工具",
+    event: "事件与日志",
+};
+
+const CATEGORY_ORDER: readonly string[] = [
+    "io",
+    "data",
+    "model",
+    "control",
+    "composite",
+    "tool",
+    "event",
+];
+
+export type NodeCatalogGroup = {
+    id: string;
+    label: string;
+    entries: readonly NodeCatalogEntry[];
+};
+
+export function categoryLabel(category: string | undefined): string {
+    if (category === undefined) return "其他";
+    return CATEGORY_LABELS[category] ?? category;
+}
+
+/** 按分类分组；组内保持注册顺序，空分类不返回。 */
+export function groupNodeCatalog(
+    entries: readonly NodeCatalogEntry[] = NODE_CATALOG,
+): readonly NodeCatalogGroup[] {
+    const groups = new Map<string, NodeCatalogEntry[]>();
+
+    for (const entry of entries) {
+        const id = entry.category ?? "other";
+        const bucket = groups.get(id);
+        if (bucket === undefined) {
+            groups.set(id, [entry]);
+        } else {
+            bucket.push(entry);
+        }
+    }
+
+    const order = [...CATEGORY_ORDER];
+    for (const id of groups.keys()) {
+        if (!order.includes(id)) order.push(id);
+    }
+
+    return order
+        .filter((id) => groups.has(id))
+        .map((id) => ({
+            id,
+            label: categoryLabel(id === "other" ? undefined : id),
+            entries: groups.get(id) ?? [],
+        }));
+}
+
+function searchText(entry: NodeCatalogEntry): string {
+    return [
+        entry.title ?? "",
+        entry.type,
+        entry.description ?? "",
+        entry.category ?? "",
+        ...(entry.keywords ?? []),
+    ]
+        .join(" ")
+        .toLowerCase();
+}
+
+/** 标题 / 类型 / 描述 / 关键词的包含匹配。 */
+export function searchNodeCatalog(
+    query: string,
+    entries: readonly NodeCatalogEntry[] = NODE_CATALOG,
+): readonly NodeCatalogEntry[] {
+    const needle = query.trim().toLowerCase();
+    if (needle.length === 0) return entries;
+    return entries.filter((entry) => searchText(entry).includes(needle));
+}
 
 export function findNodeCatalogEntry(type: string): NodeCatalogEntry | undefined {
     return NODE_CATALOG.find((entry) => entry.type === type);
+}
+
+/** 深拷贝类型默认 config；没有默认值时返回 undefined。 */
+export function defaultConfigOf(entry: NodeCatalogEntry): JsonValue | undefined {
+    return entry.defaultConfig === undefined
+        ? undefined
+        : structuredClone(entry.defaultConfig);
 }
 
 export type DesignerPort = {
@@ -68,3 +172,6 @@ function toDesignerPort(port: { name: string; type: string }): DesignerPort {
 function errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
+
+/** 供表单组件复用的 JSON Schema 类型别名。 */
+export type DesignerConfigSchema = JsonObject;

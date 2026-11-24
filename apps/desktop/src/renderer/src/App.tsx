@@ -13,6 +13,11 @@ import { AppShell } from "./shell/AppShell";
 import { TitleBar } from "./shell/TitleBar";
 import { RibbonBar } from "./shell/RibbonBar";
 import { SessionSidebar } from "./shell/SessionSidebar";
+import {
+    SIDEBAR_DEFAULT_WIDTH,
+    SIDEBAR_MAX_WIDTH,
+    SIDEBAR_MIN_WIDTH,
+} from "./layout-metrics";
 import { StatusBar } from "./shell/StatusBar";
 import { createSession, INITIAL_SESSIONS, type SessionSummary } from "./shell/sessions";
 import { PanelLayer } from "./shell/panels/PanelLayer";
@@ -52,12 +57,12 @@ function readSidebarOpen(): boolean {
 function readSidebarWidth(): number {
     try {
         const raw = localStorage.getItem(SIDEBAR_WIDTH_KEY);
-        if (raw === null) return 260;
+        if (raw === null) return SIDEBAR_DEFAULT_WIDTH;
         const value = Number(raw);
-        if (!Number.isFinite(value)) return 260;
-        return Math.min(360, Math.max(200, value));
+        if (!Number.isFinite(value)) return SIDEBAR_DEFAULT_WIDTH;
+        return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, value));
     } catch {
-        return 260;
+        return SIDEBAR_DEFAULT_WIDTH;
     }
 }
 

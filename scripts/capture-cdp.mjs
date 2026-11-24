@@ -58,7 +58,7 @@ try {
 
     // Optional deterministic UI state for visual baselines:
     // designer (panels open) | designer-run (run once) | canvas (panels closed) |
-    // canvas-zoom | styleguide | styleguide-nodes.
+    // canvas-zoom | styleguide | styleguide-nodes | designer-form | designer-library.
     const scenario = process.env.FH_CAPTURE_SCENARIO;
     const evaluate = (expression) =>
         send("Runtime.evaluate", {
@@ -69,7 +69,7 @@ try {
     const settle = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const clickElement = async (expression) => {
         const rect = await send("Runtime.evaluate", {
-            expression: `(() => { const element = ${expression}; if (!element) return null; const rect = element.getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`,
+            expression: `(() => { const element = ${expression}; if (!element) return null; element.scrollIntoView({ block: 'nearest', inline: 'nearest' }); const rect = element.getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`,
             returnByValue: true,
         });
         const point = rect.result?.value;
@@ -91,6 +91,17 @@ try {
         return true;
     };
 
+    const openNodeLibrary = async () => {
+        await evaluate(
+            `(() => { const pane = document.querySelector('.react-flow__pane'); if (!pane) return false; pane.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 640, clientY: 360, button: 2 })); return true; })()`,
+        );
+        await settle(300);
+        await clickElement(
+            `[...document.querySelectorAll('[role="menu"] button')].find((button) => button.textContent?.includes('添加节点'))`,
+        );
+        await settle(400);
+    };
+
     if (
         scenario === "designer" ||
         scenario === "canvas" ||
@@ -98,7 +109,17 @@ try {
         scenario === "designer-run" ||
         scenario === "designer-edit" ||
         scenario === "designer-drag" ||
-        scenario === "designer-config"
+        scenario === "designer-config" ||
+        scenario === "designer-form" ||
+        scenario === "designer-form-edit" ||
+        scenario === "designer-schema" ||
+        scenario === "designer-preset" ||
+        scenario === "designer-library" ||
+        scenario === "designer-menu" ||
+        scenario === "designer-recent" ||
+        scenario === "designer-panels" ||
+        scenario === "designer-select" ||
+        scenario === "designer-toggle"
     ) {
         await evaluate(`document.querySelector('[data-session-id]')?.click()`);
         await settle(600);
@@ -115,14 +136,160 @@ try {
         });
         console.log(`node count: ${JSON.stringify(nodeCount.result?.value)}`);
 
-        if (scenario === "designer" || scenario === "designer-config") {
+        if (
+            scenario === "designer" ||
+            scenario === "designer-config" ||
+            scenario === "designer-form" ||
+            scenario === "designer-form-edit"
+        ) {
             await clickElement(
                 `document.querySelector('.react-flow__node[data-id="constant"]')`,
             );
             await settle(500);
         }
 
+        if (scenario === "designer-recent") {
+            await openNodeLibrary();
+            await clickElement(
+                `[...document.querySelectorAll('[role="dialog"] button')].find((item) => item.textContent?.includes('文本常量'))`,
+            );
+            await settle(1200);
+            await openNodeLibrary();
+            await settle(400);
+        }
+
+        if (scenario === "designer-select") {
+            await evaluate(
+                `[...document.querySelectorAll('.react-flow__node')].find((node) => node.textContent?.includes('Agent Run'))?.click()`,
+            );
+            await settle(400);
+            await evaluate(
+                `(() => { const body = document.querySelector('section[aria-label="属性"] > div'); if (body) body.scrollTop = 0; return true; })()`,
+            );
+            await settle(200);
+            await clickElement(
+                `[...document.querySelectorAll('section[aria-label="属性"] button')].find((button) => button.textContent?.trim() === '只读')`,
+            );
+            await settle(400);
+        }
+
+        if (scenario === "designer-toggle") {
+            await evaluate(
+                `[...document.querySelectorAll('.react-flow__node')].find((node) => node.textContent?.includes('Agent Run'))?.click()`,
+            );
+            await settle(400);
+            await clickElement(
+                `[...document.querySelectorAll('section[aria-label="属性"] label')].find((label) => label.textContent?.includes('启用思考'))`,
+            );
+            await settle(400);
+        }
+
+        if (scenario === "designer-panels") {
+            const sidebar = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelector('aside[aria-label=\"会话列表\"]')?.getBoundingClientRect().width",
+                returnByValue: true,
+            });
+            const inspector = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelector('section[aria-label=\"属性\"]')?.getBoundingClientRect().width",
+                returnByValue: true,
+            });
+            console.log(`sidebar width: ${JSON.stringify(sidebar.result?.value)}`);
+            console.log(`inspector width: ${JSON.stringify(inspector.result?.value)}`);
+            await clickElement(
+                `document.querySelector('section[aria-label="属性"] button[aria-label="折叠面板"]')`,
+            );
+            await settle(400);
+            const collapsed = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelector('section[aria-label=\"属性\"]')?.getBoundingClientRect().height",
+                returnByValue: true,
+            });
+            console.log(`collapsed height: ${JSON.stringify(collapsed.result?.value)}`);
+        }
+
+        if (scenario === "designer-menu") {
+            await evaluate(
+                `(() => { const pane = document.querySelector('.react-flow__pane'); if (!pane) return false; pane.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 640, clientY: 360, button: 2 })); return true; })()`,
+            );
+            await settle(400);
+        }
+
+        if (scenario === "designer-library") {
+            await openNodeLibrary();
+            await settle(300);
+        }
+
+        if (scenario === "designer-preset") {
+            await openNodeLibrary();
+            await clickElement(
+                `[...document.querySelectorAll('[role="dialog"] button')].find((item) => item.textContent?.includes('文本常量'))`,
+            );
+            await settle(1500);
+            const presetCount = await send("Runtime.evaluate", {
+                expression: "document.querySelectorAll('.react-flow__node').length",
+                returnByValue: true,
+            });
+            const presetSave = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelector('footer [data-state]')?.textContent",
+                returnByValue: true,
+            });
+            console.log(
+                `preset node count: ${JSON.stringify(presetCount.result?.value)}`,
+            );
+            console.log(
+                `preset save status: ${JSON.stringify(presetSave.result?.value)}`,
+            );
+        }
+
+        if (scenario === "designer-schema") {
+            await clickElement(
+                `[...document.querySelectorAll('.react-flow__node')].find((node) => node.textContent?.includes('Agent Run'))`,
+            );
+            await settle(500);
+            await evaluate(
+                `(() => { const body = document.querySelector('section[aria-label="属性"] > div'); if (body) body.scrollTop = body.scrollHeight; return true; })()`,
+            );
+            await settle(300);
+        }
+
+        if (scenario === "designer-form") {
+            await evaluate(
+                `(() => { const body = document.querySelector('section[aria-label="属性"] > div'); if (body) body.scrollTop = body.scrollHeight; return true; })()`,
+            );
+            await settle(300);
+        }
+
+        if (scenario === "designer-form-edit") {
+            await evaluate(
+                `(() => { const body = document.querySelector('section[aria-label="属性"] > div'); if (body) body.scrollTop = body.scrollHeight; return true; })()`,
+            );
+            await settle(300);
+            const value = JSON.stringify(
+                { value: { type: "text", text: "edited from form" } },
+                null,
+                2,
+            );
+            const edited = await evaluate(
+                `(() => { const area = document.querySelector('section[aria-label="属性"] textarea'); if (!area) return false; const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; setter.call(area, ${JSON.stringify(value)}); area.dispatchEvent(new Event('input', { bubbles: true })); area.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); return true; })()`,
+            );
+            console.log(`form editor found: ${JSON.stringify(edited.result?.value)}`);
+            await settle(1500);
+            const save = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelector('footer [data-state]')?.textContent",
+                returnByValue: true,
+            });
+            console.log(`form save status: ${JSON.stringify(save.result?.value)}`);
+        }
+
         if (scenario === "designer-config") {
+            await clickElement(
+                `[...document.querySelectorAll('button[role="tab"]')].find((button) => button.textContent?.trim() === 'JSON')`,
+            );
+            await settle(300);
             const config = JSON.stringify(
                 { value: { type: "text", text: "edited from inspector" } },
                 null,
@@ -188,12 +355,9 @@ try {
         }
 
         if (scenario === "designer-edit") {
+            await openNodeLibrary();
             await clickElement(
-                `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '添加节点')`,
-            );
-            await settle(400);
-            await clickElement(
-                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.trim() === 'Constant')`,
+                `[...document.querySelectorAll('[role="dialog"] button')].find((item) => item.textContent?.includes('Constant'))`,
             );
             await settle(1500);
             const edited = await send("Runtime.evaluate", {
@@ -254,6 +418,13 @@ try {
         await settle(400);
         await evaluate(
             `[...document.querySelectorAll('h2')].find((node) => node.textContent === '画布节点')?.scrollIntoView({ block: 'center' })`,
+        );
+        await settle(300);
+    } else if (scenario === "styleguide-form") {
+        await evaluate(`document.querySelector('button[aria-label="样式指南"]')?.click()`);
+        await settle(400);
+        await evaluate(
+            `[...document.querySelectorAll('h2')].find((node) => node.textContent === '表单控件')?.scrollIntoView({ block: 'center' })`,
         );
         await settle(300);
     } else if (scenario) {

@@ -47,6 +47,13 @@
   gap: var(--fh-space-3);
 }
 
+.description {
+  margin: 0;
+  color: var(--fh-text-muted);
+  font-size: var(--fh-text-xs);
+  line-height: var(--fh-leading-normal);
+}
+
 .portColumn {
   display: flex;
   min-width: 0;

@@ -8,7 +8,7 @@
   border-radius: 8px;
   background: color-mix(
     in srgb,
-    var(--fh-surface-overlay) calc(var(--fh-panel-alpha) * 100%),
+    var(--fh-panel-bg) calc(var(--fh-panel-alpha) * 100%),
     transparent
   );
   box-shadow: var(--fh-shadow-2);
@@ -19,12 +19,11 @@
   align-items: center;
   gap: 6px;
   flex: none;
-  height: 34px;
   padding: 0 4px 0 9px;
   border-bottom: 1px solid var(--fh-border);
   background: color-mix(
     in srgb,
-    var(--fh-surface-raised) calc(var(--fh-panel-alpha) * 100%),
+    var(--fh-panel-header-bg) calc(var(--fh-panel-alpha) * 100%),
     transparent
   );
   cursor: grab;
@@ -70,8 +69,4 @@
   color: var(--fh-text-subtle);
   font-family: var(--fh-font-mono);
   font-size: var(--fh-text-2xs);
-}
-
-.frame[data-collapsed="true"] {
-  height: 34px;
 }

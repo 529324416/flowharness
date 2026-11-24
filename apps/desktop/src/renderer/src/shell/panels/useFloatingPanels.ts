@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from "react";
+import { PANEL_DEFAULTS, type PanelId } from "../../layout-metrics";
 
-export type PanelId = "run-log" | "inspector";
+export type { PanelId };
+export { PANEL_DEFAULTS };
 
 export type FloatingPanelState = {
     id: PanelId;
@@ -12,14 +14,6 @@ export type FloatingPanelState = {
     width: number;
     height: number;
     z: number;
-};
-
-export const PANEL_DEFAULTS: Record<
-    PanelId,
-    { width: number; height: number; title: string }
-> = {
-    "run-log": { width: 448, height: 224, title: "运行日志" },
-    inspector: { width: 256, height: 432, title: "属性" },
 };
 
 const INITIAL_PANELS: FloatingPanelState[] = [

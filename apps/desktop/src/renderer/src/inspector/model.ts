@@ -1,3 +1,4 @@
+import type { JsonObject } from "wireclaw";
 import type { CanvasPort, CanvasStatus } from "../canvas/core/types";
 
 export type InspectorNodeModel = {
@@ -11,6 +12,11 @@ export type InspectorNodeModel = {
     requirements: readonly string[];
     config: unknown;
     error?: string;
+    /** 节点类型的 configSchema（wireclaw 受支持子集）；缺失时检查器只有 JSON。 */
+    configSchema?: JsonObject;
+    description?: string;
+    category?: string;
+    builtIn?: boolean;
 };
 
 export type InspectorGraphModel = {

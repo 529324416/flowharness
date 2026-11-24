@@ -7,12 +7,13 @@ import {
 } from "react";
 import type { FloatingPanelState, PanelId } from "./useFloatingPanels";
 import { PanelFrame } from "./PanelFrame";
+import {
+    PANEL_EDGE,
+    PANEL_HEADER_HEIGHT,
+    PANEL_MIN_HEIGHT,
+    PANEL_MIN_WIDTH,
+} from "../../layout-metrics";
 import styles from "./FloatingPanel.module.css";
-
-const HEADER_HEIGHT = 32;
-const MIN_WIDTH = 280;
-const MIN_HEIGHT = 140;
-const EDGE = 16;
 
 type ResizeDirection = "e" | "s" | "se";
 
@@ -66,18 +67,20 @@ export function FloatingPanel({
         height: number;
     } | null>(null);
 
-    const maxWidth = Math.max(MIN_WIDTH, containerWidth - EDGE * 2);
-    const maxHeight = Math.max(MIN_HEIGHT, containerHeight - EDGE * 2);
-    const width = clamp(panel.width, MIN_WIDTH, maxWidth);
-    const height = clamp(panel.height, MIN_HEIGHT, maxHeight);
-    const collapsedHeight = HEADER_HEIGHT;
+    const maxWidth = Math.max(PANEL_MIN_WIDTH, containerWidth - PANEL_EDGE * 2);
+    const maxHeight = Math.max(PANEL_MIN_HEIGHT, containerHeight - PANEL_EDGE * 2);
+    const width = clamp(panel.width, PANEL_MIN_WIDTH, maxWidth);
+    const height = clamp(panel.height, PANEL_MIN_HEIGHT, maxHeight);
+    const collapsedHeight = PANEL_HEADER_HEIGHT;
 
     const defaultLeft =
-        panel.id === "run-log" ? EDGE : Math.max(EDGE, containerWidth - width - EDGE);
+        panel.id === "run-log"
+            ? PANEL_EDGE
+            : Math.max(PANEL_EDGE, containerWidth - width - PANEL_EDGE);
     const defaultTop =
         panel.id === "run-log"
-            ? Math.max(EDGE, containerHeight - height - EDGE)
-            : EDGE;
+            ? Math.max(PANEL_EDGE, containerHeight - height - PANEL_EDGE)
+            : PANEL_EDGE;
 
     const left = clamp(panel.x ?? defaultLeft, 0, containerWidth - width);
     const top = clamp(
@@ -167,11 +170,19 @@ export function FloatingPanel({
         const nextWidth =
             state.direction === "s"
                 ? state.width
-                : clamp(state.width + dx, MIN_WIDTH, containerWidth - state.left);
+                : clamp(
+                      state.width + dx,
+                      PANEL_MIN_WIDTH,
+                      containerWidth - state.left,
+                  );
         const nextHeight =
             state.direction === "e"
                 ? state.height
-                : clamp(state.height + dy, MIN_HEIGHT, containerHeight - state.top);
+                : clamp(
+                      state.height + dy,
+                      PANEL_MIN_HEIGHT,
+                      containerHeight - state.top,
+                  );
 
         onUpdate(panel.id, { width: nextWidth, height: nextHeight });
     };

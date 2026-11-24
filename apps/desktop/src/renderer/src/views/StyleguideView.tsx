@@ -1,9 +1,10 @@
-import type { ReactElement, ReactNode } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import {
     Alert,
     Badge,
     Button,
+    Checkbox,
     ContextMenu,
     ContextMenuContent,
     ContextMenuItem,
@@ -15,6 +16,7 @@ import {
     DialogContent,
     DialogTrigger,
     EmptyState,
+    Field,
     IconButton,
     Input,
     Kbd,
@@ -25,6 +27,8 @@ import {
     MenuSeparator,
     MenuShortcut,
     MenuTrigger,
+    NumberField,
+    Select,
     StatusDot,
     Tabs,
     TabsContent,
@@ -127,6 +131,10 @@ function Section({
 }
 
 export function StyleguideView(): ReactElement {
+    const [mode, setMode] = useState("chat");
+    const [enabled, setEnabled] = useState(true);
+    const [temperature, setTemperature] = useState<number | undefined>(0.7);
+
     return (
         <div className={styles.root}>
             <header className={styles.pageHeader}>
@@ -246,6 +254,42 @@ export function StyleguideView(): ReactElement {
                             defaultValue="deepseek"
                             error="该 Provider 尚未配置密钥"
                         />
+                    </div>
+                </Section>
+
+                <Section
+                    title="表单控件"
+                    description="形态取自节点 configSchema 表单；标签 / 提示 / 错误仍走 Field 与 Input 的约定。"
+                >
+                    <div className={styles.inputGrid}>
+                        <Field label="模式" hint="枚举字段渲染为原生 select " htmlFor="sg-mode">
+                            <Select
+                                id="sg-mode"
+                                value={mode}
+                                options={[
+                                    { value: "chat", label: "对话" },
+                                    { value: "generate", label: "生成" },
+                                ]}
+                                onChange={setMode}
+                            />
+                        </Field>
+                        <Field label="Temperature" hint="数字字段失焦时提交" htmlFor="sg-temp">
+                            <NumberField
+                                id="sg-temp"
+                                value={temperature}
+                                min={0}
+                                max={2}
+                                step="any"
+                                onChange={setTemperature}
+                            />
+                        </Field>
+                        <Field label="宿主工具" error="示例错误：字段值不合法">
+                            <Checkbox
+                                checked={enabled}
+                                label="允许 askUser"
+                                onChange={setEnabled}
+                            />
+                        </Field>
                     </div>
                 </Section>
 
@@ -370,7 +414,7 @@ export function StyleguideView(): ReactElement {
                         rows={[
                             ["节点宽", `${CANVAS_METRICS.nodeWidth}px`],
                             ["头部高", `${CANVAS_METRICS.nodeHeaderHeight}px`],
-                            ["端口", `${CANVAS_METRICS.portSize}px / 命中 ${CANVAS_METRICS.portHitRadius}px`],
+                            ["端口", `${CANVAS_METRICS.portSize}px / 热区 ${CANVAS_METRICS.portHitSize}px`],
                             ["连线", `${CANVAS_METRICS.edgeWidth}px 贝塞尔`],
                             ["网格", `${CANVAS_METRICS.gridSize}px`],
                         ]}

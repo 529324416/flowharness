@@ -4,6 +4,7 @@ import {
     useMemo,
     useRef,
     useState,
+    type CSSProperties,
     type ReactElement,
 } from "react";
 import {
@@ -56,6 +57,8 @@ export type CanvasViewProps = {
     onCommand?: (command: CanvasCommand) => void;
     readOnly?: boolean;
     nodeStatuses?: Readonly<Record<string, CanvasStatus>>;
+    /** 右键菜单「添加节点」；位置是视口坐标（clientX / clientY）。 */
+    onAddNode?: (position: { x: number; y: number }) => void;
 };
 
 function toFlowNodes(
@@ -99,6 +102,7 @@ export function CanvasView({
     onCommand,
     readOnly = false,
     nodeStatuses,
+    onAddNode,
 }: CanvasViewProps): ReactElement {
     const rootRef = useRef<HTMLDivElement>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(
@@ -251,13 +255,32 @@ export function CanvasView({
         setMenu(null);
     };
 
+    const addNode = (): void => {
+        if (readOnly) return;
+
+        onAddNode?.({ x: menu?.x ?? 0, y: menu?.y ?? 0 });
+        setMenu(null);
+    };
+
     const fitView = (): void => {
         void instance?.fitView({ padding: 0.22, duration: 300 });
         setMenu(null);
     };
 
     return (
-        <div ref={rootRef} className={styles.root}>
+        <div
+            ref={rootRef}
+            className={styles.root}
+            style={
+                {
+                    "--fh-node-width": `${String(CANVAS_METRICS.nodeWidth)}px`,
+                    "--fh-node-header-height": `${String(CANVAS_METRICS.nodeHeaderHeight)}px`,
+                    "--fh-port-size": `${String(CANVAS_METRICS.portSize)}px`,
+                    "--fh-port-hit-size": `${String(CANVAS_METRICS.portHitSize)}px`,
+                    "--fh-edge-width": `${String(CANVAS_METRICS.edgeWidth)}px`,
+                } as CSSProperties
+            }
+        >
             <ReactFlow<FlowNode, FlowEdge>
                 className={styles.flow}
                 nodes={nodes}
@@ -290,7 +313,7 @@ export function CanvasView({
             >
                 <Background
                     variant={BackgroundVariant.Lines}
-                    gap={24}
+                    gap={CANVAS_METRICS.gridSize}
                     size={1}
                     color="var(--fh-canvas-grid)"
                 />
@@ -332,6 +355,16 @@ export function CanvasView({
                         style={{ left: menu.x, top: menu.y }}
                         role="menu"
                     >
+                        {!readOnly ? (
+                            <button
+                                type="button"
+                                className={styles.menuItem}
+                                role="menuitem"
+                                onClick={addNode}
+                            >
+                                添加节点
+                            </button>
+                        ) : null}
                         {menu.nodeId && !readOnly ? (
                             <button
                                 type="button"

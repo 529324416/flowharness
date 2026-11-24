@@ -21,6 +21,10 @@
   /* Floating panel translucency: single knob, adjusted by future UI settings */
   --fh-panel-alpha: 0.95;
 
+  /* Floating panel surfaces — deliberately deeper than --fh-node-bg */
+  --fh-panel-bg: #080a0d;
+  --fh-panel-header-bg: #0b0e12;
+
   /* Text */
   --fh-text: #e8edf0;
   --fh-text-muted: #98a2ac;
@@ -106,12 +110,10 @@
   /* Layout sizes */
   --fh-titlebar-height: 40px;
   --fh-rail-width: 52px;
-  --fh-sidebar-width: 280px;
-  --fh-sidebar-min: 220px;
-  --fh-sidebar-max: 380px;
-  --fh-inspector-width: 320px;
+  --fh-sidebar-width: 260px;
+  --fh-sidebar-min: 200px;
+  --fh-sidebar-max: 360px;
   --fh-statusbar-height: 26px;
-  --fh-panel-height: 200px;
   --fh-control-height: 32px;
   --fh-control-height-sm: 28px;
   --fh-panel-gap: 4px;
@@ -122,7 +124,6 @@
   --fh-z-canvas: 0;
   --fh-z-rail: 10;
   --fh-z-titlebar: 20;
-  --fh-z-topbar: 20;
   --fh-z-overlay: 100;
   --fh-z-modal: 200;
   --fh-z-toast: 300;
@@ -138,6 +139,9 @@
   --fh-surface-overlay: #ffffff;
   --fh-surface-solid: #ffffff;
   --fh-body-bg: rgb(238 241 244 / 0.95);
+
+  --fh-panel-bg: #eef1f4;
+  --fh-panel-header-bg: #e7ebef;
 
   --fh-text: #12161a;
   --fh-text-muted: #58626c;

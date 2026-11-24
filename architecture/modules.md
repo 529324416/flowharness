@@ -20,7 +20,7 @@
 | L3 | App Shell | 应用外壳、主题 provider、模块宿主 | 🚧 外壳与主题已实现，模块注册表未开始 |
 | L4 | Canvas | 无框架画布核心 + React 视图 | ✅（core 仅几何/边 key/类型） |
 | L4 | Workbench Framework | 工作台契约、运行控制、命令与保存 | ⬜ 未实现 |
-| L5 | Harness Designer | 默认工作台，框架的参考实现 | ✅ 最小版本（M1） |
+| L5 | Harness Designer | 默认工作台，框架的参考实现 | ✅ M3 |
 | L5 | Other Workbenches | 面向不同目标的工作台 | ⬜ 未实现 |
 
 图例：✅ 已实现 ｜ 🚧 部分实现 ｜ ⬜ 未开始
@@ -218,7 +218,7 @@ interface RuntimeHost {
 **职责**：通用画布能力，**与 Harness 无关**。
 
 - core（纯 TS）：当前只有 `geometry`（屏幕↔世界坐标、矩形包含/相交）、`edge-key` 与 `CanvasNode/CanvasEdge/CanvasDocument/CanvasCommand` 类型；**命令**（`applyCanvasCommand` / `addNode` / `updateNodeConfig`）在 `designer/core/commands.ts`，**动画**是 CSS 实现（流动虚线等），没有 `CanvasAnimationApi`；
-- view（React）：视口、节点层、连线层、小地图、ContextMenu；没有 `<Controls>`（左下缩放工具栏已移除）；
+- view（React）：视口、节点层、连线层、小地图、ContextMenu、运行态节点/边状态与问题定位聚焦；没有 `<Controls>`（左下缩放工具栏已移除）；
 - NodeContent 由 registry 注入，画布本身不渲染任何业务节点。
 
 ```ts
@@ -259,12 +259,12 @@ interface WorkbenchController {
 
 **职责**：默认工作台，可拖拽、连线、校验、运行、导入导出。
 
-**当前实现（M1）**：加载/保存工作区 `main` 图、画布编辑（移动 / 连线 / 删除 / 添加节点 / viewport）、400ms 自动保存与冲突、运行前 `validate()`、运行日志与检查器（原始 JSON config）。
+**当前实现（M3）**：加载/保存工作区 `main` 图、画布编辑（移动 / 连线 / 删除 / 添加节点 / viewport）、400ms 自动保存与冲突、运行前递归 `validate()`、问题面板（定位节点 / 边）、运行日志与检查器、节点 / 边运行状态与暂停·继续。
 
 - 节点面板数据来自 wireclaw：`createEditorCatalog(registry, { presets })` → `NodeCatalogEntry[]` + presets（M2 已接入，含默认 config / configSchema / 分类 / 关键词）；
 - `GraphDocument` → `CanvasDocument` 单向 adapter 由设计器实现（`designer/core/adapter.ts`）；
 - 布局写入 `GraphDocument.ui`（节点 `ui` 与图级 `ui`）；实例级覆盖（`layout.overrides`）随 Workbench Framework 落地；
-- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；`requirements` 校验留到 M3；
+- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌图递归校验与问题定位已在 M3 接入，`requirements` catalog 的宿主来源等 M6；
 - 目标：导入导出就是 `GraphDocument` 的 JSON —— **尚未实现**，当前只有 `.fhws` 整工作区导入导出。
 
 ## 15. Other Workbenches（L5）

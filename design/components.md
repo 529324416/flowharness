@@ -64,6 +64,7 @@
 - `FloatingPanel`：拖动、右/下/右下缩放、z-index 聚焦、折叠、关闭；位置钳制在画布容器内；
 - `PanelLayer`：铺在 Main 之上，默认属性面板右上（280×432）、运行日志左下（448×224）；
 - 面板背景默认 95% 不透明（`--fh-panel-alpha`），底色用比节点更深的 `--fh-panel-bg`、头部 `--fh-panel-header-bg`，后续设置项只改 alpha；
+- 运行日志面板：「日志 / 问题」两个页签；问题页签汇总校验、失效连线与运行错误，点击条目选中并聚焦对应节点；
 - 开关：TitleBar 图标、命令中心、`Ctrl J`；首版不做 docking；
 - PanelLayer 只在设计器视图渲染（设计器内始终挂载）；面板开关要求「设计器 + 已打开工作区」，与会话选择无关；Diagnostics / Styleguide 不渲染 PanelLayer。
 

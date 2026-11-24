@@ -53,7 +53,7 @@ start → running → completed
 | `attachments` | SessionService → `AttachmentFileManager` → `WorkspaceFileHost` | 按 contentHash 读写 |
 | `onToolApproval(request, nodeId)` | IPC 往返到 renderer 审批 UI | 超时默认拒绝；**审批 UI 未接** |
 | `onUserInput(request, nodeId)` | IPC 往返到 renderer 表单 | 超时/取消返回取消结果；**输入 UI 未接** |
-| `parameters` | 工作台实例参数 + 运行入参 | 用于 `NodeRequirement(kind: "parameter")` 校验；**requirements 校验收在 M3** |
+| `parameters` | 工作台实例参数 + 运行入参 | 用于 `NodeRequirement(kind: "parameter")` 校验；静态校验已支持 catalog 递归下传，**宿主 catalog 来源待 M6** |
 | `log(level, message, data)` | Logging（脱敏） | 不写密钥、不写完整工具参数（当前走 `console`） |
 
 ## 5. 事件管道
@@ -76,7 +76,9 @@ GraphRun.onEvent(event)            // wireclaw：同步通知，不可阻塞
 renderer 侧：
 
 - 订阅 `fh:event`，只消费当前 `runId` 的批次；启动响应前到达的事件先缓冲（`useDesignerRun`）；
-- 迟到挂载补齐（`run:get` + `run:list`）**尚未接入**：preload 只暴露 `startRun / cancelRun / getRun`，设计器实际只用 `startRun / cancelRun / onEvent`；
+- 事件投影同时更新节点与边：`node:start` 点亮入边、`node:end` 点亮出边、`node:error` 标记相连边、`run:end` 清理 active 边（`designer/core/run-events.ts`）；
+- 暂停 / 继续由 `run:pause` / `run:resume` 触发，即使引擎未补发事件，renderer 也会同步节点状态；
+- 迟到挂载补齐（`run:get` + `run:list`）**尚未接入**：preload 暴露 `startRun / pauseRun / resumeRun / cancelRun / getRun`，设计器使用前五个与 `onEvent`；
 - `custom` 事件作为工作台动画的领域钩子。
 
 ## 6. 暂停、恢复与检查点
@@ -132,7 +134,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | workspace | `workspace:applyCommands` | ❌（仅契约，见 ADR-012） | ❌ |
 | blob | `blob:stat` / `blob:delete` | ✅ | ❌ |
 | session | `session:create` / `open` / `close` / `list` | ❌（仅契约） | ❌ |
-| run | `run:start` / `pause` / `resume` / `cancel` / `get` / `list` | ✅ | `start`/`cancel`/`get` ✅，`pause`/`resume`/`list` ❌ |
+| run | `run:start` / `pause` / `resume` / `cancel` / `get` / `list` | ✅ | `start`/`pause`/`resume`/`cancel`/`get` ✅，`list` ❌ |
 | approval | `approval:respond` | ✅ | ❌ |
 | input | `input:respond` | ✅ | ❌ |
 
@@ -175,12 +177,13 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 - 目标（未实现）：导出诊断包；main 日志按 run 分文件、分级、脱敏（当前为 `console.*`）；
 - 目标（未实现）：`traceId` 贯穿 IPC 与 run（契约只留了可选字段，IPC 层未填）。
 
-## 13. 当前实现（M1 之后）
+## 13. 当前实现（M3 之后）
 
 | 能力 | 实现 |
 | --- | --- |
 | 执行 | `RuntimeHost` 反序列化 `GraphDocument` → `Graph.run()`；`cancel` 走 `AbortSignal` + `GraphRun.cancel()` |
-| 暂停 / 恢复 | `GraphRun.pause() → GraphCheckpoint`，暂停时落 `checkpoint.json`；`GraphRun.resume()` 进程内恢复 |
+| 暂停 / 恢复 | `GraphRun.pause() → GraphCheckpoint`，暂停时落 `checkpoint.json`；`GraphRun.resume()` 进程内恢复；TitleBar 提供暂停 / 继续 / 取消 |
+| 运行可视化 | 节点状态 + 边 active/error 投影；问题面板汇总校验、失效连线与运行错误，可定位到节点 |
 | 事件 | `GraphEvent → RunEventDto` 投影；按 run 缓冲，16ms 或 run 结束时批量广播 |
 | 持久化 | `runs/<runId>/{meta,graph,events,checkpoint}`；打开工作区时把遗留 `running` 标为 `interrupted` |
 | 审批 | main 发 `approval` 事件 → renderer `approval:respond`；5 分钟超时默认 `deny` |
@@ -192,5 +195,5 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 - `resolveProvider` 暂返回 `undefined`：模型/Agent 节点会失败，等 Provider 工厂接入（M6）；
 - 审批 / 用户输入目前只有 IPC 管道，没有工作台 UI（M6）；
 - 跨进程重启的 resume 尚未接入：checkpoint 已落盘，但需要工作台绑定与 Graph 定义装载后才能恢复；
-- `run:list` / `run:pause` / `run:resume` 已在 main 注册，但 preload 未暴露；
+- `run:list` 已在 main 注册，但 preload 未暴露；
 - 受限环境写盘不可用时，RunStore 退化为内存态（日志告警一次），执行本身不受影响。

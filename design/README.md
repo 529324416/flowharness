@@ -68,7 +68,7 @@ pnpm build        # 先产出 out/
 pnpm capture:ui   # 启动应用并通过 CDP 截取 renderer（默认 devlog/assets/ui-current.png）
 
 # 选择场景：designer（默认）/ designer-run / designer-edit / designer-drag /
-# designer-config / designer-form / designer-form-edit / designer-schema /
+# designer-problems / designer-config / designer-form / designer-form-edit / designer-schema /
 # designer-preset / designer-library / designer-recent / designer-panels /
 # designer-select / designer-toggle / designer-menu / canvas / canvas-zoom /
 # styleguide / styleguide-nodes / styleguide-form / input-focus

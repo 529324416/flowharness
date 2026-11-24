@@ -54,6 +54,8 @@ interface FlowHarnessBridge {
     ) => Promise<IpcResult<DocumentSaveResult>>;
 
     readonly startRun: (request: RunStartRequest) => Promise<IpcResult<RunSnapshot>>;
+    readonly pauseRun: (runId: string) => Promise<IpcResult<RunSnapshot>>;
+    readonly resumeRun: (runId: string) => Promise<IpcResult<RunSnapshot>>;
     readonly cancelRun: (runId: string) => Promise<IpcResult<void>>;
     readonly getRun: (runId: string) => Promise<IpcResult<RunSnapshot | null>>;
 }

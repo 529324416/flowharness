@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { RunEventDto } from "@flowharness/contracts";
 import type { GraphDocument } from "wireclaw";
-import { applyRunEvents, initNodeStatuses } from "./run-events";
+import {
+    applyRunEvents,
+    applyRunEventsToView,
+    createRunView,
+    initNodeStatuses,
+} from "./run-events";
 
 const graph: GraphDocument = {
     version: 1,
@@ -65,6 +70,19 @@ describe("designer run event projection", () => {
                 }),
             ]),
         ).toEqual({ a: "idle", b: "idle" });
+
+        // 暂停中取消也不能留下 paused。
+        expect(
+            applyRunEvents({ a: "paused", b: "paused" }, [
+                event({
+                    type: "run:end",
+                    runId: "run",
+                    status: "cancelled",
+                    outputs: {},
+                    at: 2,
+                }),
+            ]),
+        ).toEqual({ a: "idle", b: "idle" });
     });
 
     it("tracks paused / resumed and skipped", () => {
@@ -75,5 +93,100 @@ describe("designer run event projection", () => {
         ]);
 
         expect(statuses).toEqual({ a: "running", b: "skipped" });
+    });
+});
+
+const wiredGraph: GraphDocument = {
+    version: 1,
+    id: "wired",
+    nodes: [
+        { id: "a", type: "core.constant", typeVersion: 1 },
+        { id: "b", type: "core.output", typeVersion: 1 },
+    ],
+    edges: [
+        {
+            from: { nodeId: "a", port: "value" },
+            to: { nodeId: "b", port: "text" },
+        },
+    ],
+};
+
+const edgeId = "a:value->b:text";
+
+describe("designer run edge projection", () => {
+    it("initializes nodes and edges as idle", () => {
+        expect(createRunView(wiredGraph)).toEqual({
+            nodeStatuses: { a: "idle", b: "idle" },
+            edgeStatuses: { [edgeId]: "idle" },
+        });
+    });
+
+    it("activates incoming and outgoing edges across node lifecycle", () => {
+        let view = createRunView(wiredGraph);
+
+        view = applyRunEventsToView(wiredGraph, view, [
+            event({ type: "node:start", runId: "run", nodeId: "a", at: 1 }),
+        ]);
+        expect(view.nodeStatuses.a).toBe("running");
+        // 节点执行中还没有产出，出边保持 idle。
+        expect(view.edgeStatuses[edgeId]).toBe("idle");
+
+        view = applyRunEventsToView(wiredGraph, view, [
+            event({
+                type: "node:end",
+                runId: "run",
+                nodeId: "a",
+                outputs: {},
+                at: 2,
+            }),
+        ]);
+        expect(view.nodeStatuses.a).toBe("completed");
+        expect(view.edgeStatuses[edgeId]).toBe("active");
+
+        view = applyRunEventsToView(wiredGraph, view, [
+            event({ type: "node:start", runId: "run", nodeId: "b", at: 3 }),
+            event({ type: "node:end", runId: "run", nodeId: "b", outputs: {}, at: 4 }),
+        ]);
+        expect(view.edgeStatuses[edgeId]).toBe("idle");
+
+        view = applyRunEventsToView(wiredGraph, view, [
+            event({ type: "run:end", runId: "run", status: "completed", outputs: {}, at: 5 }),
+        ]);
+        expect(view.edgeStatuses[edgeId]).toBe("idle");
+    });
+
+    it("marks connected edges failed and keeps them after a failed run", () => {
+        let view = createRunView(wiredGraph);
+        view = applyRunEventsToView(wiredGraph, view, [
+            event({ type: "node:start", runId: "run", nodeId: "a", at: 1 }),
+            event({ type: "node:error", runId: "run", nodeId: "b", message: "boom", at: 2 }),
+        ]);
+
+        expect(view.nodeStatuses.b).toBe("failed");
+        expect(view.edgeStatuses[edgeId]).toBe("error");
+
+        view = applyRunEventsToView(wiredGraph, view, [
+            event({ type: "run:end", runId: "run", status: "failed", outputs: {}, at: 3 }),
+        ]);
+        expect(view.edgeStatuses[edgeId]).toBe("error");
+    });
+
+    it("clears active edges when a run is cancelled", () => {
+        let view = createRunView(wiredGraph);
+        view = applyRunEventsToView(wiredGraph, view, [
+            event({
+                type: "node:end",
+                runId: "run",
+                nodeId: "a",
+                outputs: {},
+                at: 1,
+            }),
+        ]);
+        expect(view.edgeStatuses[edgeId]).toBe("active");
+
+        view = applyRunEventsToView(wiredGraph, view, [
+            event({ type: "run:end", runId: "run", status: "cancelled", outputs: {}, at: 2 }),
+        ]);
+        expect(view.edgeStatuses[edgeId]).toBe("idle");
     });
 });

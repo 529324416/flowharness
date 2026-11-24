@@ -6,6 +6,10 @@ export type InvalidEdge = {
     /** 与画布一致的稳定边 id：`from:port->to:port` */
     id: string;
     message: string;
+    /** 连线起点节点 id；用于问题面板定位 */
+    sourceNodeId: string;
+    /** 连线终点节点 id；用于问题面板定位 */
+    targetNodeId: string;
 };
 
 /**
@@ -55,7 +59,12 @@ export function findInvalidEdges(graph: GraphDocument): readonly InvalidEdge[] {
         }
 
         if (reasons.length > 0) {
-            issues.push({ id, message: reasons.join("；") });
+            issues.push({
+                id,
+                message: reasons.join("；"),
+                sourceNodeId: edge.from.nodeId,
+                targetNodeId: edge.to.nodeId,
+            });
         }
     }
 

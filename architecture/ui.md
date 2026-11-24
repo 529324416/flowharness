@@ -30,7 +30,7 @@ renderer/src/
   views/                   # Designer / Diagnostics / Styleguide（HeroView 存在但未接入）
   canvas/core/             # 纯 TS：几何、边 key、类型
   canvas/view/             # React Flow 受控视图、节点/边 renderer
-  designer/core/           # GraphDocument adapter / 命令 / validate / run-events
+  designer/core/           # GraphDocument adapter / 命令 / validate / problems / run-events
   designer/state/          # 文档加载、SaveCoordinator、运行控制
   inspector/               # 检查器 model（InspectorModel / InspectorNodeModel）
   canvas/metrics.ts        # 几何常量
@@ -205,6 +205,8 @@ type WorkbenchPlan = {
 | `run:paused` / `run:resumed` | 全局暂停态 |
 | `run:end` | 汇总态 + 耗时 |
 
+> M3 已实现节点状态与边 active/error 的映射；`run:start` 的整图呼吸、`node:stream` 的文本流与 `custom` 的领域动画仍由后续工作台细化。
+
 ### 5.5 编辑与持久化
 
 - 所有编辑走命令（`addNode` / `removeNode` / `moveNodes` / `connect` / `disconnect` / `updateNodeConfig` / `setViewport`）；
@@ -243,8 +245,9 @@ CanvasCommand → GraphDocument
 
 - 拖拽/连线生成/修改 `GraphDocument`；
 - 投影时用 `findInvalidEdges` 检查节点/端口是否存在（端口随 config 投影）；存在失效连线时画布顶部提示，能渲染的边标记为 error；
-- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；`HarnessIssue` 以设计器内 Alert 横幅展示（问题面板留到 M3）；
-- 有 issue 时禁止运行；当前**没有**「仍然运行」的确认路径，也没有 `requirements` 校验（M3）。
+- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌 Subgraph / Loop / ForEach 递归校验，问题回填容器节点与 `graphPath`；
+- 设计器内 Alert 横幅展示首要问题；运行日志面板的「问题」页签汇总校验、失效连线与运行错误，点击可选中并聚焦节点（M3）；
+- 有 issue 时禁止运行；当前**没有**「仍然运行」的确认路径；`requirements` catalog 尚未接 Provider / Secrets（M6）。
 
 ### 6.4 运行与导入导出
 
@@ -296,7 +299,7 @@ smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通
 | `PanelLayer` | 铺在 Main 之上；属性面板默认右上 280×432、运行日志左下 448×224（`PANEL_DEFAULTS`，最小宽度 280） |
 | 状态 | `useFloatingPanels` 管理 open / collapsed / x / y / size / z；首版不做 docking |
 | 材质 | 面板默认 95% 不透明（`--fh-panel-alpha`），底色 `--fh-panel-bg` / 头部 `--fh-panel-header-bg`，比节点更深；后续设置 UI 只调整 alpha；不使用 backdrop-filter |
-| 接入 | 属性检查（节点信息 + configSchema 表单，JSON 页签兜底）、运行日志（`RunLogContent`，含问题 Tab 与 Footer runId；完整问题面板 M3） |
+| 接入 | 属性检查（节点信息 + configSchema 表单，JSON 页签兜底）、运行日志（`RunLogContent`，含问题 Tab：校验 / 失效连线 / 运行错误，点击定位节点；Footer runId） |
 | 开关 | TitleBar 图标、命令中心、`Ctrl J`；条件为**当前视图是设计器且已打开工作区**（与会话选择无关） |
 | 窗口状态 | `WindowStateStore` 写入 `userData/window-state.json`；校验显示器可见性、尺寸/位置钳制、400ms 防抖 + close 保存 |
 

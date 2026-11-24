@@ -3,6 +3,7 @@ import type { RunEventDto, RunSnapshot } from "@flowharness/contracts";
 import { SlidersHorizontal, Terminal } from "lucide-react";
 import { Badge } from "../../ui";
 import type { InspectorModel } from "../../inspector/model";
+import type { DesignerProblem } from "../../designer/core/problems";
 import { FloatingPanel } from "./FloatingPanel";
 import { InspectorContent } from "./InspectorContent";
 import { RunLogContent } from "./RunLogContent";
@@ -14,6 +15,8 @@ export type PanelLayerProps = {
     events: readonly RunEventDto[];
     snapshot: RunSnapshot | null;
     inspector: InspectorModel | null;
+    problems: readonly DesignerProblem[];
+    onSelectProblem?: (problem: DesignerProblem) => void;
     onClose: (id: PanelId) => void;
     onFocus: (id: PanelId) => void;
     onUpdate: (id: PanelId, patch: Partial<FloatingPanelState>) => void;
@@ -24,6 +27,8 @@ export function PanelLayer({
     events,
     snapshot,
     inspector,
+    problems,
+    onSelectProblem,
     onClose,
     onFocus,
     onUpdate,
@@ -71,7 +76,12 @@ export function PanelLayer({
                               onClose={() => onClose(panel.id)}
                               onFocus={() => onFocus(panel.id)}
                           >
-                              <RunLogContent events={events} />
+                              <RunLogContent
+                                  events={events}
+                                  snapshot={snapshot}
+                                  problems={problems}
+                                  onSelectProblem={onSelectProblem}
+                              />
                           </FloatingPanel>
                       ) : (
                           <FloatingPanel

@@ -59,6 +59,8 @@ export type CanvasViewProps = {
     nodeStatuses?: Readonly<Record<string, CanvasStatus>>;
     /** 右键菜单「添加节点」；位置是视口坐标（clientX / clientY）。 */
     onAddNode?: (position: { x: number; y: number }) => void;
+    /** 问题面板定位：seq 变化时把视口聚焦到节点 */
+    focusNode?: { nodeId: string; seq: number } | null;
 };
 
 function toFlowNodes(
@@ -103,8 +105,10 @@ export function CanvasView({
     readOnly = false,
     nodeStatuses,
     onAddNode,
+    focusNode,
 }: CanvasViewProps): ReactElement {
     const rootRef = useRef<HTMLDivElement>(null);
+    const lastFocusSeq = useRef<number | null>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(
         toFlowNodes(document, selectedNodeId, nodeStatuses),
     );
@@ -150,6 +154,21 @@ export function CanvasView({
         },
         [syncZoom],
     );
+
+    // 问题面板选中节点后聚焦；seq 相同不重复触发，避免普通编辑重置视口。
+    useEffect(() => {
+        if (instance === null || focusNode === null || focusNode === undefined) return;
+        if (lastFocusSeq.current === focusNode.seq) return;
+        if (!document.nodes.some((node) => node.id === focusNode.nodeId)) return;
+
+        lastFocusSeq.current = focusNode.seq;
+        void instance.fitView({
+            nodes: [{ id: focusNode.nodeId }],
+            padding: 1.2,
+            duration: 300,
+            maxZoom: 1.4,
+        });
+    }, [document.nodes, focusNode, instance]);
 
     const handleConnect = useCallback(
         (connection: Connection) => {

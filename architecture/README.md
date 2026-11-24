@@ -1,8 +1,8 @@
 # FlowHarness 架构文档
 
-> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设，以及 2026-11-25 的几何一致性 / 面板材质 / 表单控件打磨；进度见文末。
+> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化，以及 2026-11-25 的几何一致性 / 面板材质 / 表单控件打磨；进度见文末。
 >
-> 当前阶段：**M2 已完成；M3 校验与运行可视化是下一步**。
+> 当前阶段：**M3 已完成；M4 文档生命周期与编辑体验是下一步**。
 > 术语：FH = FlowHarness。
 
 ## 阅读顺序
@@ -53,6 +53,7 @@
 | IPC 路由、`fh-asset://` 协议、数据层单测 | ✅ 已实现（Phase 1） |
 | Runtime Host + RunStore（run 持久化 / checkpoint / interrupted） | ✅ 已实现（Phase 2） |
 | 事件投影与节流、审批 / 用户输入（main handler；renderer 未接通） | 🚧 部分实现（Phase 2） |
+| M3 问题面板 / 内嵌图递归校验 / 运行事件→画布 / 暂停·继续 | ✅ 已实现（2026-11-25） |
 | SessionService（AttachmentFileManager 装配） | ✅ 已实现（Phase 2，仅附件管理） |
 | UI 基础：tokens / 组件原语 / 画布样张 / Styleguide | ✅ 已实现（Phase 2.5） |
 | Shell v2：无边框标题栏 / Ribbon / 会话侧栏 / StatusBar（HeroView 未接入） | ✅ 已实现（Phase 2.6） |
@@ -69,12 +70,15 @@
 | 节点目录 / configSchema / 默认 config / 分类（wireclaw catalog v2） | ✅ 已实现（M2） |
 | 节点库（分类 + 搜索 + 最近使用 + 预设）与检查器 schema 表单 | ✅ 已实现（M2） |
 | 失效连线检测与提示 | ✅ 已实现（M2） |
+| 问题面板（校验 / 连线 / 运行）与节点定位 | ✅ 已实现（M3） |
+| 内嵌子图递归校验与 requirements 定位 | ✅ 已实现（M3） |
+| 运行事件 → 节点 / 边状态与暂停·继续 | ✅ 已实现（M3） |
 | 画布几何 / 面板 / 侧栏尺寸一致性收口 | ✅ 已实现（2026-11-25） |
 | UI 打磨 2：面板加深、主题化 Select / Checkbox | ✅ 已实现（2026-11-25） |
 | 撤销/重做 / 复制粘贴 / 多图 | ⬜ 未开始（M4） |
 | 300 节点性能基线 | ⬜ 未开始 |
 | Workbench Framework | ⬜ 未开始 |
-| Harness Designer | ✅ 最小版本（M1） |
+| Harness Designer | ✅ M3（编辑 / 运行 / 问题 / 暂停） |
 | 打包分发、CI | ⬜ 未开始 |
 
 图例：✅ 已实现 ｜ 🚧 进行中 ｜ ⬜ 未开始

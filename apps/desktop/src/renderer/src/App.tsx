@@ -29,6 +29,7 @@ import { StyleguideView } from "./views/StyleguideView";
 import { useTheme } from "./theme/ThemeProvider";
 import type { RunControls } from "./run/run-controls";
 import type { InspectorModel } from "./inspector/model";
+import type { DesignerProblemsModel } from "./designer/core/problems";
 import styles from "./App.module.css";
 
 const bootGraph = new Graph([], [], {
@@ -100,6 +101,8 @@ export function App(): ReactElement {
         useState<DesignerSaveStatus | null>(null);
     const [designerInspector, setDesignerInspector] =
         useState<InspectorModel | null>(null);
+    const [designerProblems, setDesignerProblems] =
+        useState<DesignerProblemsModel | null>(null);
 
     const {
         panels,
@@ -376,12 +379,15 @@ export function App(): ReactElement {
                     onRunControlsChange={setDesignerRunControls}
                     onSaveStatusChange={setDesignerSaveStatus}
                     onInspectorChange={setDesignerInspector}
+                    onProblemsChange={setDesignerProblems}
                 />
                 <PanelLayer
                     panels={panels}
                     events={runEvents}
                     snapshot={runSnapshot}
                     inspector={designerInspector}
+                    problems={designerProblems?.problems ?? []}
+                    onSelectProblem={designerProblems?.select}
                     onClose={closePanel}
                     onFocus={focusPanel}
                     onUpdate={updatePanel}

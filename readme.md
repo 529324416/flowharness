@@ -19,13 +19,16 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M1 最小可运行 Designer：GraphDocument / 编辑 / 运行 / 自动保存 / 检查器 | ✅ |
 | M2 节点库 / configSchema 表单 / 预设 | ✅ 已完成（内建节点端口静态；失效边会提示） |
 | UI 打磨 2：面板材质加深 / 主题化 Select·Checkbox / 最近使用 | ✅ |
+| M3 校验与运行可视化：问题面板 / 内嵌图递归校验 / 事件→画布 / 暂停·继续 | ✅ |
 | Session / Provider 闭环、Workbench Framework、打包 | ⬜ |
 
 **已知限制**
 
 - 真透明窗口可透出桌面，但当前 Chromium/Electron 无法模糊桌面（ADR-009）；
 - Session Sidebar 仍是 mock；设计器当前按工作区加载，真实 Session 绑定在 M6；
-- 设计器运行中切换视图会丢失节点状态（run 仍在 main 继续）；
+- 设计器运行中切换视图会丢失节点/边状态（run 仍在 main 继续）；
+- 暂停/恢复目前是进程内恢复，跨重启 resume 在 M6；
+- 运行前的 requirements 目录尚未接 Provider / Secrets，校验能定位内层依赖但宿主能力未闭环；
 - 窗口直接关闭时，最后一次 400ms 自动保存可能未完成；
 - 亮色 token 与切换已接入（`ThemeProvider` + `config:update`），尚未做视觉走查；
 - 表单覆盖标量 / 枚举 / 字符串数组；HarnessValue、内嵌图、hostTools 等复杂字段仍是 JSON 文本域；
@@ -47,7 +50,7 @@ flowharness/
   scripts/                # 仓库级辅助脚本（ensure-electron / capture-ui / capture-cdp）
   architecture/           # 架构与开发环境文档
   design/                 # 视觉与组件契约
-  devlog/                 # 每会话一篇总结（YYYY-MM-DD.md）
+  devlog/                 # 每会话一篇总结（YYYY-MM-DD-HH-MM.md）
   readme.md
   todo.md
 ```
@@ -107,7 +110,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state 单测（24 files / 109 tests） |
+| `pnpm test` | main 数据层 + canvas core + designer core/state 单测（25 files / 121 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

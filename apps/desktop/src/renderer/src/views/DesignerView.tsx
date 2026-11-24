@@ -6,10 +6,17 @@ import {
     Button,
     EmptyState,
 } from "../ui";
+import type { CanvasEdgeStatus } from "../canvas/core/types";
+import { edgeKeyFromPorts } from "../canvas/core/edge-key";
 import { CanvasView } from "../canvas/view/CanvasView";
 import { toCanvasDocument } from "../designer/core/adapter";
 import { findInvalidEdges } from "../designer/core/edges";
 import { findNodeCatalogEntry, NODE_CATALOG, NODE_PRESETS } from "../designer/core/catalog";
+import {
+    collectDesignerProblems,
+    type DesignerProblem,
+    type DesignerProblemsModel,
+} from "../designer/core/problems";
 import { useDesignerDocument } from "../designer/state/useDesignerDocument";
 import { useDesignerRun } from "../designer/state/useDesignerRun";
 import { useRecentNodes } from "../designer/state/useRecentNodes";
@@ -34,6 +41,7 @@ export type DesignerViewProps = {
     onRunControlsChange: (controls: RunControls | null) => void;
     onSaveStatusChange: (status: DesignerSaveStatus | null) => void;
     onInspectorChange: (model: InspectorModel | null) => void;
+    onProblemsChange: (model: DesignerProblemsModel | null) => void;
 };
 
 /** 设计器视图：加载 / 编辑 / 自动保存 main GraphDocument。 */
@@ -47,6 +55,7 @@ export function DesignerView({
     onRunControlsChange,
     onSaveStatusChange,
     onInspectorChange,
+    onProblemsChange,
 }: DesignerViewProps): ReactElement {
     const {
         status,
@@ -66,16 +75,24 @@ export function DesignerView({
     const [libraryAnchor, setLibraryAnchor] = useState<{ x: number; y: number } | null>(
         null,
     );
+    const [focusNode, setFocusNode] = useState<{
+        nodeId: string;
+        seq: number;
+    } | null>(null);
     const { entries: recentNodes, record: recordRecentNode } = useRecentNodes();
 
     const {
         snapshot,
         status: runStatus,
         starting,
+        controlling,
         issues,
         error: runError,
         nodeStatuses,
+        edgeStatuses: runEdgeStatuses,
         start,
+        pause,
+        resume,
         cancel,
         reset,
         clearMessages,
@@ -85,6 +102,7 @@ export function DesignerView({
         setSelectedNodeId(null);
         setLibraryOpen(false);
         setLibraryAnchor(null);
+        setFocusNode(null);
     }, [graph?.id]);
 
     useEffect(() => {
@@ -96,18 +114,59 @@ export function DesignerView({
         [graph],
     );
 
-    const edgeStatuses = useMemo(
-        () =>
-            Object.fromEntries(
-                invalidEdges.map((edge) => [edge.id, "error" as const]),
-            ),
-        [invalidEdges],
-    );
+    const edgeStatuses = useMemo(() => {
+        const merged: Record<string, CanvasEdgeStatus> = { ...runEdgeStatuses };
+        for (const edge of invalidEdges) merged[edge.id] = "error";
+        return merged;
+    }, [invalidEdges, runEdgeStatuses]);
 
     const canvas = useMemo(
         () => (graph === null ? null : toCanvasDocument(graph, { edgeStatuses })),
         [edgeStatuses, graph],
     );
+
+    const problems = useMemo(
+        () =>
+            graph === null
+                ? []
+                : collectDesignerProblems(graph, { invalidEdges }),
+        [graph, invalidEdges],
+    );
+
+    const selectProblem = useCallback(
+        (problem: DesignerProblem): void => {
+            let nodeId = problem.nodeId;
+            if (nodeId === undefined && problem.edgeId !== undefined && graph !== null) {
+                const edge = graph.edges.find(
+                    (candidate) =>
+                        edgeKeyFromPorts(candidate.from, candidate.to) ===
+                        problem.edgeId,
+                );
+                nodeId = edge?.from.nodeId;
+            }
+            if (nodeId === undefined) return;
+
+            setSelectedNodeId(nodeId);
+            setFocusNode((current) => ({
+                nodeId,
+                seq: (current?.seq ?? 0) + 1,
+            }));
+        },
+        [graph],
+    );
+
+    const problemsModel = useMemo<DesignerProblemsModel>(
+        () => ({ problems, select: selectProblem }),
+        [problems, selectProblem],
+    );
+
+    useEffect(() => {
+        onProblemsChange(problemsModel);
+    }, [onProblemsChange, problemsModel]);
+
+    useEffect(() => {
+        return () => onProblemsChange(null);
+    }, [onProblemsChange]);
 
     const handleRun = useCallback(async (): Promise<void> => {
         if (graph === null || workspace === null) return;
@@ -161,9 +220,11 @@ export function DesignerView({
         [addNodeFromPreset, recordRecentNode],
     );
 
-    const isRunning = runStatus === "running" || runStatus === "paused";
+    const isRunning = runStatus === "running";
+    const isPaused = runStatus === "paused";
+    const runBusy = starting || controlling;
     const editingDisabled =
-        isRunning || starting || saveState.status === "conflict";
+        isRunning || isPaused || runBusy || saveState.status === "conflict";
 
     const selectedGraphNode =
         graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
@@ -248,10 +309,22 @@ export function DesignerView({
 
         return {
             canRun:
-                !isRunning && !starting && saveState.status !== "conflict",
+                !isRunning &&
+                !isPaused &&
+                !runBusy &&
+                saveState.status !== "conflict",
+            canPause: isRunning && !runBusy,
+            canResume: isPaused && !runBusy,
             isRunning,
+            isPaused,
             run: () => {
                 void handleRun();
+            },
+            pause: () => {
+                void pause();
+            },
+            resume: () => {
+                void resume();
             },
             cancel: handleCancel,
         };
@@ -259,9 +332,12 @@ export function DesignerView({
         graph,
         handleCancel,
         handleRun,
+        isPaused,
         isRunning,
+        pause,
+        resume,
+        runBusy,
         saveState.status,
-        starting,
         status,
         workspace,
     ]);
@@ -365,6 +441,7 @@ export function DesignerView({
                 nodeStatuses={nodeStatuses}
                 readOnly={editingDisabled}
                 onAddNode={openNodeLibrary}
+                focusNode={focusNode}
             />
 
             {libraryOpen && !editingDisabled ? (
@@ -386,7 +463,7 @@ export function DesignerView({
             {hasBanners ? (
                 <div className={styles.banners}>
                     {displayError !== null ? (
-                        <Alert tone="danger" title="运行失败">
+                        <Alert tone="danger" title="运行错误">
                             <p>{displayError}</p>
                             <div className={styles.actions}>
                                 <Button size="sm" onClick={clearMessages}>

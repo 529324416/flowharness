@@ -76,6 +76,10 @@ const bridge = {
         invoke(IpcChannel.WorkspaceSaveDocument, request),
     startRun: (request: RunStartRequest): Promise<IpcResult<RunSnapshot>> =>
         invoke(IpcChannel.RunStart, request),
+    pauseRun: (runId: string): Promise<IpcResult<RunSnapshot>> =>
+        invoke(IpcChannel.RunPause, { runId }),
+    resumeRun: (runId: string): Promise<IpcResult<RunSnapshot>> =>
+        invoke(IpcChannel.RunResume, { runId }),
     cancelRun: (runId: string): Promise<IpcResult<void>> =>
         invoke(IpcChannel.RunCancel, { runId }),
     getRun: (runId: string): Promise<IpcResult<RunSnapshot | null>> =>

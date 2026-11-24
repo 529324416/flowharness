@@ -4,6 +4,7 @@ import {
     Moon,
     PanelBottom,
     PanelLeft,
+    Pause,
     PanelLeftClose,
     PanelRight,
     Play,
@@ -218,16 +219,38 @@ export function TitleBar({
             <div className={styles.right}>
                 {runControls ? (
                     <div className={styles.runGroup}>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={!runControls.canRun}
-                            onClick={runControls.run}
-                        >
-                            <Play size={15} aria-hidden="true" />
-                            运行
-                        </Button>
                         {runControls.isRunning ? (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={!runControls.canPause}
+                                onClick={runControls.pause}
+                            >
+                                <Pause size={15} aria-hidden="true" />
+                                暂停
+                            </Button>
+                        ) : runControls.isPaused ? (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={!runControls.canResume}
+                                onClick={runControls.resume}
+                            >
+                                <Play size={15} aria-hidden="true" />
+                                继续
+                            </Button>
+                        ) : (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={!runControls.canRun}
+                                onClick={runControls.run}
+                            >
+                                <Play size={15} aria-hidden="true" />
+                                运行
+                            </Button>
+                        )}
+                        {runControls.isRunning || runControls.isPaused ? (
                             <Tooltip label="取消运行">
                                 <IconButton
                                     label="取消运行"

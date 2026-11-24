@@ -57,8 +57,9 @@ try {
     await send("Page.enable");
 
     // Optional deterministic UI state for visual baselines:
-    // designer (panels open) | designer-run (run once) | canvas (panels closed) |
-    // canvas-zoom | styleguide | styleguide-nodes | designer-form | designer-library.
+    // designer (panels open) | designer-run (run once) | designer-problems |
+    // canvas (panels closed) | canvas-zoom | styleguide | styleguide-nodes |
+    // designer-form | designer-library.
     const scenario = process.env.FH_CAPTURE_SCENARIO;
     const evaluate = (expression) =>
         send("Runtime.evaluate", {
@@ -119,7 +120,8 @@ try {
         scenario === "designer-recent" ||
         scenario === "designer-panels" ||
         scenario === "designer-select" ||
-        scenario === "designer-toggle"
+        scenario === "designer-toggle" ||
+        scenario === "designer-problems"
     ) {
         await evaluate(`document.querySelector('[data-session-id]')?.click()`);
         await settle(600);
@@ -371,6 +373,85 @@ try {
             });
             console.log(`edited node count: ${JSON.stringify(edited.result?.value)}`);
             console.log(`save status: ${JSON.stringify(save.result?.value)}`);
+        }
+
+        if (scenario === "designer-problems") {
+            // 写入一张内嵌非法子图的文档，重载后从问题面板定位。
+            const seeded = await send("Runtime.evaluate", {
+                expression: `(async () => {
+                    const list = await window.flowharness.listWorkspaces();
+                    const workspace = list.ok ? list.data[0] : undefined;
+                    if (!workspace) return "no-workspace";
+                    const snapshot = await window.flowharness.readDocument(workspace.id, { kind: "harness", id: "main" });
+                    const baseRevision = snapshot.ok && snapshot.data ? snapshot.data.revision : null;
+                    const document = {
+                        version: 1,
+                        id: "main",
+                        title: "问题演示",
+                        nodes: [
+                            {
+                                id: "subgraph",
+                                type: "core.subgraph",
+                                typeVersion: 1,
+                                config: {
+                                    graph: {
+                                        version: 1,
+                                        id: "inner",
+                                        nodes: [
+                                            { id: "innerConstant", type: "core.constant", typeVersion: 1, config: { value: { type: "text", text: "hello" } } },
+                                            { id: "innerOutput", type: "core.output", typeVersion: 1 },
+                                        ],
+                                        edges: [
+                                            { from: { nodeId: "innerConstant", port: "value" }, to: { nodeId: "innerOutput", port: "missing" } },
+                                        ],
+                                    },
+                                },
+                                ui: { x: 180, y: 150 },
+                            },
+                        ],
+                        edges: [],
+                        ui: { viewport: { x: 24, y: 28, zoom: 1 } },
+                    };
+                    const saved = await window.flowharness.saveDocument({
+                        workspaceId: workspace.id,
+                        ref: { kind: "harness", id: "main" },
+                        baseRevision,
+                        document,
+                    });
+                    return saved.ok ? "saved" : saved.error.message;
+                })()`,
+                awaitPromise: true,
+                returnByValue: true,
+                userGesture: true,
+            });
+            console.log(`problem seed: ${JSON.stringify(seeded.result?.value)}`);
+
+            await send("Page.reload", { ignoreCache: true });
+            await settle(4000);
+
+            await evaluate(
+                `(() => { const panel = document.querySelector('button[aria-label="切换运行日志"]'); if (panel && panel.getAttribute('aria-pressed') !== 'true') panel.click(); return true; })()`,
+            );
+            await settle(500);
+            await clickElement(
+                `[...document.querySelectorAll('[role="tab"]')].find((button) => button.textContent?.includes('问题'))`,
+            );
+            await settle(500);
+            await clickElement(`document.querySelector('button[class*="problem"]')`);
+            await settle(900);
+
+            const activeTab = await send("Runtime.evaluate", {
+                expression:
+                    "[...document.querySelectorAll('[role=\"tab\"]')].map((tab) => ({ text: tab.textContent, state: tab.getAttribute('data-state') }))",
+                returnByValue: true,
+            });
+            const total = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelectorAll('[class*=\"problemText\"]').length",
+                returnByValue: true,
+            });
+            console.log(`tabs: ${JSON.stringify(activeTab.result?.value)}`);
+            console.log(`problem count: ${JSON.stringify(total.result?.value)}`);
         }
 
         if (scenario === "designer-run") {

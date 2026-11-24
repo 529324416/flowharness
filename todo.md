@@ -1,6 +1,6 @@
 # TODO
 
-> 当前主线：**M3 校验与运行可视化**（M2 节点库 / configSchema 表单 / 预设已完成主体）。
+> 当前主线：**M4 文档生命周期与编辑体验**（M3 校验与运行可视化已完成）。
 > 原则：垂直切片；UI 外壳冻结，只改组件；wireclaw 契约先行、submodule 联合开发。
 
 ## 当前里程碑（M1 已完成）
@@ -87,13 +87,15 @@
 - [x] 侧栏：默认 260 / 范围 200–360，`tokens.css` 与 `SessionSidebar` 常量一致
 - [x] 文档目标能力（`CanvasAnimationApi`、`Controls`、`modules/*`）均保持“目标/未实现”标注
 
-### M3 — 校验与运行可视化
+### M3 — 校验与运行可视化（2026-11-25 已完成）
 
-- [ ] `Graph.validate` 与问题面板；问题定位到节点 / 边
-- [ ] 运行事件 → 画布动画完整映射
-- [ ] 暂停 / 继续 UI；取消后的状态清理
-- [ ] wireclaw：递归校验 Subgraph / Loop / ForEach
-- [ ] wireclaw：requirements 传播与 issue 定位
+> 已完成：问题面板汇总校验 / 失效连线 / 运行错误，点击定位并聚焦节点；wireclaw 递归校验 Subgraph / Loop / ForEach（`graphPath` / `nestedNodeId`，深度上限 8），requirements catalog 随递归下传；运行事件同时投影节点与边状态；TitleBar 增加暂停 / 继续，取消/结束后清理 running / active。
+
+- [x] `Graph.validate` 与问题面板；问题定位到节点 / 边
+- [x] 运行事件 → 画布节点 / 边状态映射（active / error）
+- [x] 暂停 / 继续 UI；取消后的状态清理
+- [x] wireclaw：递归校验 Subgraph / Loop / ForEach
+- [x] wireclaw：requirements 传播与 issue 定位
 
 ### M4 — 文档生命周期与编辑体验
 
@@ -255,6 +257,8 @@
 
 - [x] 18 个测试文件 / 85 个测试通过（M0 + M1.1 ~ M1.5）
 - [x] 24 个测试文件 / 109 个测试通过（M2 + 一致性收口）
+- [x] 25 个测试文件 / 121 个测试通过（M3）
+- [x] wireclaw：66 项离线测试通过（新增 `harness-nested-validation`）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
 

@@ -5,49 +5,62 @@ import type {
     RunStatus,
 } from "@flowharness/contracts";
 import type { GraphDocument, HarnessIssue } from "wireclaw";
-import type { CanvasStatus } from "../../canvas/core/types";
-import { applyRunEvents, initNodeStatuses } from "../core/run-events";
+import type { CanvasEdgeStatus, CanvasStatus } from "../../canvas/core/types";
+import {
+    applyRunEventsToView,
+    createRunView,
+    type RunViewState,
+} from "../core/run-events";
 import { validateGraphDocument } from "../core/validate";
 
 export type UseDesignerRunResult = {
     snapshot: RunSnapshot | null;
     status: RunStatus;
     starting: boolean;
+    controlling: boolean;
     issues: readonly HarnessIssue[];
     error: string | null;
     nodeStatuses: Readonly<Record<string, CanvasStatus>>;
+    edgeStatuses: Readonly<Record<string, CanvasEdgeStatus>>;
     start: (
         graph: GraphDocument,
         workspaceId: string,
         onWillStart?: () => void,
     ) => Promise<RunSnapshot | null>;
+    pause: () => Promise<void>;
+    resume: () => Promise<void>;
     cancel: () => Promise<void>;
     reset: () => void;
     clearMessages: () => void;
 };
+
+const EMPTY_VIEW: RunViewState = { nodeStatuses: {}, edgeStatuses: {} };
 
 /**
  * 设计器的运行控制。
  *
  * - 启动前在 renderer 侧 validate；有 issue 直接阻断；
  * - 只消费当前 runId 的事件，避免 Diagnostics 自检事件污染节点状态；
- * - 启动响应前到达的事件先缓冲，拿到 runId 后再回放。
+ * - 启动响应前到达的事件先缓冲，拿到 runId 后再回放；
+ * - 节点与边状态由同一批事件投影，取消/结束后不残留 running/active。
  */
 export function useDesignerRun(): UseDesignerRunResult {
     const [snapshot, setSnapshot] = useState<RunSnapshot | null>(null);
     const [starting, setStarting] = useState(false);
+    const [controlling, setControlling] = useState(false);
     const [issues, setIssues] = useState<readonly HarnessIssue[]>([]);
     const [error, setError] = useState<string | null>(null);
-    const [nodeStatuses, setNodeStatuses] = useState<
-        Readonly<Record<string, CanvasStatus>>
-    >({});
+    const [view, setView] = useState<RunViewState>(EMPTY_VIEW);
 
     const activeRunIdRef = useRef<string | null>(null);
     const pendingRef = useRef<RunEventBatch[]>([]);
+    const graphRef = useRef<GraphDocument | null>(null);
 
     const applyBatch = useCallback((batch: RunEventBatch) => {
         setSnapshot(batch.snapshot);
-        setNodeStatuses((current) => applyRunEvents(current, batch.events));
+        const graph = graphRef.current;
+        if (graph === null) return;
+        setView((current) => applyRunEventsToView(graph, current, batch.events));
     }, []);
 
     useEffect(() => {
@@ -80,7 +93,7 @@ export function useDesignerRun(): UseDesignerRunResult {
 
             if (validationIssues.length > 0) {
                 setSnapshot(null);
-                setNodeStatuses({});
+                setView(EMPTY_VIEW);
                 return null;
             }
 
@@ -88,9 +101,10 @@ export function useDesignerRun(): UseDesignerRunResult {
 
             activeRunIdRef.current = null;
             pendingRef.current = [];
+            graphRef.current = graph;
             setStarting(true);
             setSnapshot(null);
-            setNodeStatuses(initNodeStatuses(graph));
+            setView(createRunView(graph));
 
             try {
                 const result = await window.flowharness.startRun({
@@ -124,6 +138,61 @@ export function useDesignerRun(): UseDesignerRunResult {
         [applyBatch],
     );
 
+    const runControl = useCallback(
+        async (
+            action: (runId: string) => Promise<
+                { ok: true; data: RunSnapshot } | { ok: false; error: { message: string } }
+            >,
+            transition: "run:paused" | "run:resumed",
+        ): Promise<void> => {
+            const runId = activeRunIdRef.current;
+            if (runId === null) return;
+
+            setControlling(true);
+            try {
+                const result = await action(runId);
+                if (!result.ok) {
+                    setError(result.error.message);
+                    return;
+                }
+                setSnapshot(result.data);
+
+                // 即使引擎没有补发 paused/resumed 事件，也同步节点投影。
+                const graph = graphRef.current;
+                if (graph !== null) {
+                    setView((current) =>
+                        applyRunEventsToView(graph, current, [
+                            { type: transition, runId, at: Date.now() },
+                        ]),
+                    );
+                }
+            } catch (cause) {
+                setError(cause instanceof Error ? cause.message : String(cause));
+            } finally {
+                setControlling(false);
+            }
+        },
+        [],
+    );
+
+    const pause = useCallback(
+        () =>
+            runControl(
+                (runId) => window.flowharness.pauseRun(runId),
+                "run:paused",
+            ),
+        [runControl],
+    );
+
+    const resume = useCallback(
+        () =>
+            runControl(
+                (runId) => window.flowharness.resumeRun(runId),
+                "run:resumed",
+            ),
+        [runControl],
+    );
+
     const cancel = useCallback(async (): Promise<void> => {
         const runId = activeRunIdRef.current;
         if (runId === null) return;
@@ -135,11 +204,13 @@ export function useDesignerRun(): UseDesignerRunResult {
     const reset = useCallback(() => {
         activeRunIdRef.current = null;
         pendingRef.current = [];
+        graphRef.current = null;
         setSnapshot(null);
         setStarting(false);
+        setControlling(false);
         setIssues([]);
         setError(null);
-        setNodeStatuses({});
+        setView(EMPTY_VIEW);
     }, []);
 
     const clearMessages = useCallback(() => {
@@ -155,10 +226,14 @@ export function useDesignerRun(): UseDesignerRunResult {
         snapshot,
         status,
         starting,
+        controlling,
         issues,
         error,
-        nodeStatuses,
+        nodeStatuses: view.nodeStatuses,
+        edgeStatuses: view.edgeStatuses,
         start,
+        pause,
+        resume,
         cancel,
         reset,
         clearMessages,

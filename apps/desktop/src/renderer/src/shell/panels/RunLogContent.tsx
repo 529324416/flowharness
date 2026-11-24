@@ -1,5 +1,5 @@
-import type { ReactElement } from "react";
-import type { RunEventDto } from "@flowharness/contracts";
+import { useMemo, type ReactElement } from "react";
+import type { RunEventDto, RunSnapshot } from "@flowharness/contracts";
 import {
     Badge,
     EmptyState,
@@ -9,6 +9,11 @@ import {
     TabsTrigger,
     type BadgeVariant,
 } from "../../ui";
+import {
+    collectRunProblems,
+    type DesignerProblem,
+    type DesignerProblemSource,
+} from "../../designer/core/problems";
 import styles from "./RunLogContent.module.css";
 
 function badgeFor(event: RunEventDto): BadgeVariant {
@@ -48,19 +53,52 @@ function formatTime(at: number): string {
     return new Date(at).toTimeString().slice(0, 8);
 }
 
+const SOURCE_LABEL: Record<DesignerProblemSource, string> = {
+    validation: "校验",
+    edge: "连线",
+    run: "运行",
+};
+
+function locationFor(problem: DesignerProblem): string {
+    const parts = [problem.nodeId, problem.graphPath].filter(
+        (part): part is string => part !== undefined,
+    );
+    if (parts.length > 0) return parts.join(" · ");
+    return problem.edgeId ?? "图";
+}
+
 export type RunLogContentProps = {
     events: readonly RunEventDto[];
+    snapshot?: RunSnapshot | null;
+    /** 运行前的校验 / 失效连线问题 */
+    problems?: readonly DesignerProblem[];
+    onSelectProblem?: (problem: DesignerProblem) => void;
 };
 
 /** 运行日志面板内容；面板外框由 PanelFrame 提供。 */
-export function RunLogContent({ events }: RunLogContentProps): ReactElement {
+export function RunLogContent({
+    events,
+    snapshot = null,
+    problems = [],
+    onSelectProblem,
+}: RunLogContentProps): ReactElement {
     const visible = events.slice(-120);
+    const runProblems = useMemo(
+        () => collectRunProblems(events, snapshot),
+        [events, snapshot],
+    );
+    const allProblems = useMemo(
+        () => [...problems, ...runProblems],
+        [problems, runProblems],
+    );
 
     return (
         <Tabs defaultValue="log" className={styles.root}>
             <TabsList className={styles.list}>
                 <TabsTrigger value="log">日志</TabsTrigger>
-                <TabsTrigger value="problems">问题</TabsTrigger>
+                <TabsTrigger value="problems">
+                    问题{allProblems.length > 0 ? ` (${String(allProblems.length)})` : ""}
+                </TabsTrigger>
             </TabsList>
 
             <TabsContent value="log" className={styles.content}>
@@ -84,11 +122,48 @@ export function RunLogContent({ events }: RunLogContentProps): ReactElement {
             </TabsContent>
 
             <TabsContent value="problems" className={styles.content}>
-                <EmptyState
-                    compact
-                    title="暂无问题"
-                    description="运行失败或校验错误会显示在这里"
-                />
+                {allProblems.length === 0 ? (
+                    <EmptyState
+                        compact
+                        title="暂无问题"
+                        description="校验错误、失效连线与运行失败会显示在这里"
+                    />
+                ) : (
+                    <ul className={styles.problems}>
+                        {allProblems.map((problem) => {
+                            const selectable =
+                                onSelectProblem !== undefined &&
+                                (problem.nodeId !== undefined ||
+                                    problem.edgeId !== undefined);
+                            return (
+                                <li key={problem.id}>
+                                    <button
+                                        type="button"
+                                        className={styles.problem}
+                                        disabled={!selectable}
+                                        onClick={() => onSelectProblem?.(problem)}
+                                    >
+                                        <Badge
+                                            variant={
+                                                problem.severity === "error"
+                                                    ? "danger"
+                                                    : "warning"
+                                            }
+                                        >
+                                            {SOURCE_LABEL[problem.source]}
+                                        </Badge>
+                                        <span className={styles.problemText}>
+                                            {problem.message}
+                                        </span>
+                                        <span className={styles.problemMeta}>
+                                            {locationFor(problem)}
+                                        </span>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
             </TabsContent>
         </Tabs>
     );

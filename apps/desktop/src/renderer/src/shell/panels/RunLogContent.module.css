@@ -50,3 +50,53 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.problems {
+  display: flex;
+  flex-direction: column;
+  padding: var(--fh-space-1) 0;
+}
+
+.problem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px var(--fh-space-2);
+  width: 100%;
+  padding: 5px var(--fh-space-3);
+  border: 0;
+  background: transparent;
+  color: var(--fh-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.problem:hover:not(:disabled) {
+  background: var(--fh-surface-raised);
+}
+
+.problem:focus-visible {
+  outline: 2px solid var(--fh-border-focus);
+  outline-offset: -2px;
+}
+
+.problem:disabled {
+  cursor: default;
+}
+
+.problemText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--fh-text-xs);
+  line-height: 1.45;
+}
+
+.problemMeta {
+  grid-column: 2;
+  overflow: hidden;
+  color: var(--fh-text-subtle);
+  font-family: var(--fh-font-mono);
+  font-size: var(--fh-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

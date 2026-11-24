@@ -67,13 +67,13 @@ export function PanelFrame({
                     onClick={onCollapse}
                 >
                     {collapsed ? (
-                        <ChevronDown size={14} aria-hidden="true" />
+                        <ChevronDown size={17} aria-hidden="true" />
                     ) : (
-                        <ChevronUp size={14} aria-hidden="true" />
+                        <ChevronUp size={17} aria-hidden="true" />
                     )}
                 </IconButton>
                 <IconButton label={`关闭${title}`} size="sm" onClick={onClose}>
-                    <X size={14} aria-hidden="true" />
+                    <X size={17} aria-hidden="true" />
                 </IconButton>
             </header>
 

@@ -64,19 +64,19 @@ export function SessionSidebar({
                 <div className={styles.spacer} />
                 <Tooltip label="新建会话">
                     <IconButton label="新建会话" size="sm" onClick={onNew}>
-                        <Plus size={15} aria-hidden="true" />
+                        <Plus size={19} aria-hidden="true" />
                     </IconButton>
                 </Tooltip>
                 <Tooltip label="收起会话栏">
                     <IconButton label="收起会话栏" size="sm" onClick={onCollapse}>
-                        <PanelLeftClose size={15} aria-hidden="true" />
+                        <PanelLeftClose size={19} aria-hidden="true" />
                     </IconButton>
                 </Tooltip>
             </header>
 
             <div className={styles.search}>
                 <div className={styles.searchBox}>
-                    <Search size={13} className={styles.searchIcon} aria-hidden="true" />
+                    <Search size={16} className={styles.searchIcon} aria-hidden="true" />
                     <Input
                         className={styles.searchInput}
                         aria-label="搜索会话"
@@ -95,6 +95,7 @@ export function SessionSidebar({
                         <button
                             key={session.id}
                             type="button"
+                            data-session-id={session.id}
                             className={cx(
                                 styles.item,
                                 session.id === activeId && styles.active,

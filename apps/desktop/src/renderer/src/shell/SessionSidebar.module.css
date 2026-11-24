@@ -5,7 +5,7 @@
   height: 100%;
   min-height: 0;
   min-width: 0;
-  background: var(--fh-surface);
+  background: transparent;
 }
 
 .header {
@@ -13,7 +13,7 @@
   align-items: center;
   gap: 6px;
   flex: none;
-  height: 36px;
+  height: var(--fh-titlebar-height);
   padding: 0 6px 0 12px;
 }
 
@@ -48,8 +48,8 @@
 }
 
 .searchInput {
-  height: 26px;
-  padding-left: 26px;
+  height: var(--fh-control-height-sm);
+  padding-left: 28px;
   font-size: var(--fh-text-xs);
 }
 
@@ -91,8 +91,7 @@
 
 .active {
   background: var(--fh-surface-raised);
-  border-color: transparent;
-  box-shadow: inset 2px 0 0 var(--fh-accent);
+  border-color: var(--fh-border);
 }
 
 .dot {
@@ -122,7 +121,7 @@
 .itemMeta {
   overflow: hidden;
   color: var(--fh-text-subtle);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -143,7 +142,7 @@
   padding: 8px 12px;
   border-top: 1px solid var(--fh-border);
   color: var(--fh-text-subtle);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
 }
 
 .resize {
@@ -158,6 +157,6 @@
 
 .resize:hover,
 .resize:focus-visible {
-  background: var(--fh-accent-soft);
+  background: var(--fh-border-strong);
   outline: none;
 }

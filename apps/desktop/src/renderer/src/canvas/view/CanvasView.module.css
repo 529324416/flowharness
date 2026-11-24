@@ -3,7 +3,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--fh-canvas-bg);
+  background: transparent;
 }
 
 .flow {
@@ -31,7 +31,7 @@
   border: 0;
   background: transparent;
   color: inherit;
-  font-family: var(--fh-font-sans);
+  font-family: var(--fh-font-ui);
   font-size: inherit;
 }
 
@@ -45,14 +45,14 @@
 }
 
 .flow :global(.react-flow__connection-path) {
-  stroke: var(--fh-energy);
+  stroke: var(--fh-edge-active);
   stroke-width: 1.5;
   stroke-dasharray: 3 5;
 }
 
 .flow :global(.react-flow__selection) {
   border: 1px solid var(--fh-accent);
-  background: var(--fh-accent-soft);
+  background: color-mix(in srgb, var(--fh-accent) 12%, transparent);
 }
 
 .flow :global(.react-flow__edge.selected .react-flow__edge-path) {
@@ -69,7 +69,7 @@
   background: var(--fh-surface-overlay);
   box-shadow: var(--fh-shadow-2);
   font-family: var(--fh-font-mono);
-  font-size: 9px;
+  font-size: var(--fh-text-2xs);
   letter-spacing: 0.08em;
 }
 
@@ -89,7 +89,7 @@
   max-width: 200px;
   overflow: hidden;
   color: var(--fh-text);
-  font-family: var(--fh-font-sans);
+  font-family: var(--fh-font-ui);
   font-size: var(--fh-text-xs);
   letter-spacing: 0;
   text-overflow: ellipsis;
@@ -98,30 +98,6 @@
 
 .labelCount {
   color: var(--fh-text-subtle);
-}
-
-.controls {
-  bottom: 288px !important;
-  left: 16px !important;
-  border: 1px solid var(--fh-border);
-  border-radius: var(--fh-radius-sm);
-  overflow: hidden;
-  box-shadow: var(--fh-shadow-2);
-}
-
-.controls :global(.react-flow__controls-button) {
-  border-bottom: 1px solid var(--fh-border);
-  background: var(--fh-surface);
-  color: var(--fh-text-muted);
-}
-
-.controls :global(.react-flow__controls-button:hover) {
-  background: var(--fh-surface-raised);
-  color: var(--fh-text);
-}
-
-.controls :global(.react-flow__controls-button:last-child) {
-  border-bottom: 0;
 }
 
 .minimap {
@@ -178,7 +154,7 @@
 .menuItem kbd {
   color: var(--fh-text-subtle);
   font-family: var(--fh-font-mono);
-  font-size: 9px;
+  font-size: var(--fh-text-2xs);
 }
 
 @keyframes fh-live-pulse {

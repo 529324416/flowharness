@@ -1,7 +1,7 @@
 /** 画布几何常量：Phase 3 的 react-flow adapter 与视觉样张共用。 */
 export const CANVAS_METRICS = {
     nodeWidth: 220,
-    nodeHeaderHeight: 32,
+    nodeHeaderHeight: 30,
     nodePadding: 12,
     portSize: 10,
     portHitRadius: 16,

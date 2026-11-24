@@ -266,12 +266,12 @@ GraphDocument ⇄ CanvasDocument
 
 | 项 | 实现 |
 | --- | --- |
-| tokens | `styles/tokens.css`：表面 / 文本 / 边框 / 主色（青绿）/ 状态 / 画布 / 阴影 / 圆角 / 间距 / 字体 / 动效 / 尺寸 / 层级；深色默认、亮色覆盖 |
-| 密度 | 控件 30px（sm 26）、节点 220px、4px 间距基线、13px 正文字号 |
-| 外壳 | TitleBar 36（自绘、拖拽、窗口控制）/ Ribbon 48 / Session Sidebar 260（可收起/拖宽）/ StatusBar 22；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
+| tokens | `styles/tokens.css`：表面 / 文本 / 边框 / 主色（去饱和青绿）/ 状态 / 画布 / 阴影 / 圆角 / 间距 / 字体 / 动效 / 尺寸 / 层级；深色默认、亮色覆盖 |
+| 密度 | 非画布文字 125% 基准（16.25px 正文）、控件 32px（sm 28）、节点 220px、4px 间距基线；图标同步放大 |
+| 外壳 | TitleBar 40（不透明，无底边框）/ Ribbon 52 / Session Sidebar 280（可收起/拖宽）/ StatusBar 26（全宽不透明 Chrome 层，仅底部圆角）；Session 与 Canvas 面板化（各 1px 外框 + 6px 圆角，间隙 4px），中间 Body 统一 95% 半透；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
 | 会话入口 | Session Sidebar 使用 mock 数据（Phase 5 接真实 Session）；无选中会话时设计器显示 Hero |
 | 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
-| 画布视觉 | 商务扁平节点：6px 圆角、纯色底、1px 边框、Header 28、body/footer 紧凑（不缩字号）；选中仅换 accent 边框；网格线 24px/低亮度；边 1.4px 贝塞尔，活跃 energy 流动虚线、失败 danger 虚线；常量在 `canvas/metrics.ts` |
+| 画布视觉 | 商务扁平节点：6px 圆角、纯色不透明底、HeaderBar 30 + Body 两层、无 Footer；描边通过 `--fh-canvas-zoom` 反向缩放，屏幕恒为 1px；选中仅换 accent 边框；网格线 24px/低亮度；边 1.4px 贝塞尔，活跃边用主色流动虚线、失败 danger 虚线；缩放工具栏已移除，常量在 `canvas/metrics.ts` |
 | 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张 |
 
 smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通启动默认进入设计器视图。
@@ -282,8 +282,9 @@ smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通
 | --- | --- |
 | `PanelFrame` | Header / Body / 可选 Footer；Header 拖拽，右侧折叠与关闭 |
 | `FloatingPanel` | 拖动、右/下/右下缩放、z-index 聚焦、折叠、关闭；位置钳制在画布容器 |
-| `PanelLayer` | 铺在 Main 之上；属性面板默认右上 320×460，运行日志左下 560×260 |
+| `PanelLayer` | 铺在 Main 之上；属性面板默认右上 256×432，运行日志左下 448×224（原尺寸 80%） |
 | 状态 | `useFloatingPanels` 管理 open / collapsed / x / y / size / z；首版不做 docking |
+| 材质 | 面板默认 95% 不透明（`--fh-panel-alpha`），后续设置 UI 调整该 token；不使用 backdrop-filter |
 | 接入 | 属性检查（`InspectorContent`）、运行日志（`RunLogContent`，含问题 Tab 与 Footer runId） |
 | 开关 | TitleBar 图标、命令中心、`Ctrl J`；仅设计器且已选中会话时可用 |
 | 窗口状态 | `WindowStateStore` 写入 `userData/window-state.json`；校验显示器可见性、尺寸/位置钳制、400ms 防抖 + close 保存 |
@@ -294,10 +295,11 @@ Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布�
 
 | 项 | 实现 |
 | --- | --- |
-| 默认窗口 | `transparent: true` + `frame: false`；内容 alpha 0.5–0.94，深色基底为中性石墨黑；内容区 12px 圆角 |
+| 默认窗口 | `transparent: true` + `frame: false`；TitleBar/StatusBar 不透明，中间 Body 统一 95% 半透；深色基底为中性石墨黑；内容区 12px 圆角 |
 | 透明 fallback | `FLOWHARNESS_WINDOW_MODE=frameless` 回到不透明无边框窗口 |
 | 桌面 blur | **不可用**：CSS `backdrop-filter` 在透明窗口中不采样桌面；当前 Electron 45 + Win11 26H2 的 Acrylic/Mica 仍不透明（ADR-009） |
-| 面板玻璃 | PanelFrame 84% 表面 alpha；不使用 `backdrop-filter`（透明窗口中会压成黑块） |
+| 面板玻璃 | PanelFrame 默认 95% 表面 alpha（`--fh-panel-alpha`）；不使用 `backdrop-filter`（透明窗口中会压成黑块） |
+| 节点 | 任何窗口模式下都使用不透明 `--fh-node-bg`，不随窗口材质变透明 |
 | 截图 | `capture:ui` 默认以 opaque frameless 抓 renderer；真透明截图需要 GPU + 屏幕抓取 |
 | 窗口状态 | bounds 持久化见 `WindowStateStore`；透明窗口没有原生阴影，使用 1px inset 边框 |
 

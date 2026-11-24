@@ -56,7 +56,7 @@ export function PanelLayer({
                               containerWidth={size.width}
                               containerHeight={size.height}
                               title="运行日志"
-                              icon={<Terminal size={13} aria-hidden="true" />}
+                              icon={<Terminal size={16} aria-hidden="true" />}
                               badge={<Badge variant="neutral">{events.length}</Badge>}
                               footer={
                                   <>
@@ -77,7 +77,7 @@ export function PanelLayer({
                               containerWidth={size.width}
                               containerHeight={size.height}
                               title="属性"
-                              icon={<SlidersHorizontal size={13} aria-hidden="true" />}
+                              icon={<SlidersHorizontal size={16} aria-hidden="true" />}
                               badge={<Badge variant="neutral">Model Call</Badge>}
                               onUpdate={onUpdate}
                               onClose={() => onClose(panel.id)}

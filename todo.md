@@ -70,7 +70,7 @@
 ### Step 4 — 配色 / 真透明 / 商务扁平
 
 - [x] 中性石墨黑全局配色；青绿只做语义色
-- [x] 橙红 energy 只保留在活跃连线等关键区域
+- [x] 橙红 energy 收敛到关键区域（2026-11-25 已移除，由主色替代）
 - [x] 默认真透明窗口；`FLOWHARNESS_WINDOW_MODE=frameless` 为不透明 fallback
 - [x] 浮动 Panel 半透明；内容区 12px 圆角
 - [x] 节点 6px 圆角、纯色、紧凑间距（不缩字号）
@@ -81,6 +81,22 @@
 - [ ] 真实桌面可读性 / 性能 / 窗口阴影 / 缩放验收
 
 > 平台限制：桌面 blur 不可用（CSS `backdrop-filter` 不采样桌面；Acrylic/Mica 在当前环境不透明）。见 ADR-009。
+
+### UI 打磨（2026-11-25）
+
+- [x] 标记按钮去主色：Rail/Session 选中只用表面高亮，不额外着色
+- [x] 主色 / 成功 / 警告 / 危险 / 信息饱和度降至原值 30%
+- [x] 移除 `--fh-accent-soft`、`--fh-energy`、`--fh-energy-soft`，引用改由表面色与 `--fh-edge-active` 承担
+- [x] 浮动面板默认 95% 不透明，`--fh-panel-alpha` 预留可调
+- [x] Session/Canvas 分隔条 hover 改为中性高亮
+- [x] 非画布文字放大至 125%，图标同步放大，保持 4px 紧凑间距
+- [x] 节点改为 HeaderBar + Body 双层，移除 Footer；节点始终不透明
+- [x] Session 与 Canvas 面板化：各自 1px 外框 + 6px 圆角，间隙 4px
+- [x] 字体统一 `Microsoft YaHei UI`（含 mono 的 CJK 回退）
+- [x] 窗口层级：TitleBar/StatusBar 不透明，Body 单一 95% 半透，Session/Canvas 一致
+- [x] 浮动面板缩至原尺寸 80%（属性 256×432 / 运行日志 448×224）
+- [x] 节点描边按 1/zoom 反向缩放，缩小后保持 1px 屏幕描边
+- [x] 输入框移除 focus 高亮；Footer 改回全宽 Chrome 层（仅底部圆角）；TitleBar 移除底边框；移除画布缩放工具栏
 
 ### 质量
 

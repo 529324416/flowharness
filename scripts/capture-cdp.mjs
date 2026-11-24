@@ -55,6 +55,62 @@ function send(method, params = {}) {
 
 try {
     await send("Page.enable");
+
+    // Optional deterministic UI state for visual baselines:
+    // designer (panels open) | canvas (panels closed) | styleguide | styleguide-nodes.
+    const scenario = process.env.FH_CAPTURE_SCENARIO;
+    const evaluate = (expression) =>
+        send("Runtime.evaluate", { expression, userGesture: true });
+    const settle = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    if (scenario === "designer" || scenario === "canvas" || scenario === "canvas-zoom") {
+        await evaluate(`document.querySelector('[data-session-id]')?.click()`);
+        await settle(600);
+        if (scenario === "canvas") {
+            await evaluate(
+                `const close = (label) => { const button = document.querySelector(\`button[aria-label="\${label}"]\`); if (button?.getAttribute('aria-pressed') === 'true') button.click(); };` +
+                    `close('切换属性检查'); close('切换运行日志');`,
+            );
+            await settle(400);
+        }
+        if (scenario === "canvas-zoom") {
+            for (let step = 0; step < 2; step += 1) {
+                await send("Input.dispatchMouseEvent", {
+                    type: "mouseWheel",
+                    x: 760,
+                    y: 420,
+                    deltaX: 0,
+                    deltaY: 360,
+                });
+                await settle(180);
+            }
+            await settle(300);
+            const width = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelector('.react-flow__node')?.getBoundingClientRect().width",
+                returnByValue: true,
+            });
+            console.log(`node screen width: ${width.result?.value}`);
+        }
+    } else if (scenario === "styleguide") {
+        await evaluate(`document.querySelector('button[aria-label="样式指南"]')?.click()`);
+        await settle(400);
+    } else if (scenario === "input-focus") {
+        await evaluate(
+            `document.querySelector('input[aria-label="搜索会话"]')?.focus()`,
+        );
+        await settle(200);
+    } else if (scenario === "styleguide-nodes") {
+        await evaluate(`document.querySelector('button[aria-label="样式指南"]')?.click()`);
+        await settle(400);
+        await evaluate(
+            `[...document.querySelectorAll('h2')].find((node) => node.textContent === '画布节点')?.scrollIntoView({ block: 'center' })`,
+        );
+        await settle(300);
+    } else if (scenario) {
+        throw new Error(`unknown FH_CAPTURE_SCENARIO: ${scenario}`);
+    }
+
     const result = await send("Page.captureScreenshot", {
         format: "png",
         fromSurface: true,

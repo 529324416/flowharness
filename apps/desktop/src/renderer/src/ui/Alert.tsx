@@ -24,7 +24,7 @@ export function Alert({ tone = "info", title, children, className }: AlertProps)
 
     return (
         <div className={cx(styles.alert, styles[tone], className)} role="status">
-            <Icon size={16} className={styles.icon} aria-hidden="true" />
+            <Icon size={20} className={styles.icon} aria-hidden="true" />
             <div className={styles.content}>
                 {title ? <p className={styles.title}>{title}</p> : null}
                 <div className={styles.body}>{children}</div>

@@ -28,7 +28,7 @@
 .runId {
   color: var(--fh-text-subtle);
   font-family: var(--fh-font-mono);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
 }
 
 .session {
@@ -44,7 +44,7 @@
   overflow: hidden;
   color: var(--fh-text-subtle);
   font-family: var(--fh-font-mono);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -57,5 +57,5 @@
 
 .zoom {
   font-family: var(--fh-font-mono);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
 }

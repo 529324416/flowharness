@@ -39,7 +39,7 @@ export function WindowControls({ mode }: { mode: string }): ReactElement | null 
                 title="最小化"
                 onClick={() => void bridge.windowMinimize()}
             >
-                <Minus size={14} aria-hidden="true" />
+                <Minus size={17} aria-hidden="true" />
             </button>
 
             <button
@@ -50,9 +50,9 @@ export function WindowControls({ mode }: { mode: string }): ReactElement | null 
                 onClick={() => void toggleMaximize()}
             >
                 {maximized ? (
-                    <Copy size={12} aria-hidden="true" />
+                    <Copy size={15} aria-hidden="true" />
                 ) : (
-                    <Square size={12} aria-hidden="true" />
+                    <Square size={15} aria-hidden="true" />
                 )}
             </button>
 
@@ -63,7 +63,7 @@ export function WindowControls({ mode }: { mode: string }): ReactElement | null 
                 title="关闭"
                 onClick={() => void bridge.windowClose()}
             >
-                <X size={15} aria-hidden="true" />
+                <X size={18} aria-hidden="true" />
             </button>
         </div>
     );

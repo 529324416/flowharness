@@ -1,8 +1,7 @@
-import { useCallback, useMemo, useState, type ReactElement } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactElement } from "react";
 import {
     Background,
     BackgroundVariant,
-    Controls,
     MiniMap,
     Panel,
     ReactFlow,
@@ -47,6 +46,7 @@ export type CanvasViewProps = {
 
 export function CanvasView({ sessionTitle }: CanvasViewProps): ReactElement {
     const initial = useMemo(createSampleGraph, []);
+    const rootRef = useRef<HTMLDivElement>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(initial.nodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState<CanvasEdge>(initial.edges);
     const [menu, setMenu] = useState<MenuState | null>(null);
@@ -54,6 +54,22 @@ export function CanvasView({ sessionTitle }: CanvasViewProps): ReactElement {
         CanvasNode,
         CanvasEdge
     > | null>(null);
+
+    /**
+     * 边框/圆角按 1/zoom 反向缩放（见 NodeVisual.module.css），
+     * 让屏幕上的描边始终是 1px，避免缩小后圆角发虚。
+     */
+    const syncZoom = useCallback((zoom: number) => {
+        rootRef.current?.style.setProperty("--fh-canvas-zoom", String(zoom));
+    }, []);
+
+    const handleInit = useCallback(
+        (flow: ReactFlowInstance<CanvasNode, CanvasEdge>) => {
+            setInstance(flow);
+            syncZoom(flow.getZoom());
+        },
+        [syncZoom],
+    );
 
     const onConnect = useCallback(
         (connection: Connection) => {
@@ -120,7 +136,7 @@ export function CanvasView({ sessionTitle }: CanvasViewProps): ReactElement {
     };
 
     return (
-        <div className={styles.root}>
+        <div ref={rootRef} className={styles.root}>
             <ReactFlow<CanvasNode, CanvasEdge>
                 className={styles.flow}
                 nodes={nodes}
@@ -131,7 +147,8 @@ export function CanvasView({ sessionTitle }: CanvasViewProps): ReactElement {
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 onNodesDelete={onNodesDelete}
-                onInit={setInstance}
+                onInit={handleInit}
+                onMove={(_, viewport) => syncZoom(viewport.zoom)}
                 onPaneClick={() => setMenu(null)}
                 onNodeClick={() => setMenu(null)}
                 onPaneContextMenu={(event) => openMenu(event)}
@@ -161,12 +178,6 @@ export function CanvasView({ sessionTitle }: CanvasViewProps): ReactElement {
                         {nodes.length} nodes · {edges.length} edges
                     </span>
                 </Panel>
-
-                <Controls
-                    position="bottom-left"
-                    showInteractive={false}
-                    className={styles.controls}
-                />
 
                 <MiniMap
                     position="bottom-right"

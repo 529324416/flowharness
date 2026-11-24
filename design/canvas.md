@@ -11,21 +11,19 @@
 ## 2. 节点（Node）
 
 ```text
-┌──────────────────────────────┐  6px 圆角
-│ [icon] 节点标题        ● 状态 │  header 28
+┌──────────────────────────────┐  6px 圆角，整体不透明
+│ [icon] 节点标题        ● 状态 │  HeaderBar 30
 ├──────────────────────────────┤
 │ CORE.MODEL-CALL              │  9px mono
 │ deepseek-chat · stream       │  11px
-├──────────────────────────────┤
-│ MODEL     IN 1 / OUT 1  ID…  │  9px mono
-└──────────────────────────────┘
-  220 宽 · 1px 边框 · 纯色底
+└──────────────────────────────┘  220 宽 · 1px 边框 · 纯色底
 ```
 
-- 220 宽，`border-radius: 6px`，1px 边框，**纯色背景**；
-- 节点不使用渐变、外发光、阴影、切角；
-- Header 28px，body padding 7/8px，footer 4/5px；**紧凑靠间距，不缩小字号**；
-- 标题 12px/600，kind 9px mono，summary 11px，footer 9px mono；
+- 220 宽，`border-radius: 6px`，**纯色不透明背景**（透明窗口下也不透桌面）；
+- 描边为屏幕 1px：`border-width: calc(1px / var(--fh-canvas-zoom))`，由 React Flow 的 `onMove` 写入缩放值（50% 时本地 2px）。圆角仍按 6px 正常比例缩放；这是为了解决缩小后圆角与边框发虚的问题；
+- 结构固定为 **HeaderBar + Body** 两层；Footer 已移除，不再展示 type/meta/ports/id；
+- HeaderBar 30px（`--fh-surface-raised`），body padding 8/9px；
+- 节点内字体与画布外统一为 `Microsoft YaHei UI`；标题 12px/600，kind 9px mono，summary 11px（画布内字号不参与 125% 缩放）；
 - 状态点位于 Header 右侧；端口左入右出，8px 圆点，hover 仅换边框色；
 - 选中只改变边框颜色为 `--fh-accent`，**没有辉光/外描边**。
 
@@ -39,7 +37,7 @@
 | paused | warning 混色 | warning | — |
 | completed | success 混色 | success | — |
 | failed | danger 混色 | danger | — |
-| skipped | `--fh-border` | muted | 62% 透明度 |
+| skipped | `--fh-border` | muted | 只用低对比颜色，**不降透明度** |
 
 状态必须有**颜色 + 文本/图标**，不只靠颜色区分。
 
@@ -47,9 +45,9 @@
 
 - 三次贝塞尔，默认 1.4px；
 - 默认 `--fh-edge`（低对比）；
-- 活跃：energy 橙 + 流动虚线（`stroke-dashoffset`），`prefers-reduced-motion` 时静止；
+- 活跃：`--fh-edge-active`（主色）+ 流动虚线（`stroke-dashoffset`），`prefers-reduced-motion` 时静止；
 - 失败：danger 虚线；
-- 不使用 drop-shadow / 发光；
+- 不使用 drop-shadow / 发光；能量色 token 已移除；
 - 重复端口由稳定 `edgeKey` 去重。
 
 ## 5. 画布附属控件
@@ -57,9 +55,10 @@
 | 控件 | 位置 | 规格 |
 | --- | --- | --- |
 | 小地图 | 右下 16px 内边距 | 168×96，圆角 10，状态色块 |
-| 缩放控件 | 左下（运行日志面板上方） | React Flow Controls |
 | 画布状态条 | 左上 | `CANVAS / LIVE`、会话名、节点/边计数 |
 | 右键菜单 | 跟随指针 | 删除节点 / 适配视图 / 重置示例图 |
+
+> 左下角的微型缩放工具栏已移除；缩放交给滚轮 / Ctrl+滚轮，适配视图放在右键菜单。
 
 ## 6. 交互语法
 
@@ -69,7 +68,7 @@
 | 选择 / 框选 | ✅ |
 | 连线 | ✅ 端口拖拽，重复边去重 |
 | 删除 | ✅ Delete / Backspace / 右键菜单 |
-| 适配视图 | ✅ Controls / 右键菜单 |
+| 适配视图 | ✅ 右键菜单（缩放工具栏已移除） |
 | 撤销/重做、复制 | ⬜ Phase 3.5 |
 | 右键 | ✅ 空白/节点菜单；边菜单后续 |
 
@@ -82,6 +81,7 @@
 ## 8. 窗口与面板
 
 - 默认真透明，窗口内容 12px 圆角（透明窗口的圆角外露出桌面）；
-- 浮动 Panel：84% 表面 alpha，圆角 8；不加 backdrop-filter（透明窗口下会变黑）；
+- TitleBar 与 StatusBar 完全不透明（`--fh-surface-solid`）；中间的 Body（Session + Canvas）统一 95% 半透（`--fh-body-bg`），两者最终 alpha 相同；
+- 浮动 Panel：默认 95% 不透明（`--fh-panel-alpha`），圆角 8；默认尺寸为属性 256×432、运行日志 448×224；不加 backdrop-filter（透明窗口下会变黑）；
 - 桌面本身**不会模糊**（Chromium/Electron 限制，见 ADR-009）；
 - `prefers-reduced-motion` 下关闭连线流动。

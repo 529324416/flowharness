@@ -50,7 +50,7 @@ export function RibbonBar({
                         className={sidebarOpen ? styles.active : undefined}
                         onClick={onToggleSidebar}
                     >
-                        <MessagesSquare size={19} aria-hidden="true" />
+                        <MessagesSquare size={24} aria-hidden="true" />
                     </IconButton>
                 </Tooltip>
 
@@ -66,7 +66,7 @@ export function RibbonBar({
                             className={view === id ? styles.active : undefined}
                             onClick={() => onSelectView(id)}
                         >
-                            <Icon size={19} aria-hidden="true" />
+                            <Icon size={24} aria-hidden="true" />
                         </IconButton>
                     </Tooltip>
                 ))}
@@ -76,7 +76,7 @@ export function RibbonBar({
                 <Menu>
                     <MenuTrigger asChild>
                         <IconButton label="设置" size="md" variant="ghost">
-                            <Settings size={19} aria-hidden="true" />
+                            <Settings size={24} aria-hidden="true" />
                         </IconButton>
                     </MenuTrigger>
                     <MenuContent side="right" align="end">

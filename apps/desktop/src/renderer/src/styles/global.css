@@ -65,7 +65,7 @@ a {
 }
 
 ::selection {
-  background: var(--fh-accent-soft);
+  background: var(--fh-border-strong);
   color: var(--fh-text);
 }
 

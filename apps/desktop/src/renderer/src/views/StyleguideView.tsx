@@ -47,7 +47,6 @@ const COLOR_TOKENS = [
     ["边框", "--fh-border"],
     ["强边框", "--fh-border-strong"],
     ["主色", "--fh-accent"],
-    ["主色弱底", "--fh-accent-soft"],
     ["成功", "--fh-success"],
     ["警告", "--fh-warning"],
     ["危险", "--fh-danger"],
@@ -55,8 +54,6 @@ const COLOR_TOKENS = [
     ["画布", "--fh-canvas-bg"],
     ["节点", "--fh-node-bg"],
     ["连线", "--fh-edge"],
-    ["能量色", "--fh-energy"],
-    ["能量弱底", "--fh-energy-soft"],
 ] as const;
 
 const TYPE_SCALE = [
@@ -209,10 +206,10 @@ export function StyleguideView(): ReactElement {
                             禁用
                         </Button>
                         <IconButton label="新增">
-                            <Plus size={16} aria-hidden="true" />
+                            <Plus size={20} aria-hidden="true" />
                         </IconButton>
                         <IconButton label="删除" variant="secondary">
-                            <Trash2 size={16} aria-hidden="true" />
+                            <Trash2 size={20} aria-hidden="true" />
                         </IconButton>
                     </div>
                 </Section>
@@ -270,7 +267,7 @@ export function StyleguideView(): ReactElement {
                                 <MenuTrigger asChild>
                                     <Button size="sm">
                                         打开菜单
-                                        <ChevronDown size={12} aria-hidden="true" />
+                                        <ChevronDown size={15} aria-hidden="true" />
                                     </Button>
                                 </MenuTrigger>
                                 <MenuContent align="start">
@@ -355,7 +352,7 @@ export function StyleguideView(): ReactElement {
 
                 <Section
                     title="画布节点"
-                    description="节点宽 220；状态必须同时有颜色与图标/文本。"
+                    description="HeaderBar + Body 双层，无 Footer；节点始终不透明。"
                 >
                     <div className={styles.nodeRow}>
                         {NODE_SAMPLES.map((node) => (
@@ -366,9 +363,6 @@ export function StyleguideView(): ReactElement {
                                 status={node.status as CanvasStatus}
                                 summary={node.summary}
                                 selected={"selected" in node ? node.selected : false}
-                                inputs={1}
-                                outputs={1}
-                                meta="sample"
                             />
                         ))}
                     </div>

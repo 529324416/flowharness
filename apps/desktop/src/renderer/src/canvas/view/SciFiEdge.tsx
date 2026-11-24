@@ -28,7 +28,7 @@ export function SciFiEdge({
     const active = data?.status === "active";
     const error = data?.status === "error";
     const tone = active
-        ? "var(--fh-energy)"
+        ? "var(--fh-edge-active)"
         : error
           ? "var(--fh-danger)"
           : "var(--fh-edge)";

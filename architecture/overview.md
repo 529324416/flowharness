@@ -129,4 +129,6 @@ vendor/wireclaw/               # 引擎（submodule）
 
 ## 7. 当前实现状态
 
-本文件描述**目标架构**。当前仓库只有：workspace、submodule、Electron 三端脚手架（renderer 为原生 TS）与三段验证。React renderer、contracts、服务层、Runtime Host、Canvas / Workbench 尚未实现，迁移顺序见 [../todo.md](../todo.md)。
+本文件描述**目标架构**。当前已实现：pnpm workspace + wireclaw submodule、Electron main/preload/renderer 三端、contracts、main 服务层（配置 / 密钥 / Blob / 工作区 / 运行记录 / RuntimeHost）、Shell v2、浮动 Panel、Canvas core + view，以及 2026-11-25 的 UI 打磨（去饱和色板、125% 非画布字号、节点双层、Session/Canvas 面板化）。
+
+**尚未实现**：Phase 3.5 的 GraphDocument adapter、节点库、检查器联动、校验与撤销；Workbench Framework；Provider 闭环。迁移顺序见 [../todo.md](../todo.md)。

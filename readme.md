@@ -15,6 +15,7 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | 浮动 Panel：运行日志 / 属性检查 | ✅ |
 | Canvas：React Flow、节点/连线、小地图、右键菜单 | ✅ |
 | 中性配色 + 真透明窗口 + 商务扁平画布 | ✅ |
+| UI 打磨：去饱和色板 / 125% 字号 / 节点双层 / Session+Canvas 面板化 | ✅ |
 | Phase 3.5：GraphDocument / 节点库 / 检查器联动 / 撤销 | 🚧 下一步 |
 | Session / Provider 闭环、Workbench Framework、打包 | ⬜ |
 

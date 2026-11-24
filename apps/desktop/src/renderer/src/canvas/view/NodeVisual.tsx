@@ -6,15 +6,11 @@ import type { CanvasStatus } from "../core/types";
 import styles from "./NodeVisual.module.css";
 
 export type NodeVisualProps = {
-    id?: string;
     title: string;
     kind: string;
     status: CanvasStatus;
     summary?: string;
-    meta?: string;
     selected?: boolean;
-    inputs?: number;
-    outputs?: number;
     className?: string;
 };
 
@@ -45,55 +41,38 @@ const STATUS_LABEL: Record<CanvasStatus, string> = {
     skipped: "已跳过",
 };
 
-/** 与 React Flow 解耦的节点外观，Styleguide 与真实画布共用。 */
+/**
+ * 节点外观：HeaderBar + Body 双层，无 Footer、无半透明。
+ * 与 React Flow 解耦，Styleguide 与真实画布共用。
+ */
 export function NodeVisual({
-    id,
     title,
     kind,
     status,
     summary,
-    meta,
     selected = false,
-    inputs = 0,
-    outputs = 0,
     className,
 }: NodeVisualProps): ReactElement {
     const Icon = iconFor(kind);
-    const portLabel = [
-        inputs > 0 ? `IN ${inputs}` : null,
-        outputs > 0 ? `OUT ${outputs}` : null,
-    ]
-        .filter((part): part is string => part !== null)
-        .join(" / ");
 
     return (
         <article
             className={cx(styles.node, styles[status], selected && styles.selected, className)}
             data-status={status}
         >
-            <div className={styles.frame}>
-                <div className={styles.inner}>
-                    <header className={styles.header}>
-                        <Icon size={14} className={styles.icon} aria-hidden="true" />
-                        <span className={styles.title}>{title}</span>
-                        <StatusDot
-                            tone={status as StatusTone}
-                            pulse={status === "running"}
-                            label={STATUS_LABEL[status]}
-                        />
-                    </header>
+            <header className={styles.header}>
+                <Icon size={15} className={styles.icon} aria-hidden="true" />
+                <span className={styles.title}>{title}</span>
+                <StatusDot
+                    tone={status as StatusTone}
+                    pulse={status === "running"}
+                    label={STATUS_LABEL[status]}
+                />
+            </header>
 
-                    <div className={styles.body}>
-                        <span className={styles.kind}>{kind}</span>
-                        {summary ? <span className={styles.summary}>{summary}</span> : null}
-                    </div>
-
-                    <footer className={styles.footer}>
-                        <span className={styles.meta}>{meta ?? kind.split(".")[1]}</span>
-                        <span className={styles.ports}>{portLabel}</span>
-                        {id ? <span className={styles.id}>ID {id}</span> : null}
-                    </footer>
-                </div>
+            <div className={styles.body}>
+                <span className={styles.kind}>{kind}</span>
+                {summary ? <span className={styles.summary}>{summary}</span> : null}
             </div>
         </article>
     );

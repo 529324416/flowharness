@@ -39,7 +39,7 @@ export function DialogContent({
                         ) : null}
                     </div>
                     <DialogPrimitive.Close className={styles.close} aria-label="关闭">
-                        <X size={16} aria-hidden="true" />
+                        <X size={20} aria-hidden="true" />
                     </DialogPrimitive.Close>
                 </header>
 

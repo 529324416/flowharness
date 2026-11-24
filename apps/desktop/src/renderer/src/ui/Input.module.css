@@ -30,10 +30,11 @@
   border-color: var(--fh-border-strong);
 }
 
-.input:focus {
+/* 输入框不提供 focus 高亮，只保留原生光标。 */
+.input:focus,
+.input:focus-visible {
   outline: none;
-  border-color: var(--fh-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fh-accent) 20%, transparent);
+  box-shadow: none;
 }
 
 .invalid {
@@ -42,7 +43,7 @@
 
 .invalid:focus {
   border-color: var(--fh-danger);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fh-danger) 20%, transparent);
+  box-shadow: none;
 }
 
 .hint {

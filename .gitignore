@@ -22,3 +22,6 @@ Thumbs.db
 
 # UI capture scratch output
 devlog/assets/ui-current.png
+
+# local sandbox ACL repair records (not project data)
+.acl-repair/

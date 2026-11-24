@@ -13,7 +13,7 @@
   display: flex;
   align-items: center;
   gap: var(--fh-space-2);
-  height: 28px;
+  height: 30px;
   padding: 0 var(--fh-space-2);
   border-radius: var(--fh-radius-xs);
   color: var(--fh-text);
@@ -50,7 +50,7 @@
   margin-left: auto;
   color: var(--fh-text-subtle);
   font-family: var(--fh-font-mono);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
 }
 
 @keyframes fh-menu-in {

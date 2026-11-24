@@ -18,8 +18,8 @@ export const PANEL_DEFAULTS: Record<
     PanelId,
     { width: number; height: number; title: string }
 > = {
-    "run-log": { width: 560, height: 260, title: "运行日志" },
-    inspector: { width: 320, height: 460, title: "属性" },
+    "run-log": { width: 448, height: 224, title: "运行日志" },
+    inspector: { width: 256, height: 432, title: "属性" },
 };
 
 const INITIAL_PANELS: FloatingPanelState[] = [

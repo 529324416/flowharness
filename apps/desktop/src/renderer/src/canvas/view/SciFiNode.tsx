@@ -5,7 +5,7 @@ import type { CanvasNode } from "../core/types";
 import { NodeVisual } from "./NodeVisual";
 import styles from "./SciFiNode.module.css";
 
-export function SciFiNode({ id, data, selected }: NodeProps<CanvasNode>): ReactElement {
+export function SciFiNode({ data, selected }: NodeProps<CanvasNode>): ReactElement {
     const hasInput = (data.inputs ?? 0) > 0;
     const hasOutput = (data.outputs ?? 0) > 0;
 
@@ -18,14 +18,10 @@ export function SciFiNode({ id, data, selected }: NodeProps<CanvasNode>): ReactE
             )}
         >
             <NodeVisual
-                id={id}
                 title={data.title}
                 kind={data.kind}
                 status={data.status}
                 summary={data.summary}
-                meta={data.meta}
-                inputs={data.inputs}
-                outputs={data.outputs}
                 selected={selected}
             />
 

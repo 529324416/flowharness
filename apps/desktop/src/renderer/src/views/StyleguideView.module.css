@@ -90,7 +90,7 @@
 .swatchToken {
   color: var(--fh-text-subtle);
   font-family: var(--fh-font-mono);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
 }
 
 .typeList {
@@ -114,7 +114,7 @@
 .typeToken {
   color: var(--fh-text-subtle);
   font-family: var(--fh-font-mono);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
 }
 
 .mono {
@@ -143,7 +143,7 @@
   display: block;
   height: 10px;
   border-radius: var(--fh-radius-pill);
-  background: var(--fh-accent-soft);
+  background: var(--fh-surface-raised);
   border: 1px solid color-mix(in srgb, var(--fh-accent) 35%, var(--fh-border));
 }
 
@@ -163,7 +163,7 @@
   width: 56px;
   height: 56px;
   border: 1px solid var(--fh-border-strong);
-  background: var(--fh-accent-soft);
+  background: var(--fh-surface-raised);
 }
 
 .buttonRow,
@@ -213,7 +213,7 @@
 
 .overlayLabel {
   color: var(--fh-text-subtle);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }

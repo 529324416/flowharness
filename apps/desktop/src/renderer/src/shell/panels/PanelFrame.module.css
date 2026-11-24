@@ -6,7 +6,11 @@
   overflow: hidden;
   border: 1px solid var(--fh-border-strong);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--fh-surface-overlay) 84%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--fh-surface-overlay) calc(var(--fh-panel-alpha) * 100%),
+    transparent
+  );
   box-shadow: var(--fh-shadow-2);
 }
 
@@ -15,10 +19,14 @@
   align-items: center;
   gap: 6px;
   flex: none;
-  height: 32px;
+  height: 34px;
   padding: 0 4px 0 9px;
   border-bottom: 1px solid var(--fh-border);
-  background: color-mix(in srgb, var(--fh-surface-raised) 90%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--fh-surface-raised) calc(var(--fh-panel-alpha) * 100%),
+    transparent
+  );
   cursor: grab;
   user-select: none;
 }
@@ -61,9 +69,9 @@
   border-top: 1px solid var(--fh-border);
   color: var(--fh-text-subtle);
   font-family: var(--fh-font-mono);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
 }
 
 .frame[data-collapsed="true"] {
-  height: 32px;
+  height: 34px;
 }

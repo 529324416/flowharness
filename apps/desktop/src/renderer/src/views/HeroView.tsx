@@ -37,7 +37,7 @@ export function HeroView({
 
                 <div className={styles.actions}>
                     <Button variant="primary" onClick={onNewSession}>
-                        <Plus size={15} aria-hidden="true" />
+                        <Plus size={19} aria-hidden="true" />
                         新建会话
                     </Button>
                     {example ? (
@@ -45,7 +45,7 @@ export function HeroView({
                             variant="secondary"
                             onClick={() => onSelectSession(example.id)}
                         >
-                            <Sparkles size={15} aria-hidden="true" />
+                            <Sparkles size={19} aria-hidden="true" />
                             打开示例
                         </Button>
                     ) : null}
@@ -68,7 +68,7 @@ export function HeroView({
                                     <span className={styles.templateTitle}>
                                         {session.title}
                                     </span>
-                                    <ArrowRight size={13} aria-hidden="true" />
+                                    <ArrowRight size={16} aria-hidden="true" />
                                 </span>
                                 <span className={styles.templateMeta}>
                                     {session.subtitle} · {session.updatedAt}

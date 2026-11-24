@@ -2,16 +2,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
   border: 1px solid var(--fh-border);
   border-bottom-color: var(--fh-border-strong);
   border-radius: var(--fh-radius-xs);
   background: var(--fh-surface-raised);
   color: var(--fh-text-muted);
   font-family: var(--fh-font-mono);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
   line-height: 1;
   box-shadow: inset 0 -1px 0 var(--fh-border);
 }

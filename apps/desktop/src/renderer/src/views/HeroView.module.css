@@ -5,7 +5,7 @@
   height: 100%;
   min-height: 0;
   overflow: auto;
-  background: var(--fh-canvas-bg);
+  background: transparent;
   isolation: isolate;
 }
 
@@ -33,7 +33,7 @@
   gap: 8px;
   color: var(--fh-text-subtle);
   font-family: var(--fh-font-mono);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
@@ -41,13 +41,13 @@
 .mark {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--fh-accent);
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--fh-border-strong);
   border-radius: var(--fh-radius-xs);
-  background: var(--fh-accent-soft);
-  color: var(--fh-accent);
-  font-size: 9px;
+  background: var(--fh-surface-raised);
+  color: var(--fh-text);
+  font-size: var(--fh-text-2xs);
   font-weight: var(--fh-weight-semibold);
   letter-spacing: 0.02em;
 }
@@ -132,7 +132,7 @@
 .templateMeta {
   overflow: hidden;
   color: var(--fh-text-subtle);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -144,7 +144,7 @@
   gap: var(--fh-space-3);
   margin-top: var(--fh-space-5);
   color: var(--fh-text-subtle);
-  font-size: 10px;
+  font-size: var(--fh-text-2xs);
 }
 
 .hints span {

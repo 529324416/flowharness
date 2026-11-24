@@ -32,14 +32,14 @@
 .mark {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
-  border: 1px solid var(--fh-accent);
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--fh-border-strong);
   border-radius: var(--fh-radius-xs);
-  background: var(--fh-accent-soft);
-  color: var(--fh-accent);
+  background: var(--fh-surface-raised);
+  color: var(--fh-text);
   font-family: var(--fh-font-mono);
-  font-size: 9px;
+  font-size: var(--fh-text-2xs);
   font-weight: var(--fh-weight-semibold);
   letter-spacing: 0.04em;
 }
@@ -58,7 +58,7 @@
 }
 
 .menuButton {
-  height: 26px;
+  height: var(--fh-control-height-sm);
   padding: 0 7px;
   color: var(--fh-text-muted);
   font-size: var(--fh-text-xs);
@@ -78,8 +78,8 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  max-width: 520px;
-  height: 26px;
+  max-width: 560px;
+  height: var(--fh-control-height-sm);
   padding: 0 9px;
   border: 1px solid var(--fh-border);
   border-radius: var(--fh-radius-sm);

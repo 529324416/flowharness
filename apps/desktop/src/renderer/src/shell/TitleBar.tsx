@@ -103,12 +103,12 @@ export function TitleBar({
                         <MenuContent align="start">
                             <MenuLabel>文件</MenuLabel>
                             <MenuItem onSelect={onNewSession}>
-                                <Plus size={13} aria-hidden="true" />
+                                <Plus size={16} aria-hidden="true" />
                                 新建会话
                                 <MenuShortcut>Ctrl N</MenuShortcut>
                             </MenuItem>
                             <MenuItem onSelect={onCreateWorkspace} disabled={busy}>
-                                <FolderOpen size={13} aria-hidden="true" />
+                                <FolderOpen size={16} aria-hidden="true" />
                                 新建示例工作区
                             </MenuItem>
                             <MenuSeparator />
@@ -164,7 +164,7 @@ export function TitleBar({
                 <Menu open={commandOpen} onOpenChange={setCommandOpen}>
                     <MenuTrigger asChild>
                         <button type="button" className={styles.command}>
-                            <Search size={13} aria-hidden="true" />
+                            <Search size={16} aria-hidden="true" />
                             <span className={styles.commandText}>
                                 {activeSessionTitle ?? "搜索或跳转…"}
                             </span>
@@ -174,12 +174,12 @@ export function TitleBar({
                     <MenuContent align="center" className={styles.commandMenu}>
                         <MenuLabel>命令</MenuLabel>
                         <MenuItem onSelect={onNewSession}>
-                            <Plus size={13} aria-hidden="true" />
+                            <Plus size={16} aria-hidden="true" />
                             新建会话
                             <MenuShortcut>Ctrl N</MenuShortcut>
                         </MenuItem>
                         <MenuItem onSelect={onToggleSidebar}>
-                            <PanelLeft size={13} aria-hidden="true" />
+                            <PanelLeft size={16} aria-hidden="true" />
                             切换会话栏
                             <MenuShortcut>Ctrl B</MenuShortcut>
                         </MenuItem>
@@ -214,9 +214,9 @@ export function TitleBar({
                 <Tooltip label={theme === "dark" ? "切换到亮色主题" : "切换到暗色主题"}>
                     <IconButton label="切换主题" size="sm" onClick={onToggleTheme}>
                         {theme === "dark" ? (
-                            <Sun size={15} aria-hidden="true" />
+                            <Sun size={19} aria-hidden="true" />
                         ) : (
-                            <Moon size={15} aria-hidden="true" />
+                            <Moon size={19} aria-hidden="true" />
                         )}
                     </IconButton>
                 </Tooltip>
@@ -229,9 +229,9 @@ export function TitleBar({
                         onClick={onToggleSidebar}
                     >
                         {sidebarOpen ? (
-                            <PanelLeftClose size={15} aria-hidden="true" />
+                            <PanelLeftClose size={19} aria-hidden="true" />
                         ) : (
-                            <PanelLeft size={15} aria-hidden="true" />
+                            <PanelLeft size={19} aria-hidden="true" />
                         )}
                     </IconButton>
                 </Tooltip>
@@ -245,7 +245,7 @@ export function TitleBar({
                         disabled={!panelsEnabled}
                         onClick={onToggleRunLog}
                     >
-                        <PanelBottom size={15} aria-hidden="true" />
+                        <PanelBottom size={19} aria-hidden="true" />
                     </IconButton>
                 </Tooltip>
 
@@ -258,7 +258,7 @@ export function TitleBar({
                         disabled={!panelsEnabled}
                         onClick={onToggleInspector}
                     >
-                        <PanelRight size={15} aria-hidden="true" />
+                        <PanelRight size={19} aria-hidden="true" />
                     </IconButton>
                 </Tooltip>
 

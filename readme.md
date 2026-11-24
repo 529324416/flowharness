@@ -2,7 +2,28 @@
 
 FlowHarness 是一个基于 **TypeScript + Electron + Wireclaw** 的 Agent 工作台。
 
-Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git submodule 的形式纳入本仓库联合开发；由于它的开发尚未完成，更多需求需要在 FlowHarness 的真实宿主环境中验证，因此两者在同一工作区内协同演进。
+Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git submodule 纳入，在本仓库中以**普通 npm 包**的方式引用。它仍在演进，因此 FlowHarness 同时承担宿主验证与产品化的职责。
+
+## 当前状态
+
+| 模块 | 状态 |
+| --- | --- |
+| 工程链路：pnpm workspace / Electron / Vite / TS | ✅ |
+| main 数据层：Config / Secrets / Blob / Workspace / FileHost | ✅ |
+| RuntimeHost / RunStore / 事件流 / 审批 IPC | ✅ |
+| Shell v2：TitleBar / Ribbon / Session Sidebar / Hero / StatusBar | ✅ |
+| 浮动 Panel：运行日志 / 属性检查 | ✅ |
+| Canvas：React Flow、节点/连线、小地图、右键菜单 | ✅ |
+| 中性配色 + 真透明窗口 + 商务扁平画布 | ✅ |
+| Phase 3.5：GraphDocument / 节点库 / 检查器联动 / 撤销 | 🚧 下一步 |
+| Session / Provider 闭环、Workbench Framework、打包 | ⬜ |
+
+**已知限制**
+
+- 真透明窗口可透出桌面，但当前 Chromium/Electron 无法模糊桌面（ADR-009）；
+- 亮色主题只完成 token，尚未做视觉走查；
+- 300 节点性能基线、真实桌面可读性验收未完成；
+- 透明窗口需要 GPU；`--disable-gpu` 下会退化为不透明。
 
 ## 仓库结构
 
@@ -15,10 +36,13 @@ flowharness/
     wireclaw/             # git submodule，作为普通 npm 包被引用
   scripts/                # 仓库级辅助脚本
   architecture/           # 架构与开发环境文档
-  devlog/                 # 开发日志（yyyy-mm-dd-hh-mm.md）
+  design/                 # 视觉与组件契约
+  devlog/                 # 每会话一篇总结（YYYY-MM-DD.md）
   readme.md
   todo.md
 ```
+
+开发日志约定：**每个会话只保留一篇**，只记实际贡献，不记过程、排错和实现细节。
 
 ## 前置要求
 
@@ -45,8 +69,6 @@ pnpm build:wireclaw
 pnpm dev
 ```
 
-`pnpm dev` 会先构建 wireclaw，再启动 `electron-vite dev`，Electron 窗口加载 Vite 开发服务器。
-
 Windows 下也可以直接双击根目录的 [`run.bat`](run.bat)：它会检查 Node/pnpm、按需安装依赖并构建 wireclaw，然后启动同一套 dev 环境。启动器会先按标准沙箱启动；若 Electron 因受限环境无法初始化沙箱（`-2147483645` / `0x80000003`），会自动以 `--no-sandbox` 重试。也可以显式指定：
 
 ```bat
@@ -54,7 +76,14 @@ run.bat --no-sandbox   :: 直接使用兼容模式
 run.bat --sandbox      :: 强制标准沙箱（失败不重试）
 ```
 
-> Electron 的预编译二进制在首次启动时懒下载。如果 GitHub 不可达，先执行 `pnpm ensure:electron`（默认走 npmmirror 镜像），再 `pnpm dev`。
+> Electron 预编译二进制在首次启动时懒下载。如果 GitHub 不可达，先执行 `pnpm ensure:electron`（默认走 npmmirror 镜像），再 `pnpm dev`。
+
+默认窗口是真透明。若需要不透明无边框 fallback：
+
+```powershell
+$env:FLOWHARNESS_WINDOW_MODE="frameless"
+pnpm dev
+```
 
 ## 常用脚本
 
@@ -65,13 +94,15 @@ run.bat --sandbox      :: 强制标准沙箱（失败不重试）
 | `pnpm build:wireclaw` | 构建 wireclaw 的 `dist/`（browser / node / types） |
 | `pnpm watch:wireclaw` | wireclaw 源码变更时增量重建 JS 与类型声明 |
 | `pnpm dev` | 构建 wireclaw 后启动 Electron 开发模式 |
-| `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox`（受限终端 / CI 使用） |
+| `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | 分别对 main/preload 与 renderer 做类型检查 |
-| `pnpm test` | main 数据层单测（Vitest：config / secrets / blob / workspace / filehost） |
-| `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与 config/workspace IPC |
-| `pnpm capture:ui` | Windows：启动应用并截取 FlowHarness 窗口（视觉验收） |
+| `pnpm test` | main 数据层 + canvas core 单测（12 files / 48 tests） |
+| `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
+| `pnpm capture:ui` | Windows：以 opaque frameless 截图，保证 renderer 画面可读 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |
+
+真透明截图需要 GPU + 系统屏幕抓取；CDP 截图不包含桌面。
 
 ## Wireclaw 的引用方式
 
@@ -105,30 +136,22 @@ pnpm build:wireclaw     # 一次性重建
 pnpm watch:wireclaw     # 或在另一个终端持续重建
 ```
 
-## 验证开发环境
+## 验证
 
 ```bash
 pnpm typecheck   # 类型检查：确认 "wireclaw" 的类型解析正常
+pnpm test        # 数据层 + canvas core
 pnpm build       # 构建：确认 Electron 三个 bundle 都能产出
 pnpm smoke       # 启动验证：窗口隐藏运行，输出 [smoke] OK 即通过
 ```
 
-`pnpm smoke` 成功时的输出：
-
-```text
-[prepare-userdata] C:\Users\<you>\AppData\Roaming\FlowHarness
-[main] wireclaw ready: Graph=function graphId=flowharness-main-boot nodes=0
-[main] renderer-ready {"renderer":{"framework":"react","wireclawGraphLoaded":true,...}}
-[main] renderer-ready {"phase":"run","data":{"runId":"run_...","status":"completed","error":null}}
-[main] renderer-ready {"phase":"data","data":{"configLoaded":true,"workspacesLoaded":true,...}}
-[smoke] OK — Electron launched; wireclaw, data layer and run event stream are live.
-```
+`pnpm smoke` 成功时输出 `[smoke] OK — Electron launched; wireclaw, data layer and run event stream are live.`
 
 ## 文档
 
-**架构（目标态，已定稿）**
+**架构**
 
-- [`architecture/README.md`](architecture/README.md) — 文档地图、关键决策、术语
+- [`architecture/README.md`](architecture/README.md) — 文档地图、关键决策、术语、实现状态
 - [`architecture/overview.md`](architecture/overview.md) — 分层、依赖规则、进程模型
 - [`architecture/modules.md`](architecture/modules.md) — 模块职责与契约
 - [`architecture/data-model.md`](architecture/data-model.md) — 工作区数据、文档、导入导出
@@ -147,4 +170,4 @@ pnpm smoke       # 启动验证：窗口隐藏运行，输出 [smoke] OK 即通�
 
 - [`architecture/dev-environment.md`](architecture/dev-environment.md) — 开发环境、构建链路、常见问题
 - [`todo.md`](todo.md) — 当前进度与后续计划
-- `devlog/` — 按时间记录的开发日志
+- [`devlog/`](devlog/) — 每会话一篇贡献总结

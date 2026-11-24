@@ -63,11 +63,11 @@ apps/desktop/src/renderer/src/
 
 ```bash
 pnpm build        # 先产出 out/
-pnpm capture:ui   # 启动应用并通过 CDP 截取 renderer -> devlog/assets/ui-current.png
+pnpm capture:ui   # 启动应用并通过 CDP 截取 renderer（默认 devlog/assets/ui-current.png）
 ```
 
 默认走 CDP `Page.captureScreenshot`，得到 1440×900 的 renderer 视图，不受窗口遮挡/动画合成影响；
 默认以 **opaque frameless** 启动，保证截图可读；`-WindowMode transparent` 只用于 renderer 层对比。
-真透明的桌面透出必须用 GPU + 系统屏幕抓取，CDP 截图不会包含桌面。历史快照放在 `devlog/assets/`，命名 `<阶段>-<视图>-<日期>.png`。
+真透明的桌面透出必须用 GPU + 系统屏幕抓取，CDP 截图不会包含桌面。当前视觉基线保留在 `devlog/assets/step4-*.png`；不再保留逐阶段过程截图。
 
 

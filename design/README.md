@@ -34,9 +34,10 @@ apps/desktop/src/renderer/src/
   styles/tokens.css      # 唯一视觉事实来源（CSS 变量）
   styles/global.css      # reset 与基础排版
   ui/                    # 组件原语（Button / Menu / Dialog / …）
-  shell/                 # 六区外壳
-  views/                 # Designer / Diagnostics / Styleguide
-  canvas-preview/        # 画布静态样张（Phase 3 接入交互）
+  shell/                 # TitleBar / Ribbon / SessionSidebar / panels
+  views/                 # Designer / Hero / Diagnostics / Styleguide
+  canvas/core/           # 几何 / 边 key / 命令
+  canvas/view/           # React Flow 画布、SciFi 节点/边
 ```
 
 规则：

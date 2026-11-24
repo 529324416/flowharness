@@ -295,7 +295,7 @@ export function App(): ReactElement {
         view === "designer" ? (
             activeSession ? (
                 <div className={styles.stage}>
-                    <DesignerView />
+                    <DesignerView sessionTitle={activeSession.title} />
                     <PanelLayer
                         panels={panels}
                         events={runEvents}

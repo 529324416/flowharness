@@ -5,7 +5,7 @@ export const CANVAS_METRICS = {
     nodePadding: 12,
     portSize: 10,
     portHitRadius: 16,
-    edgeWidth: 1.5,
+    edgeWidth: 1.6,
     gridSize: 16,
     minimapWidth: 168,
     minimapHeight: 96,

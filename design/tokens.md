@@ -12,6 +12,7 @@
 | 边框 | `--fh-border`、`--fh-border-strong`、`--fh-border-focus` | 默认/悬停/焦点 |
 | 主色 | `--fh-accent`、`--fh-accent-hover`、`--fh-accent-soft`、`--fh-accent-contrast` | 青绿；soft 用于选中底色 |
 | 状态 | `--fh-success`、`--fh-warning`、`--fh-danger`、`--fh-info`（各带 `-soft`） | 成功/警告/危险/信息 |
+| 能量 | `--fh-energy`、`--fh-energy-soft`、`--fh-energy-glow` | 节点运行/活跃连线；仅画布使用 |
 | 画布 | `--fh-canvas-bg`、`--fh-canvas-grid`、`--fh-node-bg`、`--fh-node-border`、`--fh-edge`、`--fh-edge-active` | 画布专用，避免与 shell 混用 |
 | 阴影 | `--fh-shadow-1/2/3` | 1 卡片、2 面板、3 浮层 |
 | 圆角 | `--fh-radius-xs/sm/md/lg/pill` | 4 / 6 / 10 / 14 / 999 |
@@ -56,8 +57,7 @@
 | 橙红（能量色） | 节点能量、连线流动、运行中动效 | 仅画布层使用；与危险红区分色相/形状 |
 | 成功 / 警告 / 危险 | 状态表达 | 必须同时有图标或文本，不允许只靠颜色 |
 
-> 能量色与危险色需要可区分：建议能量色偏橙（如 `#ff7a45`），危险保持红（`#ef5350`）；
-> 两者的具体取值在 S0 的视觉 spike 中定，并写入 tokens。
+> 能量色已定为暗色 `#ff7a45` / 亮色 `#c2410c`；危险保持红系。能量只用于节点运行态与活跃连线，不用于按钮/导航。
 
 
 ## 画布几何常量

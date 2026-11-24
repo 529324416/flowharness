@@ -34,7 +34,8 @@ import {
     type StatusTone,
 } from "../ui";
 import { MetaList } from "../components/MetaList";
-import { NodeCard } from "../canvas-preview/NodeCard";
+import { NodeVisual } from "../canvas/view/NodeVisual";
+import type { CanvasStatus } from "../canvas/core/types";
 import { CANVAS_METRICS } from "../canvas/metrics";
 import styles from "./StyleguideView.module.css";
 
@@ -54,6 +55,8 @@ const COLOR_TOKENS = [
     ["画布", "--fh-canvas-bg"],
     ["节点", "--fh-node-bg"],
     ["连线", "--fh-edge"],
+    ["能量色", "--fh-energy"],
+    ["能量弱底", "--fh-energy-soft"],
 ] as const;
 
 const TYPE_SCALE = [
@@ -132,8 +135,8 @@ export function StyleguideView(): ReactElement {
             <header className={styles.pageHeader}>
                 <h1 className={styles.pageTitle}>样式指南</h1>
                 <p className={styles.pageDescription}>
-                    Phase 2.5 视觉契约：tokens、组件状态与画布样张。所有颜色与间距均来自
-                    tokens.css。
+                    Phase 2.6 / Step 3 视觉契约：tokens、组件状态与 SciFi 节点样张。
+                    所有颜色与间距均来自 tokens.css。
                 </p>
             </header>
 
@@ -356,16 +359,16 @@ export function StyleguideView(): ReactElement {
                 >
                     <div className={styles.nodeRow}>
                         {NODE_SAMPLES.map((node) => (
-                            <NodeCard
+                            <NodeVisual
                                 key={node.status}
                                 title={node.title}
                                 kind={node.kind}
-                                status={node.status}
+                                status={node.status as CanvasStatus}
                                 summary={node.summary}
                                 selected={"selected" in node ? node.selected : false}
-                                inputs={[56]}
-                                outputs={[56]}
-                                style={{ position: "relative" }}
+                                inputs={1}
+                                outputs={1}
+                                meta="sample"
                             />
                         ))}
                     </div>

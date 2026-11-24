@@ -62,9 +62,9 @@
 
 | 视图 | 用途 | Phase |
 | --- | --- | --- |
-| Designer | 画布与工作台（当前为静态视觉样张） | 2.5 / 3 |
+| Designer | 画布与工作台（React Flow 受控画布 + 示例图） | 3 |
 | Diagnostics | 运行时 / Wireclaw / 数据层 / 运行自检 | 已有 |
-| Styleguide | tokens、组件、节点与状态样张 | 2.5 |
+| Styleguide | tokens、组件、节点与状态样张 | 2.5 / 3 |
 
 smoke 模式默认打开 Diagnostics，保证自检 run 正常触发。
 

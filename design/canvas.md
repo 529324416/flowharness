@@ -1,92 +1,87 @@
 # 画布视觉与交互语言
 
-画布是 FH 的核心工作面。本文定义 **Phase 3 实现时必须遵守** 的视觉与交互契约；Phase 2.5 先用静态样张评审（`canvas-preview/`）。
+画布是 FH 的核心工作面。本文定义画布的视觉与交互契约；Step 3 已用 `@xyflow/react` 12 实现受控画布与 SciFi 节点/边，静态 `canvas-preview/` 已移除。
 
 ## 1. 背景
 
 - 底色 `--fh-canvas-bg`，比 shell 背景略深/略浅一档，形成“工作面”感；
-- 点阵网格：间距 16px（`CANVAS_METRICS.gridSize`），点 1px、`--fh-canvas-grid`，缩放时保持视觉密度（网格随 viewport 缩放，但不超过 1px→2px 的视觉粗细）；
-- 无装饰性渐变/纹理。
+- 点阵网格：间距 16px（`CANVAS_METRICS.gridSize`），点 1px、`--fh-canvas-grid`，随 viewport 缩放；
+- 无装饰性渐变/纹理；左上角显示 `CANVAS / LIVE` 状态条（节点/边计数）。
 
 ## 2. 节点（Node）
 
 ```text
-┌──────────────────────────────┐
+╭──────────────────────────────╮  切角 10/4px
 │ [icon] 节点标题        ● 状态 │  header 32
 ├──────────────────────────────┤
-│ 类型徽标 · 摘要/配置一行       │  body padding 12
-│                              │
-│○ 输入端口             输出端口 ○│  端口 10 / 命中 16
-└──────────────────────────────┘
-  220 宽 · 圆角 10 · 1px 边框
+│ CORE.MODEL-CALL              │  mono kind 9
+│ deepseek-chat · stream       │  summary 11
+├──────────────────────────────┤
+│ MODEL     IN 1 / OUT 1  ID…  │  footer 9
+╰──────────────────────────────╯
+  220 宽 · 1px 边框 · 无圆角（切角）
 ```
 
-- 宽度默认 220，可随内容增长但不超过 320；高度自适应；
-- 标题 13px/600，超过一行省略；类型徽标 11px、muted；
-- 状态点位于 header 右侧，配合边框/底色表达状态；
-- 端口：左入右出，10px 圆点，hover 命中半径 16；hover 时显示端口名；
-- 节点选中：2px accent 内描边 + `--fh-accent-soft` 轻底色，不使用重阴影；
-- 拖动中：轻微抬起（`--fh-shadow-2`），松手回落。
+- 宽度 220；高度自适应；
+- 标题 11px/600；kind 与 footer 用等宽字体大写，强调“仪器/图纸”感；
+- frame 使用 clip-path 切角 + 1px 状态色边框；选中时边框变 accent 并带青绿 glow；
+- 状态点在 header 右侧；running 节点使用 energy 橙 + 轻微呼吸；
+- 端口：左入右出，10px 圆点，hover 发光；端口名 `IN/OUT` 在节点外侧；
+- 节点拖动使用 React Flow 内置手势，snap 到 16px 网格。
 
 ## 3. 状态
 
 | 状态 | 边框 | 状态点 | 其他 |
 | --- | --- | --- | --- |
-| idle | `--fh-node-border` | muted | — |
-| hover | `--fh-border-strong` | — | 可点击光标 |
-| selected | accent 2px | — | accent-soft 底 |
-| running | accent | accent，脉冲 | 轻微发光 |
+| idle | `--fh-border-strong` | muted | — |
+| hover | 强边框 | — | 可点击光标 |
+| selected | accent 1px + glow | — | 不改变内部底色 |
+| running | energy 橙 | energy，脉冲 | kind 文本偏橙、轻微呼吸 |
 | paused | warning | warning | — |
 | completed | success | success | — |
-| failed | danger | danger | 错误图标 |
-| skipped | muted | muted | 40% 透明度 |
-| disabled | muted | — | 50% 透明度、不可交互 |
+| failed | danger | danger | 错误图标/红色 |
+| skipped | muted | muted | 72% 透明度 |
 
-状态必须同时有**颜色 + 图标/文本**，不允许只靠颜色区分。
+状态同时有**颜色 + 文本/图标**，不只靠颜色区分。
 
 ## 4. 连线（Edge）
 
-- 三次贝塞尔（水平控制点），`1.5px`；
-- 默认 `--fh-edge`（低对比），hover/选中 `--fh-edge-active` + 2px；
-- 执行中：沿路径的流动虚线或光点（`prefers-reduced-motion` 时改为常亮）；
-- 失败：danger 虚线；
-- 方向：左→右；回流/异常边后续再议。
+- 三次贝塞尔（水平控制点），默认 `1.6px`；
+- 默认 `--fh-edge`（低对比）；
+- 活跃：energy 橙 + 流动虚线（`stroke-dashoffset` 动画），`prefers-reduced-motion` 时静止；
+- 失败：danger 虚线 + 更细的暗红 overlay；
+- 方向：左→右；连接从端口拖拽，重复端口由稳定 `edgeKey` 去重。
 
 ## 5. 画布附属控件
 
 | 控件 | 位置 | 规格 |
 | --- | --- | --- |
-| 小地图 | 右下 16px 内边距 | 168×96，圆角 10，边框，视口矩形 accent |
-| 缩放控件 | 左下 | 26px 方形按钮组：缩小/百分比/放大/适配 |
-| 画布工具条 | 左上（可选） | 选择/抓手切换、布局按钮 |
-| 右键菜单 | 跟随指针 | Radix ContextMenu，最小宽度 200 |
+| 小地图 | 右下 16px 内边距 | 168×96，圆角 10，边框，状态色节点块 |
+| 缩放控件 | 左下（运行日志面板上方） | React Flow Controls：放大/缩小/适配 |
+| 画布状态条 | 左上 | `CANVAS / LIVE`、会话名、节点/边计数 |
+| 右键菜单 | 跟随指针 | 自定义菜单：删除节点 / 适配视图 / 重置示例图 |
 
 ## 6. 交互语法
 
-| 操作 | 行为 |
+| 操作 | 状态 |
 | --- | --- |
-| 平移 | 空格 + 拖拽 / 中键拖拽 / 滚轮 |
-| 缩放 | Ctrl/⌘ + 滚轮、触控板捏合；范围 25%–200% |
-| 选择 | 单击；Shift 追加；空白拖拽框选 |
-| 连线 | 从端口拖到端口；无效目标变暗 |
-| 删除 | Delete / Backspace |
-| 撤销/重做 | Ctrl/⌘ + Z / Shift + Z |
-| 复制 | Ctrl/⌘ + D |
-| 适配视图 | Ctrl/⌘ + 1；100% 为 Ctrl/⌘ + 0 |
-| 取消 | Esc（取消连线/框选/菜单） |
-| 右键 | 空白/节点/边三种菜单 |
-
-快捷键提示统一用 `Kbd` 组件展示。
+| 平移 | ✅ 拖拽/滚轮 |
+| 缩放 | ✅ Ctrl/⌘ + 滚轮、按钮；25%–200% |
+| 选择 | ✅ 单击；Shift 追加；框选 |
+| 连线 | ✅ 端口拖拽；重复边去重 |
+| 删除 | ✅ Delete / Backspace / 右键菜单 |
+| 适配视图 | ✅ Controls / 右键菜单 |
+| 撤销/重做、复制 | ⬜ Phase 3.5 |
+| 右键 | ✅ 空白/节点菜单；边菜单后续 |
 
 ## 7. 空状态与异常
 
-- 空画布：居中 EmptyState（图标 + “从左侧节点库拖入节点” + 主按钮）；
-- 运行失败：底部问题面板自动展开，画布节点显示 failed；
-- 无工作区：整块画布替换为“打开或创建工作区”空状态；
-- 加载：画布骨架（网格保留 + 居中 Spinner），不阻塞 shell。
+- 无会话：由 Shell 的 Hero 承担（不进入画布）；
+- 空画布：居中 EmptyState（Phase 3.5 与节点库一起接入）；
+- 运行失败：节点 failed；问题面板（Panel）显示问题。
 
 ## 8. 性能与降级
 
-- 拖拽/平移期间只更新视觉，不写文档；结束时提交一次命令；
-- > 300 节点时降低网格/小地图刷新频率（Phase 3 之后）；
+- 拖拽/平移期间只更新视觉，不写文档；结束时提交命令；
+- > 300 节点时降低网格/小地图刷新频率（待测）；
 - `prefers-reduced-motion` 下关闭脉冲、流动与过渡。

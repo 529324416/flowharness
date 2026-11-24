@@ -57,7 +57,8 @@
 | 内部浮动 Panel（运行日志 / 属性检查） | ✅ 已实现（Phase 2.6 step 2） |
 | 窗口 bounds 持久化（多显示器/DPI） | ✅ 已实现（step 2） |
 | 完整 Session 生命周期（历史 / 回放 / Provider） | ⬜ 未开始 |
-| Canvas core + react-flow 交互 | ⬜ 未开始（Phase 3） |
+| Canvas core + react-flow 交互 | ✅ 已实现（Phase 3 Step 3） |
+| GraphDocument adapter / 节点库 / 撤销栈 | 🚧 下一步（Phase 3.5） |
 | Workbench Framework | ⬜ 未开始 |
 | Harness Designer | ⬜ 未开始 |
 | 打包分发、CI | ⬜ 未开始 |

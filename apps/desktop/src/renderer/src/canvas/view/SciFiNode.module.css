@@ -1,0 +1,82 @@
+.wrapper {
+  position: relative;
+  width: 220px;
+}
+
+.handle {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--node-accent, var(--fh-border-strong));
+  border-radius: 50%;
+  background: var(--fh-canvas-bg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fh-canvas-bg) 70%, transparent);
+  transition:
+    background var(--fh-motion-fast) var(--fh-ease-standard),
+    box-shadow var(--fh-motion-fast) var(--fh-ease-standard);
+}
+
+.handle:hover {
+  background: var(--node-accent, var(--fh-accent));
+  box-shadow: 0 0 8px var(--node-accent, var(--fh-accent));
+}
+
+.in {
+  left: -5px;
+}
+
+.out {
+  right: -5px;
+}
+
+.portLabel {
+  position: absolute;
+  top: 50%;
+  color: var(--fh-text-subtle);
+  font-family: var(--fh-font-mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.portIn {
+  left: -22px;
+}
+
+.portOut {
+  right: -26px;
+}
+
+.idle {
+  --node-accent: var(--fh-text-subtle);
+}
+
+.running {
+  --node-accent: var(--fh-energy);
+}
+
+.paused {
+  --node-accent: var(--fh-warning);
+}
+
+.completed {
+  --node-accent: var(--fh-success);
+}
+
+.failed {
+  --node-accent: var(--fh-danger);
+}
+
+.skipped {
+  --node-accent: var(--fh-text-subtle);
+}
+
+.selected {
+  --node-accent: var(--fh-accent);
+}
+
+.selected .handle {
+  background: var(--fh-accent);
+  box-shadow: 0 0 10px var(--fh-accent-soft);
+}

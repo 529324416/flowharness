@@ -28,14 +28,16 @@ renderer/src/
   ui/                      # 组件原语（Button/Menu/Dialog/Tabs/...）
   shell/                   # TitleBar / Ribbon / SessionSidebar / StatusBar / 窗口控制
   views/                   # Designer / Hero / Diagnostics / Styleguide
-  canvas-preview/          # 静态画布样张（Phase 3 由 canvas/ 替换）
-  canvas/                  # 几何常量；Phase 3 扩展为 core + view
+  canvas/core/             # 纯 TS：几何、边 key、命令（Phase 3）
+  canvas/view/             # React Flow 受控视图、节点/边 renderer
+  canvas/sample-graph.ts   # Step 3 示例图（Phase 3.5 换 GraphDocument adapter）
+  canvas/metrics.ts        # 几何常量
   run/                     # 运行自检（Phase 2）
   components/              # 共享展示组件（MetaList）
   theme/                   # ThemeProvider
 ```
 
-Phase 3/4 再引入 `modules/canvas/{core,view}`、`modules/workbench/`、`workbenches/harness-designer/`；当前 `canvas-preview/` 是视觉契约的可执行样张。
+Step 3 已落地 `canvas/core` 与 `canvas/view`；`canvas-preview/` 已移除，节点视觉统一到 `canvas/view/NodeVisual`。
 
 规则：
 
@@ -64,6 +66,8 @@ Phase 3/4 再引入 `modules/canvas/{core,view}`、`modules/workbench/`、`workb
 | --- | --- | --- |
 | `core`（纯 TS） | 视口变换、命中测试、选择模型、命令（增删改连）、布局应用、动画调度原语、边 key 规则 | 无框架依赖，可单测 |
 | `view`（React） | 视口容器、节点层、连线层、小地图、Controls、ContextMenu；用 react-flow 实现手势与渲染 | React、`@xyflow/react` |
+
+> Step 3 已实现：`geometry`、`edge-key`、`commands`（边去重/删节点联动/移动）以及受控 view、节点 registry、MiniMap/Controls/右键菜单；选择模型、布局应用、动画原语与 `CanvasDocument` adapter 留在 Phase 3.5。
 
 ### 4.3 类型
 
@@ -104,6 +108,7 @@ type CanvasDocument = {
 - `edgeTypes` 提供至少一个带动画能力的默认边；
 - 小地图/Controls/Background 用官方组件；
 - react-flow 的使用被限制在 `modules/canvas/view/`，其他代码不 import 它。
+- 当前实现（Step 3）：`@xyflow/react` 12.12.1 受控模式、`useNodesState` / `useEdgesState`、自定义 `SciFiNode` / `SciFiEdge`、节点 renderer registry、MiniMap / Controls / 自定义右键菜单；GraphDocument adapter 与命令栈在 Phase 3.5 接入。
 
 ### 4.5 动画原语
 
@@ -263,10 +268,10 @@ GraphDocument ⇄ CanvasDocument
 | --- | --- |
 | tokens | `styles/tokens.css`：表面 / 文本 / 边框 / 主色（青绿）/ 状态 / 画布 / 阴影 / 圆角 / 间距 / 字体 / 动效 / 尺寸 / 层级；深色默认、亮色覆盖 |
 | 密度 | 控件 30px（sm 26）、节点 220px、4px 间距基线、13px 正文字号 |
-| 外壳 | TitleBar 36（自绘、拖拽、窗口控制）/ Ribbon 48 / Session Sidebar 260（可收起/拖宽）/ StatusBar 22；无固定 Inspector/BottomPanel，改为 step 2 的内部浮动 Panel |
+| 外壳 | TitleBar 36（自绘、拖拽、窗口控制）/ Ribbon 48 / Session Sidebar 260（可收起/拖宽）/ StatusBar 22；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
 | 会话入口 | Session Sidebar 使用 mock 数据（Phase 5 接真实 Session）；无选中会话时设计器显示 Hero |
 | 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
-| 画布视觉 | 节点 anatomy、端口 10 / 命中 16、1.5px 贝塞尔边、六种状态、小地图、缩放控件、右键菜单；常量在 `canvas/metrics.ts` |
+| 画布视觉 | SciFi 节点：切角 1px 边框、等宽 kind/ID、Header 32、端口 10 / 命中 16、状态点；运行节点 energy 橙、选中 accent 青绿；边 1.6px 贝塞尔，活跃 orange 流动虚线、失败 red 虚线；常量在 `canvas/metrics.ts` |
 | 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张 |
 
 smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通启动默认进入设计器视图。

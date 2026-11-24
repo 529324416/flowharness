@@ -103,13 +103,16 @@
 
 ---
 
-## Phase 3 — Canvas 核心与视图
+## Phase 3 — Canvas 核心与视图（Step 3 基础完成）
 
-- [ ] `canvas/core`：坐标变换、命中测试、选择、命令、边 key、布局、动画原语 + 单测
-- [ ] `canvas/view`：react-flow 受控模式、节点/边层、小地图、Controls、ContextMenu
-- [ ] Node renderer registry（`nodeType → React 组件`）
-- [ ] 画布与主题 token / `canvas/metrics.ts` 对齐
-- [ ] 空态 / 大图性能基线（300 节点）
+- [x] `canvas/core`：坐标变换、命中测试、边 key、命令 + 单测（12 files / 48 tests）
+- [x] `canvas/view`：react-flow 12 受控模式、节点/边层、小地图、Controls、自定义右键菜单
+- [x] Node renderer registry（`kind → React 组件`，默认 `SciFiNode`）
+- [x] SciFi NodeVisual：切角、等宽 kind/ID、状态点、energy/selected 表达
+- [x] SciFiEdge：贝塞尔、活跃能量流动、失败虚线、端点
+- [x] 画布与主题 token / `canvas/metrics.ts` 对齐
+- [ ] 大图性能基线（300 节点）
+- [ ] GraphDocument adapter / 节点库 / 撤销栈（Phase 3.5）
 
 ## Phase 3.5 — Harness Designer 工作台
 

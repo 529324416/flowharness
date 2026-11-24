@@ -39,7 +39,13 @@ try {
     $effectiveMode = if ([string]::IsNullOrWhiteSpace($WindowMode)) { "frameless" } else { $WindowMode }
     Write-Host "window mode: $effectiveMode"
 
-    $electronArgs = @("--no-sandbox", "--disable-gpu")
+    $electronArgs = @(
+        "--no-sandbox",
+        "--disable-gpu",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+        "--disable-background-timer-throttling"
+    )
     if (-not $NativeWindow) {
         $electronArgs += "--remote-debugging-port=$port"
     }

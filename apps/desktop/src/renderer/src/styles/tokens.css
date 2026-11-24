@@ -41,6 +41,11 @@
   --fh-info: #38bdf8;
   --fh-info-soft: #0b2533;
 
+  /* SciFi energy: only for node energy / active edge flow */
+  --fh-energy: #ff7a45;
+  --fh-energy-soft: #2a160f;
+  --fh-energy-glow: rgb(255 122 69 / 0.35);
+
   /* Canvas */
   --fh-canvas-bg: #080d0e;
   --fh-canvas-grid: #1b2a2c;
@@ -148,6 +153,10 @@
   --fh-danger-soft: #fdeaea;
   --fh-info: #0369a1;
   --fh-info-soft: #e6f3fb;
+
+  --fh-energy: #c2410c;
+  --fh-energy-soft: #fde9e0;
+  --fh-energy-glow: rgb(194 65 12 / 0.25);
 
   --fh-canvas-bg: #edf2f2;
   --fh-canvas-grid: #cbd8d9;

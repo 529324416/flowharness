@@ -13,10 +13,11 @@
 | electron-vite | 6.0.0 | main / preload / renderer 三端构建与开发服务器 |
 | Vite | 8.3.8 | renderer 打包 |
 | React | 19.3.1 | renderer UI |
+| @xyflow/react | 12.12.1 | 画布视图（受控 nodes/edges） |
 | @vitejs/plugin-react | 6.3.0 | JSX 转换与 Fast Refresh（额外 peer 均为 optional） |
 | Radix Primitives | tooltip 1.4 / dropdown 2.2 / context-menu 2.4 / dialog 1.3 / tabs 1.2 | 浮层与菜单的无障碍行为 |
 | Lucide React | 1.78.0 | 图标 |
-| Vitest | 5.1.1 | main 侧服务单测（node 环境） |
+| Vitest | 5.1.1 | main 服务 + canvas core 单测（node 环境） |
 | tsup | 9.0.0 | wireclaw 库构建 |
 
 ## 目录职责
@@ -36,19 +37,19 @@ apps/desktop/
   src/renderer/
     index.html
     src/main.tsx            # React 挂载 + 首帧主题
-    src/App.tsx             # 六区外壳组合 + 视图切换
+    src/App.tsx             # Shell v2 组合 + 视图切换
     src/styles/             # tokens.css（唯一视觉事实源）+ global.css
     src/ui/                 # 组件原语（Button / Menu / Dialog / Tabs / ...）
-    src/shell/              # TopBar / Rail / Inspector / BottomPanel / StatusBar
-    src/views/              # Designer / Diagnostics / Styleguide
-    src/canvas/             # 画布几何常量（Phase 3 扩展为 core）
-    src/canvas-preview/     # 静态画布视觉样张
+    src/shell/              # TitleBar / Ribbon / SessionSidebar / panels / StatusBar
+    src/views/              # Designer / Hero / Diagnostics / Styleguide
+    src/canvas/core/        # 几何 / 边 key / 命令
+    src/canvas/view/        # React Flow 画布、节点/边 renderer
     src/run/                # 运行自检组件
     src/components/         # 共享展示组件
     src/theme/              # ThemeProvider
   scripts/prepare-userdata.mjs  # 启动前创建 Electron userData 目录
   scripts/smoke.mjs         # 无头启动验证
-  vitest.config.mts         # main 服务单测配置
+  vitest.config.mts         # main 服务 + canvas core 单测配置
   out/                      # 构建产物（git 忽略）
 design/                     # 设计契约：tokens / canvas / components
 packages/
@@ -101,7 +102,7 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 
 ```bash
 pnpm typecheck   # contracts（tsc）+ desktop（node + web 两个 project）
-pnpm test        # vitest：main 服务单测（43 项：config / secrets / blob / workspace / filehost / run-store / runtime / broker / window-state）
+pnpm test        # vitest：main 服务 + canvas core（48 项：config / secrets / blob / workspace / filehost / run-store / runtime / broker / window-state / geometry / commands）
 pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
 pnpm capture:ui  # Windows：CDP 截取 renderer（加 -NativeWindow 可抓原生窗口）

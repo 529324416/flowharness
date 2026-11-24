@@ -30,6 +30,16 @@ textarea {
   color: inherit;
 }
 
+/* Frameless title bar: interactive elements must opt out of the drag region. */
+button,
+input,
+select,
+textarea,
+a,
+[data-no-drag] {
+  -webkit-app-region: no-drag;
+}
+
 h1,
 h2,
 h3,

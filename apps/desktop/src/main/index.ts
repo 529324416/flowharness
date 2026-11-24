@@ -8,6 +8,8 @@ import {
     nativeTheme,
     screen,
     safeStorage,
+    type BrowserWindowConstructorOptions,
+    type IpcMainInvokeEvent,
 } from "electron";
 import {
     FhError,
@@ -31,6 +33,8 @@ import {
     type SecretsSetRequest,
     type UserInputRequestPayload,
     type UserInputResponseRequest,
+    type WindowMode,
+    type WindowStatePayload,
     type WorkspaceCloseRequest,
     type WorkspaceCreateInput,
     type WorkspaceExportRequest,
@@ -54,6 +58,7 @@ registerAssetScheme();
 
 const isSmokeRun = process.env.FLOWHARNESS_SMOKE === "1";
 const APPROVAL_TIMEOUT_MS = 5 * 60_000;
+const WINDOW_MODE = (process.env.FLOWHARNESS_WINDOW_MODE ?? "frameless") as WindowMode;
 
 const bootGraph = new Graph([], [], {
     id: "flowharness-main-boot",
@@ -104,24 +109,62 @@ function createWindow(): void {
     const width = Math.min(1440, Math.max(1024, workArea.width - 80));
     const height = Math.min(900, Math.max(680, workArea.height - 80));
 
-    const window = new BrowserWindow({
+    const dark = nativeTheme.shouldUseDarkColors;
+    const surfaceColor = WINDOW_BACKGROUND[dark ? "dark" : "light"];
+
+    const options: BrowserWindowConstructorOptions = {
         width,
         height,
         minWidth: 1024,
         minHeight: 680,
         center: true,
         show: !isSmokeRun,
-        backgroundColor:
-            WINDOW_BACKGROUND[nativeTheme.shouldUseDarkColors ? "dark" : "light"],
+        backgroundColor: surfaceColor,
         title: "FlowHarness",
         webPreferences: {
             preload: resolvePreloadPath(),
             contextIsolation: true,
             sandbox: false,
         },
-    });
+    };
+
+    if (WINDOW_MODE === "overlay") {
+        options.titleBarStyle = "hidden";
+        options.titleBarOverlay = {
+            color: surfaceColor,
+            symbolColor: dark ? "#e6f1f2" : "#10201f",
+            height: 44,
+        };
+    } else if (WINDOW_MODE !== "standard") {
+        options.frame = false;
+        options.thickFrame = true;
+
+        if (WINDOW_MODE === "mica" || WINDOW_MODE === "acrylic") {
+            options.transparent = true;
+            options.backgroundColor = "#00000000";
+            options.backgroundMaterial = WINDOW_MODE;
+        } else if (WINDOW_MODE === "transparent") {
+            options.transparent = true;
+            options.backgroundColor = "#00000000";
+        }
+    }
+
+    console.log(
+        `[main] window mode=${WINDOW_MODE} transparent=${options.transparent === true} overlay=${WINDOW_MODE === "overlay"}`,
+    );
+
+    const window = new BrowserWindow(options);
 
     mainWindow = window;
+
+    const sendWindowState = (): void => {
+        broadcast(IpcEventTopic.Window, {
+            maximized: window.isMaximized(),
+        } satisfies WindowStatePayload);
+    };
+
+    window.on("maximize", sendWindowState);
+    window.on("unmaximize", sendWindowState);
 
     window.on("closed", () => {
         if (mainWindow === window) mainWindow = null;
@@ -277,7 +320,34 @@ function isPhase(payload: unknown, phase: string): boolean {
     );
 }
 
+function windowFromEvent(event: IpcMainInvokeEvent): BrowserWindow {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) {
+        throw new FhError("E_NOT_FOUND", "window not found");
+    }
+    return window;
+}
+
 function registerIpcHandlers(): void {
+    registerHandler(IpcChannel.WindowMinimize, (_request, event) => {
+        windowFromEvent(event).minimize();
+    });
+
+    registerHandler(IpcChannel.WindowToggleMaximize, (_request, event) => {
+        const window = windowFromEvent(event);
+        if (window.isMaximized()) window.unmaximize();
+        else window.maximize();
+        return { maximized: window.isMaximized() };
+    });
+
+    registerHandler(IpcChannel.WindowClose, (_request, event) => {
+        windowFromEvent(event).close();
+    });
+
+    registerHandler(IpcChannel.WindowIsMaximized, (_request, event) => ({
+        maximized: windowFromEvent(event).isMaximized(),
+    }));
+
     registerHandler(IpcChannel.AppGetInfo, (): AppInfo => ({
         name: app.getName(),
         version: app.getVersion(),

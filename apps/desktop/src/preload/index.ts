@@ -9,6 +9,7 @@ import {
     type IpcResult,
     type RunSnapshot,
     type RunStartRequest,
+    type WindowStatePayload,
     type WorkspaceCreateInput,
     type WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -25,6 +26,7 @@ async function invoke<T>(channel: string, payload?: unknown): Promise<IpcResult<
 const bridge = {
     platform: process.platform,
     smokeMode: process.env.FLOWHARNESS_SMOKE === "1",
+    windowMode: process.env.FLOWHARNESS_WINDOW_MODE ?? "frameless",
     versions: {
         electron: process.versions.electron,
         node: process.versions.node,
@@ -42,6 +44,12 @@ const bridge = {
             ipcRenderer.removeListener(IPC_EVENT_CHANNEL, handler);
         };
     },
+    windowMinimize: (): Promise<IpcResult<void>> => invoke(IpcChannel.WindowMinimize),
+    windowToggleMaximize: (): Promise<IpcResult<WindowStatePayload>> =>
+        invoke(IpcChannel.WindowToggleMaximize),
+    windowClose: (): Promise<IpcResult<void>> => invoke(IpcChannel.WindowClose),
+    isWindowMaximized: (): Promise<IpcResult<WindowStatePayload>> =>
+        invoke(IpcChannel.WindowIsMaximized),
     getConfig: (): Promise<IpcResult<AppConfig>> => invoke(IpcChannel.ConfigGet),
     updateConfig: (patch: AppConfigUpdate): Promise<IpcResult<AppConfig>> =>
         invoke(IpcChannel.ConfigUpdate, patch),

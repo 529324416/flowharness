@@ -1,12 +1,15 @@
 param(
     [string]$Out = "",
-    [int]$TimeoutSeconds = 45
+    [int]$TimeoutSeconds = 45,
+    [string]$WindowMode = ""
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($Out)) {
     $Out = Join-Path $root "devlog\assets\ui-current.png"
+} elseif ([System.IO.Path]::IsPathRooted($Out)) {
+    $Out = [System.IO.Path]::GetFullPath($Out)
 } else {
     $Out = [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $Out))
 }
@@ -39,6 +42,11 @@ $proc = $null
 
 try {
     Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+    if (-not [string]::IsNullOrWhiteSpace($WindowMode)) {
+        $env:FLOWHARNESS_WINDOW_MODE = $WindowMode
+    }
+    $effectiveMode = if ([string]::IsNullOrWhiteSpace($WindowMode)) { "frameless" } else { $WindowMode }
+    Write-Host "window mode: $effectiveMode"
 
     $proc = Start-Process -FilePath $electron `
         -ArgumentList "--no-sandbox", "--disable-gpu", $appDir `

@@ -109,6 +109,8 @@ pnpm capture:ui  # Windows：启动应用并截取 FlowHarness 窗口（视觉�
 
 Windows 快捷启动：双击 `run.bat`。默认先按标准沙箱启动，失败时自动以 `--no-sandbox` 重试（受限终端/CI 无法初始化 Chromium 沙箱）；也可 `run.bat --no-sandbox` 直接兼容模式，或 `run.bat --sandbox` 强制标准模式。脚本会检查 Node/pnpm、按需 `pnpm install` 与 `build:wireclaw`。
 
+窗口模式实验（S0）：默认 `frameless`；可用 `FLOWHARNESS_WINDOW_MODE=standard|overlay|mica|acrylic|transparent pnpm dev` 启动对比。透明模式目前仅作 spike，不作为默认外观。
+
 `pnpm smoke` 的行为：
 
 1. `prepare-userdata.mjs` 确保 `%APPDATA%\FlowHarness` 存在；

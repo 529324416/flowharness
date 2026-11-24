@@ -1,0 +1,32 @@
+.group {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  height: var(--fh-topbar-height);
+  margin-right: calc(var(--fh-space-2) * -1);
+  -webkit-app-region: no-drag;
+}
+
+.button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--fh-text-muted);
+  cursor: default;
+  transition:
+    background var(--fh-motion-fast) var(--fh-ease-standard),
+    color var(--fh-motion-fast) var(--fh-ease-standard);
+}
+
+.button:hover {
+  background: var(--fh-surface-raised);
+  color: var(--fh-text);
+}
+
+.close:hover {
+  background: #c42b1c;
+  color: #ffffff;
+}

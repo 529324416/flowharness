@@ -9,6 +9,7 @@ import "./styles/global.css";
 // 真正的偏好仍以 AppConfig 为准（ThemeProvider 启动后会覆盖）。
 const cachedTheme = window.localStorage.getItem("fh.theme");
 document.documentElement.dataset["theme"] = cachedTheme === "light" ? "light" : "dark";
+document.documentElement.dataset["windowMode"] = window.flowharness.windowMode;
 
 const container = document.getElementById("root");
 if (!container) {

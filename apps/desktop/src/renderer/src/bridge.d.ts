@@ -5,6 +5,7 @@ import type {
     IpcResult,
     RunSnapshot,
     RunStartRequest,
+    WindowStatePayload,
     WorkspaceCreateInput,
     WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -17,6 +18,8 @@ interface FlowHarnessBridge {
     readonly platform: string;
     /** true 时应用处于 `FLOWHARNESS_SMOKE=1` 自检模式。 */
     readonly smokeMode: boolean;
+    /** S0 窗口模式：standard / frameless / overlay / mica / acrylic / transparent / simulated。 */
+    readonly windowMode: string;
     readonly versions: {
         readonly electron: string;
         readonly node: string;
@@ -24,6 +27,11 @@ interface FlowHarnessBridge {
     };
     readonly reportReady: (payload: Record<string, unknown>) => void;
     readonly onEvent: (listener: (envelope: IpcEventEnvelope) => void) => () => void;
+
+    readonly windowMinimize: () => Promise<IpcResult<void>>;
+    readonly windowToggleMaximize: () => Promise<IpcResult<WindowStatePayload>>;
+    readonly windowClose: () => Promise<IpcResult<void>>;
+    readonly isWindowMaximized: () => Promise<IpcResult<WindowStatePayload>>;
 
     readonly getConfig: () => Promise<IpcResult<AppConfig>>;
     readonly updateConfig: (patch: AppConfigUpdate) => Promise<IpcResult<AppConfig>>;

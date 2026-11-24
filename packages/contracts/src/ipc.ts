@@ -3,6 +3,7 @@ import type {
     AppConfigUpdate,
     AppInfo,
     BlobMeta,
+    WindowStatePayload,
     WorkspaceCreateInput,
     WorkspaceSummary,
 } from "./domain";
@@ -26,6 +27,11 @@ import type {
  */
 export const IpcChannel = {
     AppGetInfo: "app:getInfo",
+
+    WindowMinimize: "window:minimize",
+    WindowToggleMaximize: "window:toggle-maximize",
+    WindowClose: "window:close",
+    WindowIsMaximized: "window:is-maximized",
 
     ConfigGet: "config:get",
     ConfigUpdate: "config:update",
@@ -79,6 +85,7 @@ export const IpcEventTopic = {
     Workspace: "workspace",
     Config: "config",
     Theme: "theme",
+    Window: "window",
     Approval: "approval",
     Input: "input",
 } as const;
@@ -109,6 +116,12 @@ export type SecretsDeleteRequest = { providerId: string };
 /** 已实现 invoke 通道的类型表；每接入一个通道就往这里加一行。 */
 export type IpcInvokeContracts = {
     [IpcChannel.AppGetInfo]: { request: void; response: AppInfo };
+
+    [IpcChannel.WindowMinimize]: { request: void; response: void };
+    [IpcChannel.WindowToggleMaximize]: { request: void; response: WindowStatePayload };
+    [IpcChannel.WindowClose]: { request: void; response: void };
+    [IpcChannel.WindowIsMaximized]: { request: void; response: WindowStatePayload };
+
     [IpcChannel.ConfigGet]: { request: void; response: AppConfig };
     [IpcChannel.ConfigUpdate]: { request: AppConfigUpdate; response: AppConfig };
     [IpcChannel.ConfigReset]: { request: void; response: AppConfig };

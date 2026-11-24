@@ -57,14 +57,15 @@
 > 色彩角色：**中性深色底**；**青绿只用于选中/焦点/链接/部分强调文字**（不做大面积底色）；
 > **橙红只用于节点能量/连线流动**；成功/警告/危险状态色独立，并必须配图标或文本。
 
-### S0 可行性 Spike（0.5 轮）
+### S0 可行性 Spike（已完成）
 
-- [ ] `frame: false` + 自绘 TitleBar + 窗口 IPC（minimize / toggle-maximize / close / maximized）
-- [ ] 拖拽区、双击最大化、多显示器/DPI 下的窗口 bounds 恢复
-- [ ] Snap Layouts 对比：全自绘按钮 vs `titleBarOverlay`（记录取舍）
-- [ ] 半透明方案对比：原生 Mica/Acrylic vs `transparent + backdrop-filter` vs CSS 模拟
-- [ ] 截图兼容：`PrintWindow` 在透明/材质窗口下的表现
-- [ ] 产出：对比截图 + 决策记录（不接业务）
+- [x] `frame: false` + 自绘 TitleBar + 窗口 IPC（minimize / toggle-maximize / close / maximized）
+- [x] 拖拽区、双击最大化（bounds 持久化移交 Shell v2）
+- [x] Snap Layouts 对比：全自绘按钮（无原生弹层）vs `titleBarOverlay`（保留原生按钮）；决定采用自绘
+- [x] 半透明方案对比：原生 Mica/Acrylic 无可辨收益；`transparent + backdrop-filter` 可用但不稳定
+- [x] 截图兼容：`PrintWindow` 抓不到 DWM 材质/透明背景，需前台抓屏验证
+- [x] 产出：frameless / overlay / standard 对比截图 + ADR-008
+- [x] 结论：默认 `frameless` 不透明；`transparent` 保留为实验模式，step 4 再定
 
 ### 1 Shell v2（1A + 1B 合并，1 轮）
 
@@ -72,6 +73,7 @@
 - [ ] 布局：Ribbon 48 + Session Sidebar 260（可收起/拖宽）+ Canvas + StatusBar 22
 - [ ] Hero 空态：新建 / 打开工作区、最近项目、模板
 - [ ] 菜单与快捷键（Ctrl+W 等）在无 Electron 菜单后仍可用
+- [ ] 窗口 bounds 持久化（多显示器/DPI 校正）
 - [ ] Session Sidebar 先用 mock 数据，接口按未来 `SessionSummary` 设计
 - [ ] 产出：`pnpm capture:ui` 截图
 

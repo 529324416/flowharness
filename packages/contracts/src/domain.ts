@@ -82,3 +82,18 @@ export type BlobRef =
     | { kind: "session"; id: SessionId }
     | { kind: "run"; id: string }
     | { kind: "document"; id: string };
+
+/** 窗口状态（main → renderer 广播）。 */
+export type WindowStatePayload = {
+    maximized: boolean;
+};
+
+/** S0 窗口模式；后续可收敛为固定 frameless + 材质配置。 */
+export type WindowMode =
+    | "standard"
+    | "frameless"
+    | "overlay"
+    | "mica"
+    | "acrylic"
+    | "transparent"
+    | "simulated";

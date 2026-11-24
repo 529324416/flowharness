@@ -26,7 +26,9 @@ import {
     StatusDot,
     Tooltip,
 } from "../ui";
+import { cx } from "../ui/cx";
 import { RUN_STATUS_LABEL } from "./labels";
+import { WindowControls } from "./WindowControls";
 import styles from "./TopBar.module.css";
 
 export type TopBarProps = {
@@ -54,8 +56,20 @@ export function TopBar({
     onCreateWorkspace,
     busy,
 }: TopBarProps): ReactElement {
+    const windowMode = window.flowharness.windowMode;
+    const overlay = windowMode === "overlay";
+
+    const handleTitleBarDoubleClick = (event: React.MouseEvent<HTMLElement>): void => {
+        const target = event.target as HTMLElement;
+        if (target.closest("button, input, select, textarea, a, [data-no-drag]")) return;
+        void window.flowharness.windowToggleMaximize();
+    };
+
     return (
-        <header className={styles.root}>
+        <header
+            className={cx(styles.root, overlay && styles.overlay)}
+            onDoubleClick={handleTitleBarDoubleClick}
+        >
             <div className={styles.left}>
                 <div className={styles.brand}>
                     <span className={styles.mark} aria-hidden="true">
@@ -151,6 +165,8 @@ export function TopBar({
                         <MenuItem disabled>关于 FlowHarness</MenuItem>
                     </MenuContent>
                 </Menu>
+
+                <WindowControls mode={windowMode} />
             </div>
         </header>
     );

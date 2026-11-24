@@ -132,7 +132,7 @@ interface WorkspaceStore {
 - 锁：应用单实例 + 工作区 `lock` 文件（pid + 时间戳，支持陈旧检测）；
 - **单写者**：一期只允许一个窗口写一个工作区。
 
-> 现状（以代码为准）：已实现 `list / create / open / close / readDocument / saveDocument / exportWorkspace / importWorkspace / getBlobStore / getWorkspaceDir / isOpen`；文档保存是整文档快照 + sha256 revision（`baseRevision` 不匹配返回 `E_CONFLICT`），**没有** `applyCommands`、`workspace:changed` 事件、迁移表与备份；`lock` 只写 pid/startedAt/appVersion，陈旧判定看 pid 是否存活，单实例锁未启用。
+> 现状（以代码为准）：已实现 `list / create / open / close / readDocument / saveDocument / listDocuments / deleteDocument / exportWorkspace / importWorkspace / getBlobStore / getWorkspaceDir / isOpen`；文档保存是整文档快照 + sha256 revision（`baseRevision` 不匹配返回 `E_CONFLICT`），**没有** `applyCommands`、`workspace:changed` 事件、迁移表与备份；`lock` 只写 pid/startedAt/appVersion，陈旧判定看 pid 是否存活，单实例锁未启用。
 
 ## 7. WorkspaceFileHost
 
@@ -259,13 +259,13 @@ interface WorkbenchController {
 
 **职责**：默认工作台，可拖拽、连线、校验、运行、导入导出。
 
-**当前实现（M3）**：加载/保存工作区 `main` 图、画布编辑（移动 / 连线 / 删除 / 添加节点 / viewport）、400ms 自动保存与冲突、运行前递归 `validate()`、问题面板（定位节点 / 边）、运行日志与检查器、节点 / 边运行状态与暂停·继续。
+**当前实现（M4）**：加载/保存工作区任意 Harness 文档、多图切换与新建 / 重命名 / 复制 / 删除、Harness JSON 导入导出、画布编辑（移动 / 连线 / 删除 / 添加节点 / viewport / 框选 / 右键平移）、撤销重做与复制粘贴、400ms 自动保存与冲突副本、运行前递归 `validate()`、问题面板、运行日志与检查器、节点 / 边运行状态与暂停·继续。
 
 - 节点面板数据来自 wireclaw：`createEditorCatalog(registry, { presets })` → `NodeCatalogEntry[]` + presets（M2 已接入，含默认 config / configSchema / 分类 / 关键词）；
 - `GraphDocument` → `CanvasDocument` 单向 adapter 由设计器实现（`designer/core/adapter.ts`）；
 - 布局写入 `GraphDocument.ui`（节点 `ui` 与图级 `ui`）；实例级覆盖（`layout.overrides`）随 Workbench Framework 落地；
 - 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌图递归校验与问题定位已在 M3 接入，`requirements` catalog 的宿主来源等 M6；
-- 目标：导入导出就是 `GraphDocument` 的 JSON —— **尚未实现**，当前只有 `.fhws` 整工作区导入导出。
+- 导入导出：文档菜单提供单 `GraphDocument` JSON 导入（新建文档）与导出（可选剥离 `ui`）；`.fhws` 整工作区导入导出仍只有 main 通道。
 
 ## 15. Other Workbenches（L5）
 

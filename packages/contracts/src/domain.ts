@@ -73,6 +73,14 @@ export type DocumentSaveResult = {
     updatedAt: string;
 };
 
+/** 工作区内一份 Harness 文档的摘要（多图切换用）。 */
+export type HarnessDocumentSummary = {
+    id: string;
+    title: string;
+    updatedAt: string;
+    size: number;
+};
+
 /** run 的对外状态。 */
 export type RunStatus =
     | "idle"

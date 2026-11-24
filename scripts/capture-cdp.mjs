@@ -1,4 +1,6 @@
 import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const port = process.argv[2] ?? "9333";
 const out = process.argv[3];
@@ -68,6 +70,13 @@ try {
             returnByValue: true,
         });
     const settle = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const evaluateAsync = (expression) =>
+        send("Runtime.evaluate", {
+            expression,
+            userGesture: true,
+            returnByValue: true,
+            awaitPromise: true,
+        });
     const clickElement = async (expression) => {
         const rect = await send("Runtime.evaluate", {
             expression: `(() => { const element = ${expression}; if (!element) return null; element.scrollIntoView({ block: 'nearest', inline: 'nearest' }); const rect = element.getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`,
@@ -121,7 +130,13 @@ try {
         scenario === "designer-panels" ||
         scenario === "designer-select" ||
         scenario === "designer-toggle" ||
-        scenario === "designer-problems"
+        scenario === "designer-problems" ||
+        scenario === "designer-documents" ||
+        scenario === "designer-doc-flow" ||
+        scenario === "designer-import" ||
+        scenario === "designer-history" ||
+        scenario === "canvas-selection" ||
+        scenario === "canvas-pan"
     ) {
         await evaluate(`document.querySelector('[data-session-id]')?.click()`);
         await settle(600);
@@ -373,6 +388,336 @@ try {
             });
             console.log(`edited node count: ${JSON.stringify(edited.result?.value)}`);
             console.log(`save status: ${JSON.stringify(save.result?.value)}`);
+        }
+
+        if (scenario === "designer-documents") {
+            await clickElement(`document.querySelector('button[aria-label="切换或管理文档"]')`);
+            await settle(500);
+        }
+
+        if (scenario === "designer-import") {
+            const fixture = join(tmpdir(), `fh-import-${process.pid}.json`);
+            writeFileSync(
+                fixture,
+                `${JSON.stringify({
+                    version: 1,
+                    id: "imported",
+                    title: "导入测试",
+                    nodes: [
+                        {
+                            id: "importedConstant",
+                            type: "core.constant",
+                            typeVersion: 1,
+                            config: { value: { type: "text", text: "imported" } },
+                            ui: { x: 120, y: 140 },
+                        },
+                        {
+                            id: "importedOutput",
+                            type: "core.output",
+                            typeVersion: 1,
+                            ui: { x: 480, y: 140 },
+                        },
+                    ],
+                    edges: [
+                        {
+                            from: { nodeId: "importedConstant", port: "value" },
+                            to: { nodeId: "importedOutput", port: "text" },
+                        },
+                    ],
+                })}\n`,
+            );
+
+            const root = await send("DOM.getDocument", { depth: -1 });
+            const input = await send("DOM.querySelector", {
+                nodeId: root.root.nodeId,
+                selector: 'input[type="file"]',
+            });
+            if (input.nodeId === 0) {
+                console.log("import input: not found");
+            } else {
+                await send("DOM.setFileInputFiles", {
+                    files: [fixture],
+                    nodeId: input.nodeId,
+                });
+                await settle(1500);
+            }
+
+            const documents = await evaluateAsync(`(async () => {
+                const list = await window.flowharness.listWorkspaces();
+                const workspace = list.ok ? list.data[0] : undefined;
+                if (!workspace) return null;
+                const result = await window.flowharness.listDocuments(workspace.id);
+                return result.ok ? result.data.map((document) => document.title) : null;
+            })()`);
+            const trigger = await evaluateAsync(
+                `document.querySelector('button[aria-label="切换或管理文档"]')?.textContent?.trim()`,
+            );
+            console.log(`import documents: ${JSON.stringify(documents.result?.value)} / ${JSON.stringify(trigger.result?.value)}`);
+        }
+
+        if (scenario === "designer-history") {
+            const box = await send("Runtime.evaluate", {
+                expression: `(() => {
+                    const nodes = [...document.querySelectorAll('.react-flow__node')];
+                    if (nodes.length < 2) return null;
+                    const rects = nodes.map((node) => node.getBoundingClientRect());
+                    return {
+                        x1: Math.min(...rects.map((rect) => rect.left)) - 60,
+                        y1: Math.min(...rects.map((rect) => rect.top)) - 50,
+                        x2: Math.max(...rects.map((rect) => rect.right)) + 40,
+                        y2: Math.max(...rects.map((rect) => rect.bottom)) + 40,
+                    };
+                })()`,
+                returnByValue: true,
+            });
+            const point = box.result?.value;
+            if (point) {
+                await send("Input.dispatchMouseEvent", {
+                    type: "mousePressed",
+                    x: point.x1,
+                    y: point.y1,
+                    button: "left",
+                    buttons: 1,
+                    clickCount: 1,
+                });
+                for (let step = 1; step <= 8; step += 1) {
+                    await send("Input.dispatchMouseEvent", {
+                        type: "mouseMoved",
+                        x: point.x1 + ((point.x2 - point.x1) * step) / 8,
+                        y: point.y1 + ((point.y2 - point.y1) * step) / 8,
+                        button: "left",
+                        buttons: 1,
+                    });
+                    await settle(30);
+                }
+                await send("Input.dispatchMouseEvent", {
+                    type: "mouseReleased",
+                    x: point.x2,
+                    y: point.y2,
+                    button: "left",
+                    buttons: 0,
+                    clickCount: 1,
+                });
+                await settle(300);
+            }
+
+            const press = async (key, shift = false) => {
+                await evaluate(
+                    `window.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, ctrlKey: true, shiftKey: ${String(shift)}, bubbles: true }))`,
+                );
+                await settle(400);
+            };
+            const count = async () => {
+                const result = await send("Runtime.evaluate", {
+                    expression: "document.querySelectorAll('.react-flow__node').length",
+                    returnByValue: true,
+                });
+                return result.result?.value;
+            };
+
+            console.log(`history initial: ${JSON.stringify(await count())}`);
+            await press("c");
+            await press("v");
+            console.log(`history after paste: ${JSON.stringify(await count())}`);
+            await press("z");
+            console.log(`history after undo: ${JSON.stringify(await count())}`);
+            await press("y");
+            console.log(`history after redo: ${JSON.stringify(await count())}`);
+        }
+
+        if (scenario === "designer-doc-flow") {
+            const readDocuments = async () => {
+                const result = await evaluateAsync(`(async () => {
+                    const list = await window.flowharness.listWorkspaces();
+                    const workspace = list.ok ? list.data[0] : undefined;
+                    if (!workspace) return null;
+                    const documents = await window.flowharness.listDocuments(workspace.id);
+                    return documents.ok ? documents.data.map((document) => ({ id: document.id, title: document.title })) : null;
+                })()`);
+                return result.result?.value;
+            };
+            const triggerText = async () => {
+                const result = await evaluateAsync(
+                    `document.querySelector('button[aria-label="切换或管理文档"]')?.textContent?.trim()`,
+                );
+                return result.result?.value;
+            };
+            const openMenu = async () => {
+                await clickElement(
+                    `document.querySelector('button[aria-label="切换或管理文档"]')`,
+                );
+                await settle(300);
+            };
+
+            console.log(`doc flow initial: ${JSON.stringify(await readDocuments())}`);
+
+            await openMenu();
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('新建文档'))`,
+            );
+            await settle(1200);
+            console.log(`doc flow after create: ${JSON.stringify(await readDocuments())} / ${JSON.stringify(await triggerText())}`);
+
+            await openMenu();
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('重命名'))`,
+            );
+            await settle(400);
+            await evaluate(
+                `(() => { const input = document.querySelector('[role="dialog"] input'); if (!input) return false; const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; setter.call(input, 'M4 重命名'); input.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`,
+            );
+            await settle(200);
+            await clickElement(
+                `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '保存')`,
+            );
+            await settle(1200);
+            console.log(`doc flow after rename: ${JSON.stringify(await readDocuments())} / ${JSON.stringify(await triggerText())}`);
+
+            await openMenu();
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('复制当前文档'))`,
+            );
+            await settle(1200);
+            console.log(`doc flow after duplicate: ${JSON.stringify(await readDocuments())} / ${JSON.stringify(await triggerText())}`);
+
+            await openMenu();
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('删除当前文档'))`,
+            );
+            await settle(400);
+            await clickElement(
+                `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '删除')`,
+            );
+            await settle(1200);
+            console.log(`doc flow after delete: ${JSON.stringify(await readDocuments())} / ${JSON.stringify(await triggerText())}`);
+        }
+
+        if (scenario === "canvas-selection") {
+            const box = await send("Runtime.evaluate", {
+                expression: `(() => {
+                    const nodes = [...document.querySelectorAll('.react-flow__node')];
+                    if (nodes.length < 2) return null;
+                    const rects = nodes.map((node) => node.getBoundingClientRect());
+                    return {
+                        x1: Math.min(...rects.map((rect) => rect.left)) - 60,
+                        y1: Math.min(...rects.map((rect) => rect.top)) - 50,
+                        x2: Math.max(...rects.map((rect) => rect.right)) + 40,
+                        y2: Math.max(...rects.map((rect) => rect.bottom)) + 40,
+                    };
+                })()`,
+                returnByValue: true,
+            });
+            const point = box.result?.value;
+            if (point) {
+                await send("Input.dispatchMouseEvent", {
+                    type: "mousePressed",
+                    x: point.x1,
+                    y: point.y1,
+                    button: "left",
+                    buttons: 1,
+                    clickCount: 1,
+                });
+                for (let step = 1; step <= 8; step += 1) {
+                    await send("Input.dispatchMouseEvent", {
+                        type: "mouseMoved",
+                        x: point.x1 + ((point.x2 - point.x1) * step) / 8,
+                        y: point.y1 + ((point.y2 - point.y1) * step) / 8,
+                        button: "left",
+                        buttons: 1,
+                    });
+                    await settle(40);
+                }
+                await send("Input.dispatchMouseEvent", {
+                    type: "mouseReleased",
+                    x: point.x2,
+                    y: point.y2,
+                    button: "left",
+                    buttons: 0,
+                    clickCount: 1,
+                });
+                await settle(500);
+            } else {
+                console.log("selection box: no nodes found");
+            }
+
+            const selected = await send("Runtime.evaluate", {
+                expression: "document.querySelectorAll('.react-flow__node.selected').length",
+                returnByValue: true,
+            });
+            console.log(`selected nodes: ${JSON.stringify(selected.result?.value)}`);
+        }
+
+        if (scenario === "canvas-pan") {
+            const before = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelector('.react-flow__node')?.getBoundingClientRect().left",
+                returnByValue: true,
+            });
+            const start = { x: 720, y: 560 };
+            await send("Input.dispatchMouseEvent", {
+                type: "mousePressed",
+                x: start.x,
+                y: start.y,
+                button: "right",
+                buttons: 2,
+                clickCount: 1,
+            });
+            for (let step = 1; step <= 6; step += 1) {
+                await send("Input.dispatchMouseEvent", {
+                    type: "mouseMoved",
+                    x: start.x + (160 * step) / 6,
+                    y: start.y + (90 * step) / 6,
+                    button: "right",
+                    buttons: 2,
+                });
+                await settle(40);
+            }
+            await send("Input.dispatchMouseEvent", {
+                type: "mouseReleased",
+                x: start.x + 160,
+                y: start.y + 90,
+                button: "right",
+                buttons: 0,
+                clickCount: 1,
+            });
+            await settle(400);
+
+            const after = await send("Runtime.evaluate", {
+                expression:
+                    "document.querySelector('.react-flow__node')?.getBoundingClientRect().left",
+                returnByValue: true,
+            });
+            const menuAfterDrag = await send("Runtime.evaluate", {
+                expression: "document.querySelector('.react-flow__pane') ? document.querySelectorAll('[role=\\\"menu\\\"]').length : -1",
+                returnByValue: true,
+            });
+            console.log(`node left before/after: ${JSON.stringify(before.result?.value)} / ${JSON.stringify(after.result?.value)}`);
+            console.log(`menu after right drag: ${JSON.stringify(menuAfterDrag.result?.value)}`);
+
+            // 普通右键单击仍应弹出画布菜单。
+            await send("Input.dispatchMouseEvent", {
+                type: "mousePressed",
+                x: 720,
+                y: 560,
+                button: "right",
+                buttons: 2,
+                clickCount: 1,
+            });
+            await send("Input.dispatchMouseEvent", {
+                type: "mouseReleased",
+                x: 720,
+                y: 560,
+                button: "right",
+                buttons: 0,
+                clickCount: 1,
+            });
+            await settle(400);
+            const menuAfterClick = await send("Runtime.evaluate", {
+                expression:
+                    "[...document.querySelectorAll('[role=\\\"menu\\\"] button')].map((button) => button.textContent?.trim())",
+                returnByValue: true,
+            });
+            console.log(`menu after right click: ${JSON.stringify(menuAfterClick.result?.value)}`);
         }
 
         if (scenario === "designer-problems") {

@@ -20,6 +20,7 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M2 节点库 / configSchema 表单 / 预设 | ✅ 已完成（内建节点端口静态；失效边会提示） |
 | UI 打磨 2：面板材质加深 / 主题化 Select·Checkbox / 最近使用 | ✅ |
 | M3 校验与运行可视化：问题面板 / 内嵌图递归校验 / 事件→画布 / 暂停·继续 | ✅ |
+| M4 文档生命周期与编辑体验：多图 / 撤销复制 / 框选·右键平移 / JSON 导入导出 | ✅ |
 | Session / Provider 闭环、Workbench Framework、打包 | ⬜ |
 
 **已知限制**
@@ -29,7 +30,8 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 - 设计器运行中切换视图会丢失节点/边状态（run 仍在 main 继续）；
 - 暂停/恢复目前是进程内恢复，跨重启 resume 在 M6；
 - 运行前的 requirements 目录尚未接 Provider / Secrets，校验能定位内层依赖但宿主能力未闭环；
-- 窗口直接关闭时，最后一次 400ms 自动保存可能未完成；
+- 标题栏关闭与 Ctrl+W 会先 flush 当前文档；系统级关闭（Alt+F4）仍无退出握手；
+- 撤销栈只覆盖画布结构编辑与 config，重启后不保留；
 - 亮色 token 与切换已接入（`ThemeProvider` + `config:update`），尚未做视觉走查；
 - 表单覆盖标量 / 枚举 / 字符串数组；HarnessValue、内嵌图、hostTools 等复杂字段仍是 JSON 文本域；
 - 300 节点性能基线、真实桌面可读性验收未完成；
@@ -110,7 +112,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state 单测（25 files / 121 tests） |
+| `pnpm test` | main 数据层 + canvas core + designer core/state 单测（27 files / 135 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

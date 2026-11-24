@@ -55,6 +55,67 @@ describe("WorkspaceStore", () => {
         await reopened.close(created.id);
     });
 
+    it("lists and deletes harness documents", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Documents" });
+        await store.open(created.id);
+
+        await store.saveDocument(
+            created.id,
+            { kind: "harness", id: "graph-a" },
+            { version: 1, title: "图 A", nodes: [], edges: [] },
+            null,
+        );
+        await store.saveDocument(
+            created.id,
+            { kind: "harness", id: "graph-b" },
+            { version: 1, title: "图 B", nodes: [], edges: [] },
+            null,
+        );
+
+        const list = await store.listDocuments(created.id);
+        expect(list).toHaveLength(2);
+        expect(list.find((item) => item.id === "graph-a")).toMatchObject({
+            id: "graph-a",
+            title: "图 A",
+        });
+        expect(list.find((item) => item.id === "graph-b")).toMatchObject({
+            id: "graph-b",
+            title: "图 B",
+        });
+        expect(list[0]?.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(list[0]?.size).toBeGreaterThan(0);
+
+        await expect(
+            store.deleteDocument(created.id, { kind: "harness", id: "graph-a" }),
+        ).resolves.toBe(true);
+        await expect(
+            store.deleteDocument(created.id, { kind: "harness", id: "graph-a" }),
+        ).resolves.toBe(false);
+
+        expect((await store.listDocuments(created.id)).map((item) => item.id)).toEqual([
+            "graph-b",
+        ]);
+    });
+
+    it("keeps listing when a document is corrupt", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Corrupt list" });
+        await store.open(created.id);
+
+        await store.saveDocument(
+            created.id,
+            { kind: "harness", id: "graph-good" },
+            { version: 1, title: "Good", nodes: [], edges: [] },
+            null,
+        );
+        await writeFile(join(created.path, "documents", "harness", "bad.json"), "{not json");
+
+        const list = await store.listDocuments(created.id);
+        expect(list.map((item) => item.id).sort()).toEqual(["bad", "graph-good"]);
+        expect(list.find((item) => item.id === "bad")?.title).toBe("bad");
+    });
+
     it("returns null for a missing document", async () => {
         const { store } = await makeStore();
         const created = await store.create({ name: "Empty" });

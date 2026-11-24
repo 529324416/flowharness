@@ -26,7 +26,7 @@ renderer/src/
   App.tsx                  # shell 组合、视图切换、自检上报
   styles/                  # tokens.css（唯一视觉事实源）、global.css
   ui/                      # 组件原语（Button/Menu/Dialog/Tabs/...）
-  shell/                   # TitleBar / Ribbon / SessionSidebar / StatusBar / 窗口控制
+  shell/                   # TitleBar / DocumentMenu / Ribbon / SessionSidebar / StatusBar / 窗口控制
   views/                   # Designer / Diagnostics / Styleguide（HeroView 存在但未接入）
   canvas/core/             # 纯 TS：几何、边 key、类型
   canvas/view/             # React Flow 受控视图、节点/边 renderer
@@ -110,7 +110,7 @@ type CanvasDocument = {
 - `edgeTypes` 提供至少一个带动画能力的默认边；
 - 小地图 / Background 用官方组件；当前没有 `<Controls>`；
 - react-flow 的使用被限制在 `canvas/view/`，其他代码不 import 它。
-- 当前实现（M1）：`@xyflow/react` 12.12.1 受控模式、`useNodesState` / `useEdgesState`、自定义 `SciFiNode` / `SciFiEdge`、per-port Handle、节点 renderer registry、MiniMap、自定义右键菜单；**没有** `<Controls>`（左下缩放工具栏已移除，适配视图在右键菜单）。
+- 当前实现（M4）：`@xyflow/react` 12.12.1 受控模式、`useNodesState` / `useEdgesState`、自定义 `SciFiNode` / `SciFiEdge`、per-port Handle、节点 renderer registry、MiniMap、自定义右键菜单；左键拖拽框选（`selectionOnDrag` + Partial），中键 / 右键拖拽平移；右键拖动后抑制上下文菜单，普通右键单击仍弹出；**没有** `<Controls>`（左下缩放工具栏已移除，适配视图在右键菜单）。
 
 ### 4.5 动画原语
 
@@ -210,14 +210,16 @@ type WorkbenchPlan = {
 ### 5.5 编辑与持久化
 
 - 所有编辑走命令（`addNode` / `removeNode` / `moveNodes` / `connect` / `disconnect` / `updateNodeConfig` / `setViewport`）；
-- 命令栈（undo/redo）**尚未实现**，计划 M4；当前只有 `applyCanvasCommand` 纯函数；
-- 自动保存：命令合并后 debounce 400ms 写回文档；关闭工作台/切换时强制 flush；
-- 写冲突：一期单写者，不做合并；`E_CONFLICT` 停止自动保存并提示重载。
+- 撤销栈在 `useDesignerDocument` 内（最多 100 条，config 连续输入 800ms 合并）；Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y；视口变化不进撤销栈；
+- 复制 / 粘贴选中节点（含两端都在选区内的边），新 id + 偏移；多选来自画布框选；
+- 自动保存：命令合并后 debounce 400ms 写回文档；切换文档 / 关闭窗口前 flush；
+- 写冲突：一期单写者，不做合并；`E_CONFLICT` 停止自动保存并提示重载或「另存为副本」。
 
 ## 6. Harness Designer
 
 ### 6.1 数据来源（不要硬编码节点）
 
+- 文档入口：TitleBar 的文档菜单列出工作区内全部 Harness 文档，支持新建 / 重命名 / 复制 / 删除 / 最近打开 / 导入导出（`shell/DocumentMenu.tsx`）；
 - 当前：`createEditorCatalog(registry, { presets: designerPresetLibrary })` → `{ version: 2, nodeTypes, presets }`（`designer/core/catalog.ts`）；
 - `NodeCatalogEntry` 提供 `type / title / description / builtIn / category / keywords / inputs / outputs / requirements / configSchema / defaultConfig / error`；
 - **动态端口**：wireclaw 的 `describeNodeType(registry, type, { config })` 支持按 config 试创建并取端口，adapter 每次投影也按节点 config 调用；但 16 个内建节点的端口目前都是**静态**的（`get inputs/outputs` 不读 config），该能力尚未被任何节点使用；
@@ -258,7 +260,7 @@ CanvasCommand → GraphDocument
 ### 6.5 NodeContent
 
 - 一期（M2 已完成）：`inspector/NodeConfigForm.tsx` 根据 `configSchema` 生成通用表单（wireclaw 的 JSON Schema 子集：object / string / number / integer / boolean / array / enum / required / minimum / maximum…）；无法表达的字段用 JSON 文本域兜底，整份 config 仍可在「JSON」页签编辑；
-- 二期：为高频节点（模型调用、Agent、分支、循环）提供定制组件；
+- 二期（M5）：为高频节点（模型调用、Agent、分支、循环）提供定制组件；在节点内直接编辑常用参数，并支持从其他节点输出端口拖拽值到参数 / 输入槽（复用端口类型与连线语义）；
 - 节点内容组件通过 `canvas/view/node-registry.ts` 的 registry 注册，Canvas 不感知；当前所有类型都回落到 `SciFiNode`。
 
 ## 7. 其他工作台

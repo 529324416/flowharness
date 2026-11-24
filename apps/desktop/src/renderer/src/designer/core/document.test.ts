@@ -3,6 +3,8 @@ import {
     MAIN_GRAPH_REF,
     MAIN_GRAPH_TEMPLATE,
     cloneMainGraphTemplate,
+    createDocumentId,
+    createGraphTemplate,
     isGraphDocument,
     parseGraphDocument,
 } from "./document";
@@ -31,6 +33,14 @@ describe("designer document contract", () => {
         expect(clone).toEqual(MAIN_GRAPH_TEMPLATE);
         expect(clone).not.toBe(MAIN_GRAPH_TEMPLATE);
         expect(clone.nodes).not.toBe(MAIN_GRAPH_TEMPLATE.nodes);
+    });
+
+    it("creates additional graph documents with their own id", () => {
+        const graph = createGraphTemplate("graph-abc", "第二张图");
+        expect(graph.id).toBe("graph-abc");
+        expect(graph.title).toBe("第二张图");
+        expect(isGraphDocument(graph)).toBe(true);
+        expect(createDocumentId()).toMatch(/^graph_[a-f0-9]{8}$/);
     });
 
     it("rejects structurally invalid documents", () => {

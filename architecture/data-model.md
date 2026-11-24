@@ -12,7 +12,7 @@
 
 - `GraphDocument` 由 wireclaw 序列化/反序列化，FH **不修改其字段语义**；
 - 工作台实例只**引用** graph（`graphId`），不内联 graph 内容；
-- 删除引用的检查（graph / 实例）尚未实现：M1 每工作区只有一张 `main` 图，M4 引入多图时再补。
+- 删除引用的检查（graph / 实例）尚未实现：M4 已支持多图与删除文档，但还没有「被工作台实例引用的图」这一层约束（M5 引入实例文档后再补）。
 
 ## 2. 工作区目录
 
@@ -22,7 +22,7 @@
   lock                        # open 时写入 { pid, startedAt, appVersion }
   documents/
     harness/
-      <documentId>.json       # GraphDocument；当前固定为 main.json
+      <documentId>.json       # GraphDocument；M4 起一个工作区可有多份
     workbenches/
       <instanceId>.json       # 目标：WorkbenchInstanceDocument（目录已建，尚无读写方）
   objects/
@@ -191,9 +191,9 @@ sessions/<sessionId>/attachments.json # 引用到的 contentHash 列表
 
 ## 9. 导入 / 导出
 
-### Harness JSON（目标，未实现）
+### Harness JSON（M4 已实现）
 
-单个 `GraphDocument` 的 JSON 文件，供工作流互通与版本管理。不包含工作台实例信息。当前只有 `.fhws` 整工作区导出/导入，没有单图导入导出通道。
+单个 `GraphDocument` 的 JSON 文件，供工作流互通与版本管理。不包含工作台实例信息。设计器的文档菜单提供「导入 Harness JSON」与「导出 JSON（含布局 / 无布局）」；导入总是创建新文档并重新生成 id，导出经 main 的原生保存对话框写入用户选择的位置。
 
 ### `.fhws`
 

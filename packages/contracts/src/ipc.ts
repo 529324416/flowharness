@@ -6,6 +6,7 @@ import type {
     DocumentRef,
     DocumentSaveResult,
     DocumentSnapshot,
+    HarnessDocumentSummary,
     WindowStatePayload,
     WorkspaceCreateInput,
     WorkspaceSummary,
@@ -50,6 +51,9 @@ export const IpcChannel = {
     WorkspaceClose: "workspace:close",
     WorkspaceReadDocument: "workspace:readDocument",
     WorkspaceSaveDocument: "workspace:saveDocument",
+    WorkspaceListDocuments: "workspace:listDocuments",
+    WorkspaceDeleteDocument: "workspace:deleteDocument",
+    WorkspaceExportHarness: "workspace:exportHarness",
     WorkspaceApplyCommands: "workspace:applyCommands",
     WorkspaceExport: "workspace:export",
     WorkspaceImport: "workspace:import",
@@ -123,6 +127,17 @@ export type WorkspaceSaveDocumentRequest = {
     document: unknown;
 };
 
+export type WorkspaceListDocumentsRequest = { workspaceId: string };
+export type WorkspaceDeleteDocumentRequest = {
+    workspaceId: string;
+    ref: DocumentRef;
+};
+
+export type WorkspaceExportHarnessRequest = {
+    text: string;
+    defaultFileName: string;
+};
+
 export type BlobStatRequest = { workspaceId: string; hash: string };
 export type BlobDeleteRequest = { workspaceId: string; hash: string };
 
@@ -161,6 +176,18 @@ export type IpcInvokeContracts = {
     [IpcChannel.WorkspaceSaveDocument]: {
         request: WorkspaceSaveDocumentRequest;
         response: DocumentSaveResult;
+    };
+    [IpcChannel.WorkspaceListDocuments]: {
+        request: WorkspaceListDocumentsRequest;
+        response: HarnessDocumentSummary[];
+    };
+    [IpcChannel.WorkspaceDeleteDocument]: {
+        request: WorkspaceDeleteDocumentRequest;
+        response: { deleted: boolean };
+    };
+    [IpcChannel.WorkspaceExportHarness]: {
+        request: WorkspaceExportHarnessRequest;
+        response: { path: string | null };
     };
 
     [IpcChannel.BlobStat]: { request: BlobStatRequest; response: BlobMeta | null };

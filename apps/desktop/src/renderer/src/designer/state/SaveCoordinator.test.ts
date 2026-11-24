@@ -110,6 +110,27 @@ describe("SaveCoordinator", () => {
         coordinator.dispose();
     });
 
+    it("flushes without writing when nothing changed", async () => {
+        const { onState } = collectStates();
+        const save = vi.fn(async (): Promise<SaveOutcome> => ({
+            ok: true,
+            revision: "sha256:2",
+        }));
+        const coordinator = new SaveCoordinator(
+            documentA,
+            "sha256:1",
+            save,
+            onState,
+        );
+
+        await expect(coordinator.flush()).resolves.toEqual({
+            status: "saved",
+            error: null,
+        });
+        expect(save).not.toHaveBeenCalled();
+        coordinator.dispose();
+    });
+
     it("reports non-conflict failures and can retry via flush", async () => {
         const { states, onState } = collectStates();
         const save = vi

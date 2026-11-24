@@ -30,6 +30,7 @@ export class SaveCoordinator {
     private timer: ReturnType<typeof setTimeout> | null = null;
     private chain: Promise<void> = Promise.resolve();
     private stopped = false;
+    private dirty = false;
     private state: SaveState = { status: "saved", error: null };
 
     constructor(
@@ -47,18 +48,20 @@ export class SaveCoordinator {
         this.document = document;
         if (this.stopped) return;
 
+        this.dirty = true;
         this.set({ status: "pending", error: null });
         this.schedule();
     }
 
-    async flush(): Promise<void> {
+    async flush(): Promise<SaveState> {
         if (this.timer !== null) {
             clearTimeout(this.timer);
             this.timer = null;
         }
-        if (this.stopped) return;
+        if (this.stopped || !this.dirty) return this.state;
 
         await this.enqueue();
+        return this.state;
     }
 
     dispose(): void {
@@ -99,11 +102,12 @@ export class SaveCoordinator {
 
             if (outcome.ok) {
                 this.revision = outcome.revision;
-                this.set(
-                    this.document === document
-                        ? { status: "saved", error: null }
-                        : { status: "pending", error: null },
-                );
+                if (this.document === document) {
+                    this.dirty = false;
+                    this.set({ status: "saved", error: null });
+                } else {
+                    this.set({ status: "pending", error: null });
+                }
                 return;
             }
 

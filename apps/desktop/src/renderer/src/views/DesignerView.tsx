@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import type { RunSnapshot, WorkspaceSummary } from "@flowharness/contracts";
-import type { NodeRequirement } from "wireclaw";
+import type { GraphDocument, NodeRequirement } from "wireclaw";
 import {
     Alert,
     Button,
@@ -11,13 +11,21 @@ import { edgeKeyFromPorts } from "../canvas/core/edge-key";
 import { CanvasView } from "../canvas/view/CanvasView";
 import { toCanvasDocument } from "../designer/core/adapter";
 import { findInvalidEdges } from "../designer/core/edges";
+import {
+    copyNodes,
+    pasteNodes,
+    type NodeClipboard,
+} from "../designer/core/commands";
 import { findNodeCatalogEntry, NODE_CATALOG, NODE_PRESETS } from "../designer/core/catalog";
 import {
     collectDesignerProblems,
     type DesignerProblem,
     type DesignerProblemsModel,
 } from "../designer/core/problems";
-import { useDesignerDocument } from "../designer/state/useDesignerDocument";
+import {
+    useDesignerDocument,
+    type DesignerDocumentActions,
+} from "../designer/state/useDesignerDocument";
 import { useDesignerRun } from "../designer/state/useDesignerRun";
 import { useRecentNodes } from "../designer/state/useRecentNodes";
 import type { InspectorModel } from "../inspector/model";
@@ -32,8 +40,10 @@ export type DesignerSaveStatus = "saved" | "saving" | "conflict" | "error";
 
 export type DesignerViewProps = {
     workspace: WorkspaceSummary | null;
+    /** 当前打开的 Harness 文档 id；由外壳的文档菜单切换。 */
+    documentId: string | null;
     busy?: boolean;
-    /** 工作区创建 / 打开失败的错误；文档加载错误在内部处理。 */
+    /** 工作区 / 文档操作失败的错误；文档加载错误在内部处理。 */
     error?: string | null;
     onCreateWorkspace: () => void;
     onRunWillStart: () => void;
@@ -42,11 +52,15 @@ export type DesignerViewProps = {
     onSaveStatusChange: (status: DesignerSaveStatus | null) => void;
     onInspectorChange: (model: InspectorModel | null) => void;
     onProblemsChange: (model: DesignerProblemsModel | null) => void;
+    onDocumentActionsChange: (actions: DesignerDocumentActions | null) => void;
+    /** 保存冲突时把当前内存文档另存为副本。 */
+    onSaveConflictCopy: (graph: GraphDocument) => void;
 };
 
-/** 设计器视图：加载 / 编辑 / 自动保存 main GraphDocument。 */
+/** 设计器视图：加载 / 编辑 / 自动保存一份 Harness GraphDocument。 */
 export function DesignerView({
     workspace,
+    documentId,
     busy = false,
     error,
     onCreateWorkspace,
@@ -56,21 +70,29 @@ export function DesignerView({
     onSaveStatusChange,
     onInspectorChange,
     onProblemsChange,
+    onDocumentActionsChange,
+    onSaveConflictCopy,
 }: DesignerViewProps): ReactElement {
     const {
         status,
         document: graph,
         error: loadError,
         saveState,
+        canUndo,
+        canRedo,
+        undo,
+        redo,
         reload,
         applyCommand,
         addNode,
         addNodeFromPreset,
         updateNodeConfig,
+        replaceDocument,
         flush,
-    } = useDesignerDocument(workspace?.id ?? null);
+    } = useDesignerDocument(workspace?.id ?? null, documentId);
     const canvasRef = useRef<HTMLDivElement>(null);
-    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+    const clipboardRef = useRef<NodeClipboard | null>(null);
+    const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
     const [libraryOpen, setLibraryOpen] = useState(false);
     const [libraryAnchor, setLibraryAnchor] = useState<{ x: number; y: number } | null>(
         null,
@@ -99,15 +121,26 @@ export function DesignerView({
     } = useDesignerRun();
 
     useEffect(() => {
-        setSelectedNodeId(null);
+        setSelectedNodeIds([]);
         setLibraryOpen(false);
         setLibraryAnchor(null);
         setFocusNode(null);
-    }, [graph?.id]);
+        clipboardRef.current = null;
+    }, [documentId]);
 
     useEffect(() => {
         reset();
-    }, [workspace?.id, reset]);
+    }, [workspace?.id, documentId, reset]);
+
+    // 删除 / 撤销后清掉已经不在图里的选中项。
+    useEffect(() => {
+        if (graph === null) return;
+        setSelectedNodeIds((current) => {
+            const ids = new Set(graph.nodes.map((node) => node.id));
+            const next = current.filter((id) => ids.has(id));
+            return next.length === current.length ? current : next;
+        });
+    }, [graph]);
 
     const invalidEdges = useMemo(
         () => (graph === null ? [] : findInvalidEdges(graph)),
@@ -146,7 +179,7 @@ export function DesignerView({
             }
             if (nodeId === undefined) return;
 
-            setSelectedNodeId(nodeId);
+            setSelectedNodeIds([nodeId]);
             setFocusNode((current) => ({
                 nodeId,
                 seq: (current?.seq ?? 0) + 1,
@@ -167,6 +200,19 @@ export function DesignerView({
     useEffect(() => {
         return () => onProblemsChange(null);
     }, [onProblemsChange]);
+
+    const documentActions = useMemo<DesignerDocumentActions>(
+        () => ({ flush, reload }),
+        [flush, reload],
+    );
+
+    useEffect(() => {
+        onDocumentActionsChange(documentActions);
+    }, [documentActions, onDocumentActionsChange]);
+
+    useEffect(() => {
+        return () => onDocumentActionsChange(null);
+    }, [onDocumentActionsChange]);
 
     const handleRun = useCallback(async (): Promise<void> => {
         if (graph === null || workspace === null) return;
@@ -220,12 +266,93 @@ export function DesignerView({
         [addNodeFromPreset, recordRecentNode],
     );
 
+    const copySelection = useCallback((): void => {
+        if (graph === null || selectedNodeIds.length === 0) return;
+        clipboardRef.current = copyNodes(graph, selectedNodeIds);
+    }, [graph, selectedNodeIds]);
+
+    const pasteSelection = useCallback((): void => {
+        if (graph === null) return;
+        const clipboard = clipboardRef.current;
+        if (clipboard === null) return;
+
+        const result = pasteNodes(graph, clipboard);
+        if (result.nodeIds.length === 0) return;
+
+        replaceDocument(result.graph);
+        setSelectedNodeIds(result.nodeIds);
+    }, [graph, replaceDocument]);
+
     const isRunning = runStatus === "running";
     const isPaused = runStatus === "paused";
     const runBusy = starting || controlling;
     const editingDisabled =
         isRunning || isPaused || runBusy || saveState.status === "conflict";
 
+    const undoEdit = useCallback((): void => {
+        if (editingDisabled || !canUndo) return;
+        undo();
+    }, [canUndo, editingDisabled, undo]);
+
+    const redoEdit = useCallback((): void => {
+        if (editingDisabled || !canRedo) return;
+        redo();
+    }, [canRedo, editingDisabled, redo]);
+
+    // M4 编辑快捷键：仅设计器挂载时生效，输入框内不拦截。
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent): void => {
+            if (!(event.ctrlKey || event.metaKey)) return;
+
+            const target = event.target;
+            if (
+                target instanceof HTMLElement &&
+                target.closest("input, textarea, select, [contenteditable='true']")
+            ) {
+                return;
+            }
+
+            switch (event.key.toLowerCase()) {
+                case "z":
+                    event.preventDefault();
+                    if (event.shiftKey) redoEdit();
+                    else undoEdit();
+                    break;
+                case "y":
+                    event.preventDefault();
+                    redoEdit();
+                    break;
+                case "c":
+                    if (editingDisabled) return;
+                    event.preventDefault();
+                    copySelection();
+                    break;
+                case "v":
+                    if (editingDisabled) return;
+                    event.preventDefault();
+                    pasteSelection();
+                    break;
+                case "s":
+                    event.preventDefault();
+                    void flush();
+                    break;
+                default:
+                    break;
+            }
+        };
+
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [
+        copySelection,
+        editingDisabled,
+        flush,
+        pasteSelection,
+        redoEdit,
+        undoEdit,
+    ]);
+
+    const selectedNodeId = selectedNodeIds[0] ?? null;
     const selectedGraphNode =
         graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
     const selectedCanvasNode =
@@ -423,6 +550,7 @@ export function DesignerView({
             ? saveState.error
             : null;
     const hasBanners =
+        (error !== null && error !== undefined) ||
         invalidEdges.length > 0 ||
         issues.length > 0 ||
         displayError !== null ||
@@ -432,11 +560,11 @@ export function DesignerView({
     return (
         <div ref={canvasRef} className={styles.canvas}>
             <CanvasView
-                key={workspace.id}
+                key={`${workspace.id}:${documentId ?? "none"}`}
                 document={canvas}
                 title={graph.title ?? workspace.name}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={setSelectedNodeId}
+                selectedNodeIds={selectedNodeIds}
+                onSelectionChange={setSelectedNodeIds}
                 onCommand={applyCommand}
                 nodeStatuses={nodeStatuses}
                 readOnly={editingDisabled}
@@ -462,6 +590,12 @@ export function DesignerView({
 
             {hasBanners ? (
                 <div className={styles.banners}>
+                    {error !== null && error !== undefined ? (
+                        <Alert tone="danger" title="文档操作失败">
+                            <p>{error}</p>
+                        </Alert>
+                    ) : null}
+
                     {displayError !== null ? (
                         <Alert tone="danger" title="运行错误">
                             <p>{displayError}</p>
@@ -508,6 +642,13 @@ export function DesignerView({
                             <div className={styles.actions}>
                                 <Button size="sm" onClick={reload}>
                                     重新加载
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => onSaveConflictCopy(graph)}
+                                >
+                                    另存为副本
                                 </Button>
                             </div>
                         </Alert>

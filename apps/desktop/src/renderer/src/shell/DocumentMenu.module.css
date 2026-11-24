@@ -1,0 +1,50 @@
+.trigger {
+  max-width: 220px;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu {
+  min-width: 300px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: var(--fh-space-2);
+  align-items: center;
+}
+
+.check {
+  display: inline-flex;
+  color: var(--fh-accent);
+}
+
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  color: var(--fh-text-subtle);
+  font-family: var(--fh-font-mono);
+  font-size: var(--fh-text-xs);
+}
+
+.empty {
+  padding: var(--fh-space-2) var(--fh-space-3);
+  color: var(--fh-text-subtle);
+  font-size: var(--fh-text-xs);
+}
+
+.confirm {
+  margin: 0;
+  font-size: var(--fh-text-sm);
+}

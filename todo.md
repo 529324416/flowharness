@@ -1,6 +1,6 @@
 # TODO
 
-> 当前主线：**M4 文档生命周期与编辑体验**（M3 校验与运行可视化已完成）。
+> 当前主线：**M5 Workbench Framework**（M4 文档生命周期与编辑体验已完成）。
 > 原则：垂直切片；UI 外壳冻结，只改组件；wireclaw 契约先行、submodule 联合开发。
 
 ## 当前里程碑（M1 已完成）
@@ -97,14 +97,16 @@
 - [x] wireclaw：递归校验 Subgraph / Loop / ForEach
 - [x] wireclaw：requirements 传播与 issue 定位
 
-### M4 — 文档生命周期与编辑体验
+### M4 — 文档生命周期与编辑体验（2026-11-25 已完成）
 
-- [ ] `workspace:listDocuments`
-- [ ] 多图：新建 / 重命名 / 复制 / 删除 / 最近打开
-- [ ] Harness JSON 导入导出（可选剥离 `ui`）
-- [ ] 撤销 / 重做、复制 / 粘贴
-- [ ] 未保存保护、冲突恢复、外部修改检测
-- [ ] 文档 / 工作台切换入口
+> 已完成：`workspace:listDocuments` / `deleteDocument`；标题栏文档菜单（列表 / 新建 / 重命名 / 复制 / 删除 / 最近打开 / 导入导出）；撤销重做、复制粘贴与多选；左键框选 + 中键/右键拖拽平移（右键拖动后抑制菜单）；切换文档与关闭窗口前 flush，冲突可另存副本。
+
+- [x] `workspace:listDocuments`（与 `deleteDocument`）
+- [x] 多图：新建 / 重命名 / 复制 / 删除 / 最近打开
+- [x] Harness JSON 导入导出（可选剥离 `ui`）
+- [x] 撤销 / 重做、复制 / 粘贴
+- [x] 未保存保护、冲突恢复、外部修改检测（系统级关闭仍有限制）
+- [x] 文档切换入口；工作台切换留 M5
 
 ### M5 — Workbench Framework（原 Phase 4）
 
@@ -112,6 +114,8 @@
 - [ ] 模块注册表与视图宿主
 - [ ] `WorkbenchPlan`（仅独立多 run；优先 subgraph）
 - [ ] 第二个工作台验证框架复用性
+- [ ] 高频节点内联编辑：在 NodeContent 内直接修改参数，不强制打开属性栏
+- [ ] 拖拽传入：从其他节点的输出端口拖到参数/输入槽，复用端口类型与连线语义
 
 ### M6 — Session / Provider 闭环（原 Phase 5）
 
@@ -258,6 +262,7 @@
 - [x] 18 个测试文件 / 85 个测试通过（M0 + M1.1 ~ M1.5）
 - [x] 24 个测试文件 / 109 个测试通过（M2 + 一致性收口）
 - [x] 25 个测试文件 / 121 个测试通过（M3）
+- [x] 27 个测试文件 / 135 个测试通过（M4）
 - [x] wireclaw：66 项离线测试通过（新增 `harness-nested-validation`）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步

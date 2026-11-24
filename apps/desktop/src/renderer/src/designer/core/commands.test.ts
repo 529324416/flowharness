@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { GraphDocument } from "wireclaw";
-import { addNode, applyCanvasCommand, createNodeId, nextNodePosition, updateNodeConfig } from "./commands";
+import {
+    addNode,
+    applyCanvasCommand,
+    copyNodes,
+    createNodeId,
+    nextNodePosition,
+    pasteNodes,
+    updateNodeConfig,
+} from "./commands";
 
 function makeGraph(): GraphDocument {
     return {
@@ -34,6 +42,53 @@ function makeGraph(): GraphDocument {
         ],
     };
 }
+
+describe("copy / paste nodes", () => {
+    it("copies only the selected nodes and their internal edges", () => {
+        const graph = makeGraph();
+        const clipboard = copyNodes(graph, ["n1"]);
+
+        expect(clipboard?.nodes.map((node) => node.id)).toEqual(["n1"]);
+        expect(clipboard?.edges).toEqual([]);
+
+        const full = copyNodes(graph, ["n1", "n2"]);
+        expect(full?.edges).toHaveLength(1);
+        expect(copyNodes(graph, [])).toBeNull();
+    });
+
+    it("remaps ids, offsets positions and keeps config", () => {
+        const graph = makeGraph();
+        const clipboard = copyNodes(graph, ["n1", "n2"]);
+        expect(clipboard).not.toBeNull();
+
+        let next = 0;
+        const result = pasteNodes(graph, clipboard!, {
+            idFactory: () => `copy-${String(next++)}`,
+        });
+
+        expect(result.nodeIds).toEqual(["copy-0", "copy-1"]);
+        expect(result.graph.nodes).toHaveLength(4);
+        expect(result.graph.edges).toHaveLength(2);
+
+        const pasted = result.graph.nodes[2]!;
+        expect(pasted.id).toBe("copy-0");
+        expect(pasted.ui).toMatchObject({ x: 58, y: 68, note: "keep" });
+        expect(pasted.config).toEqual(graph.nodes[0]?.config);
+
+        const pastedEdge = result.graph.edges[1]!;
+        expect(pastedEdge.from.nodeId).toBe("copy-0");
+        expect(pastedEdge.to.nodeId).toBe("copy-1");
+    });
+
+    it("does not mutate the original graph", () => {
+        const graph = makeGraph();
+        const snapshot = structuredClone(graph);
+        const clipboard = copyNodes(graph, ["n1", "n2"]);
+        pasteNodes(graph, clipboard!, { idFactory: () => createNodeId(graph) });
+
+        expect(graph).toEqual(snapshot);
+    });
+});
 
 describe("applyCanvasCommand", () => {
     it("moves nodes and preserves untouched document fields", () => {

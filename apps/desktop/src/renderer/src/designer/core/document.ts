@@ -41,6 +41,19 @@ export function cloneMainGraphTemplate(): GraphDocument {
     return structuredClone(MAIN_GRAPH_TEMPLATE);
 }
 
+/** 以 `main` 模板为底创建另一份图文档；id 同时写入文件名与 graph.id。 */
+export function createGraphTemplate(id: string, title?: string): GraphDocument {
+    const graph = cloneMainGraphTemplate();
+    graph.id = id;
+    graph.title = title ?? (id === "main" ? "主工作流" : "未命名工作流");
+    return graph;
+}
+
+/** 生成新的 Harness 文档 id；与文件名 / GraphDocument.id 共用。 */
+export function createDocumentId(): string {
+    return `graph_${crypto.randomUUID().slice(0, 8)}`;
+}
+
 /**
  * 轻量结构校验：
  * - 不调用 wireclaw 反序列化，避免未知节点类型被当成整图损坏；

@@ -72,6 +72,104 @@ export function createNodeId(graph: GraphDocument): string {
     }
 }
 
+export type NodeClipboard = {
+    nodes: GraphDocument["nodes"];
+    edges: GraphDocument["edges"];
+};
+
+/** 复制选中节点与其内部连线；没有节点时返回 null。 */
+export function copyNodes(
+    graph: GraphDocument,
+    nodeIds: readonly string[],
+): NodeClipboard | null {
+    const ids = new Set(nodeIds);
+    const nodes = graph.nodes
+        .filter((node) => ids.has(node.id))
+        .map((node) => structuredClone(node));
+    if (nodes.length === 0) return null;
+
+    const edges = graph.edges
+        .filter((edge) => ids.has(edge.from.nodeId) && ids.has(edge.to.nodeId))
+        .map((edge) => structuredClone(edge));
+
+    return { nodes, edges };
+}
+
+export type PasteNodesOptions = {
+    offset?: Vec2;
+    /** 测试注入；缺省使用随机 id。 */
+    idFactory?: () => string;
+};
+
+/** 粘贴剪贴板节点：重映射 id、偏移位置，并保留两端都在剪贴板内的连线。 */
+export function pasteNodes(
+    graph: GraphDocument,
+    clipboard: NodeClipboard,
+    options: PasteNodesOptions = {},
+): { graph: GraphDocument; nodeIds: string[] } {
+    if (clipboard.nodes.length === 0) {
+        return { graph, nodeIds: [] };
+    }
+
+    const offset = options.offset ?? { x: 48, y: 48 };
+    const used = new Set(graph.nodes.map((node) => node.id));
+    const createId = (): string => {
+        for (;;) {
+            const id = options.idFactory?.() ?? createNodeId(graph);
+            if (!used.has(id)) {
+                used.add(id);
+                return id;
+            }
+        }
+    };
+
+    const idMap = new Map<string, string>();
+    const nodeIds: string[] = [];
+    const nodes = clipboard.nodes.map((node) => {
+        const id = createId();
+        idMap.set(node.id, id);
+        nodeIds.push(id);
+
+        const ui = isRecord(node.ui) ? node.ui : {};
+        const x = typeof ui.x === "number" ? ui.x : 0;
+        const y = typeof ui.y === "number" ? ui.y : 0;
+
+        return {
+            ...structuredClone(node),
+            id,
+            ui: {
+                ...ui,
+                x: x + offset.x,
+                y: y + offset.y,
+            },
+        };
+    });
+
+    const edges = clipboard.edges.map((edge) => ({
+        from: {
+            nodeId: idMap.get(edge.from.nodeId) ?? edge.from.nodeId,
+            port: edge.from.port,
+        },
+        to: {
+            nodeId: idMap.get(edge.to.nodeId) ?? edge.to.nodeId,
+            port: edge.to.port,
+        },
+    }));
+
+    return {
+        graph: {
+            ...graph,
+            nodes: [...graph.nodes, ...nodes],
+            edges: [...graph.edges, ...edges],
+        },
+        nodeIds,
+    };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /** 检查器动作：替换节点 config，其他字段保持不变。 */
 export function updateNodeConfig(
     graph: GraphDocument,

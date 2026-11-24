@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GraphDocument } from "wireclaw";
-import { applyPresetParameters } from "wireclaw";
+import type { DocumentRef } from "@flowharness/contracts";
+import { applyPresetParameters, type GraphDocument } from "wireclaw";
 import type { CanvasCommand } from "../../canvas/core/types";
 import {
     addNode,
@@ -15,8 +15,7 @@ import {
     NODE_PRESETS,
 } from "../core/catalog";
 import {
-    MAIN_GRAPH_REF,
-    cloneMainGraphTemplate,
+    createGraphTemplate,
     parseGraphDocument,
 } from "../core/document";
 import {
@@ -34,14 +33,34 @@ export type DesignerDocumentState = {
     error: string | null;
 };
 
+/** 外壳（文档菜单 / 关闭窗口）需要的文档操作。 */
+export type DesignerDocumentActions = {
+    /** 等最后一次自动保存落盘；返回最终保存状态。 */
+    flush: () => Promise<SaveState>;
+    /** 丢弃内存状态，重新读取当前文档。 */
+    reload: () => void;
+};
+
+export type CommitOptions = {
+    /** 同一 key 的连续编辑在 800ms 内合并为一条撤销记录。 */
+    historyKey?: string;
+    /** false 时不进入撤销栈（如外部重载）。 */
+    history?: boolean;
+};
+
 export type UseDesignerDocumentResult = DesignerDocumentState & {
     saveState: SaveState;
+    canUndo: boolean;
+    canRedo: boolean;
+    undo: () => void;
+    redo: () => void;
     reload: () => void;
     applyCommand: (command: CanvasCommand) => void;
     addNode: (type: string) => void;
     addNodeFromPreset: (presetId: string) => void;
     updateNodeConfig: (nodeId: string, config: unknown) => void;
-    flush: () => Promise<void>;
+    replaceDocument: (next: GraphDocument, options?: CommitOptions) => void;
+    flush: () => Promise<SaveState>;
 };
 
 const IDLE_STATE: DesignerDocumentState = {
@@ -59,32 +78,63 @@ const LOADING_STATE: DesignerDocumentState = {
 };
 
 const SAVED_STATE: SaveState = { status: "saved", error: null };
+const HISTORY_LIMIT = 100;
+const COALESCE_MS = 800;
 
 type Bridge = (typeof window)["flowharness"];
 
+function documentRefOf(documentId: string): DocumentRef {
+    return { kind: "harness", id: documentId };
+}
+
 /**
- * 读取工作区的 `main` GraphDocument；不存在时写入最小模板。
+ * 读取工作区内指定 Harness 文档；不存在时创建模板。
  *
- * M1.4：本地编辑 + 400ms 自动保存 + revision 冲突检测。
- * 切换工作区 / 卸载时尝试 flush，不阻塞新文档的加载。
+ * M4：每工作区可有多份图；文档切换由外壳传入 documentId。
+ * 编辑进入撤销栈（move / connect / add / config），400ms 自动保存。
  */
-export function useDesignerDocument(workspaceId: string | null): UseDesignerDocumentResult {
+export function useDesignerDocument(
+    workspaceId: string | null,
+    documentId: string | null,
+): UseDesignerDocumentResult {
     const [state, setState] = useState<DesignerDocumentState>(IDLE_STATE);
     const [saveState, setSaveState] = useState<SaveState>(SAVED_STATE);
+    const [historyState, setHistoryState] = useState({
+        canUndo: false,
+        canRedo: false,
+    });
     const [reloadToken, setReloadToken] = useState(0);
 
     const documentRef = useRef<GraphDocument | null>(null);
     const coordinatorRef = useRef<SaveCoordinator | null>(null);
+    const pastRef = useRef<GraphDocument[]>([]);
+    const futureRef = useRef<GraphDocument[]>([]);
+    const lastMutationRef = useRef<{ key: string; at: number } | null>(null);
+
+    const syncHistory = useCallback(() => {
+        setHistoryState({
+            canUndo: pastRef.current.length > 0,
+            canRedo: futureRef.current.length > 0,
+        });
+    }, []);
+
+    const resetHistory = useCallback(() => {
+        pastRef.current = [];
+        futureRef.current = [];
+        lastMutationRef.current = null;
+        syncHistory();
+    }, [syncHistory]);
 
     const reload = useCallback(() => {
         setReloadToken((token) => token + 1);
     }, []);
 
     useEffect(() => {
-        if (workspaceId === null) {
+        if (workspaceId === null || documentId === null) {
             coordinatorRef.current?.dispose();
             coordinatorRef.current = null;
             documentRef.current = null;
+            resetHistory();
             setState(IDLE_STATE);
             setSaveState(SAVED_STATE);
             return;
@@ -94,18 +144,21 @@ export function useDesignerDocument(workspaceId: string | null): UseDesignerDocu
         coordinatorRef.current?.dispose();
         coordinatorRef.current = null;
         documentRef.current = null;
+        resetHistory();
         setState(LOADING_STATE);
         setSaveState(SAVED_STATE);
 
+        const ref = documentRefOf(documentId);
+
         void (async () => {
             try {
-                const loaded = await readOrCreate(window.flowharness, workspaceId);
+                const loaded = await readOrCreate(window.flowharness, workspaceId, ref);
                 if (cancelled) return;
 
                 const save: SaveFunction = async (document, baseRevision) => {
                     const result = await window.flowharness.saveDocument({
                         workspaceId,
-                        ref: MAIN_GRAPH_REF,
+                        ref,
                         baseRevision,
                         document,
                     });
@@ -121,7 +174,7 @@ export function useDesignerDocument(workspaceId: string | null): UseDesignerDocu
 
                 let coordinator: SaveCoordinator;
                 const onSaveState = (next: SaveState): void => {
-                    // 旧工作区的 flush 可能在新文档加载后才完成，忽略过期回调。
+                    // 旧文档的 flush 可能在新文档加载后才完成，忽略过期回调。
                     if (coordinatorRef.current === coordinator) {
                         setSaveState(next);
                     }
@@ -162,15 +215,85 @@ export function useDesignerDocument(workspaceId: string | null): UseDesignerDocu
                 void coordinator.flush().finally(() => coordinator.dispose());
             }
         };
-    }, [workspaceId, reloadToken]);
+    }, [documentId, reloadToken, resetHistory, workspaceId]);
 
-    const commit = useCallback((next: GraphDocument) => {
-        documentRef.current = next;
-        setState((previous) =>
-            previous.status === "ready" ? { ...previous, document: next } : previous,
-        );
-        coordinatorRef.current?.update(next);
-    }, []);
+    const commit = useCallback(
+        (next: GraphDocument, options: CommitOptions = {}) => {
+            const current = documentRef.current;
+            if (current === null || next === current) return;
+
+            if (options.history !== false) {
+                const now = Date.now();
+                const key = options.historyKey;
+                const last = lastMutationRef.current;
+                const coalesce =
+                    key !== undefined &&
+                    last !== null &&
+                    last.key === key &&
+                    now - last.at < COALESCE_MS;
+
+                if (!coalesce) {
+                    pastRef.current.push(current);
+                    if (pastRef.current.length > HISTORY_LIMIT) {
+                        pastRef.current.shift();
+                    }
+                    futureRef.current = [];
+                }
+                lastMutationRef.current =
+                    key === undefined ? null : { key, at: now };
+                syncHistory();
+            }
+
+            documentRef.current = next;
+            setState((previous) =>
+                previous.status === "ready"
+                    ? { ...previous, document: next }
+                    : previous,
+            );
+            coordinatorRef.current?.update(next);
+        },
+        [syncHistory],
+    );
+
+    const restore = useCallback(
+        (next: GraphDocument) => {
+            documentRef.current = next;
+            setState((previous) =>
+                previous.status === "ready"
+                    ? { ...previous, document: next }
+                    : previous,
+            );
+            lastMutationRef.current = null;
+            coordinatorRef.current?.update(next);
+            syncHistory();
+        },
+        [syncHistory],
+    );
+
+    const undo = useCallback(() => {
+        const previous = pastRef.current.pop();
+        const current = documentRef.current;
+        if (previous === undefined || current === null) return;
+
+        futureRef.current.push(current);
+        restore(previous);
+    }, [restore]);
+
+    const redo = useCallback(() => {
+        const next = futureRef.current.pop();
+        const current = documentRef.current;
+        if (next === undefined || current === null) return;
+
+        pastRef.current.push(current);
+        restore(next);
+    }, [restore]);
+
+    const replaceDocument = useCallback(
+        (next: GraphDocument, options: CommitOptions = {}) => {
+            commit(next, options);
+        },
+        [commit],
+    );
 
     const applyCommand = useCallback(
         (command: CanvasCommand) => {
@@ -178,7 +301,13 @@ export function useDesignerDocument(workspaceId: string | null): UseDesignerDocu
             if (current === null) return;
 
             const next = applyCanvasCommand(current, command);
-            if (next !== current) commit(next);
+            if (next === current) return;
+
+            // 视口变化不进撤销栈；每次结构性编辑各记一条。
+            commit(
+                next,
+                command.type === "setViewport" ? { history: false } : {},
+            );
         },
         [commit],
     );
@@ -198,7 +327,7 @@ export function useDesignerDocument(workspaceId: string | null): UseDesignerDocu
                 position: nextNodePosition(current),
                 config: defaultConfigOf(entry),
             });
-            if (next !== current) commit(next);
+            commit(next);
         },
         [commit],
     );
@@ -218,33 +347,41 @@ export function useDesignerDocument(workspaceId: string | null): UseDesignerDocu
                 position: nextNodePosition(current),
                 config: applyPresetParameters(preset, {}),
             });
-            if (next !== current) commit(next);
+            commit(next);
         },
         [commit],
     );
 
-    const updateNodeConfig = useCallback(        (nodeId: string, config: unknown) => {
+    const updateNodeConfig = useCallback(
+        (nodeId: string, config: unknown) => {
             const current = documentRef.current;
             if (current === null) return;
 
             const next = updateNodeConfigCommand(current, nodeId, config);
-            if (next !== current) commit(next);
+            commit(next, { historyKey: `config:${nodeId}` });
         },
         [commit],
     );
 
-    const flush = useCallback(async (): Promise<void> => {
-        await coordinatorRef.current?.flush();
+    const flush = useCallback(async (): Promise<SaveState> => {
+        const coordinator = coordinatorRef.current;
+        if (coordinator === null) return SAVED_STATE;
+        return coordinator.flush();
     }, []);
 
     return {
         ...state,
         saveState,
+        canUndo: historyState.canUndo,
+        canRedo: historyState.canRedo,
+        undo,
+        redo,
         reload,
         applyCommand,
         addNode: addNodeByType,
         addNodeFromPreset,
         updateNodeConfig,
+        replaceDocument,
         flush,
     };
 }
@@ -252,8 +389,9 @@ export function useDesignerDocument(workspaceId: string | null): UseDesignerDocu
 async function readOrCreate(
     bridge: Bridge,
     workspaceId: string,
+    ref: DocumentRef,
 ): Promise<{ document: GraphDocument; revision: string }> {
-    const snapshot = await bridge.readDocument(workspaceId, MAIN_GRAPH_REF);
+    const snapshot = await bridge.readDocument(workspaceId, ref);
     if (!snapshot.ok) {
         throw new Error(snapshot.error.message);
     }
@@ -265,23 +403,21 @@ async function readOrCreate(
         };
     }
 
+    const document = createGraphTemplate(ref.id);
     const created = await bridge.saveDocument({
         workspaceId,
-        ref: MAIN_GRAPH_REF,
+        ref,
         baseRevision: null,
-        document: cloneMainGraphTemplate(),
+        document,
     });
 
     if (created.ok) {
-        return {
-            document: cloneMainGraphTemplate(),
-            revision: created.data.revision,
-        };
+        return { document, revision: created.data.revision };
     }
 
     // StrictMode 下 effect 会双跑；另一路可能已经创建成功，重读即可。
     if (created.error.code === "E_CONFLICT") {
-        const retry = await bridge.readDocument(workspaceId, MAIN_GRAPH_REF);
+        const retry = await bridge.readDocument(workspaceId, ref);
         if (retry.ok && retry.data !== null) {
             return {
                 document: parseGraphDocument(retry.data.document),

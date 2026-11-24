@@ -4,12 +4,14 @@ import type {
     DocumentRef,
     DocumentSaveResult,
     DocumentSnapshot,
+    HarnessDocumentSummary,
     IpcEventEnvelope,
     IpcResult,
     RunSnapshot,
     RunStartRequest,
     WindowStatePayload,
     WorkspaceCreateInput,
+    WorkspaceExportHarnessRequest,
     WorkspaceSaveDocumentRequest,
     WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -52,6 +54,16 @@ interface FlowHarnessBridge {
     readonly saveDocument: (
         request: WorkspaceSaveDocumentRequest,
     ) => Promise<IpcResult<DocumentSaveResult>>;
+    readonly listDocuments: (
+        workspaceId: string,
+    ) => Promise<IpcResult<HarnessDocumentSummary[]>>;
+    readonly deleteDocument: (
+        workspaceId: string,
+        ref: DocumentRef,
+    ) => Promise<IpcResult<{ deleted: boolean }>>;
+    readonly exportHarness: (
+        request: WorkspaceExportHarnessRequest,
+    ) => Promise<IpcResult<{ path: string | null }>>;
 
     readonly startRun: (request: RunStartRequest) => Promise<IpcResult<RunSnapshot>>;
     readonly pauseRun: (runId: string) => Promise<IpcResult<RunSnapshot>>;

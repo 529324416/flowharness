@@ -13,6 +13,7 @@ import {
     MiniMap,
     Panel,
     ReactFlow,
+    SelectionMode,
     useEdgesState,
     useNodesState,
     type Connection,
@@ -52,8 +53,9 @@ type MenuState = {
 export type CanvasViewProps = {
     document: CanvasDocument;
     title?: string;
-    selectedNodeId?: string | null;
-    onSelectNode?: (nodeId: string | null) => void;
+    /** 多选节点；第一个通常作为检查器的主选中项 */
+    selectedNodeIds?: readonly string[];
+    onSelectionChange?: (nodeIds: string[]) => void;
     onCommand?: (command: CanvasCommand) => void;
     readOnly?: boolean;
     nodeStatuses?: Readonly<Record<string, CanvasStatus>>;
@@ -65,9 +67,10 @@ export type CanvasViewProps = {
 
 function toFlowNodes(
     document: CanvasDocument,
-    selectedNodeId: string | null | undefined,
+    selectedNodeIds: readonly string[],
     nodeStatuses: Readonly<Record<string, CanvasStatus>> | undefined,
 ): FlowNode[] {
+    const selected = new Set(selectedNodeIds);
     return document.nodes.map((node) => {
         const data: CanvasNodeData = {
             ...node.data,
@@ -79,7 +82,7 @@ function toFlowNodes(
             type: node.kind,
             position: node.position,
             data,
-            selected: node.id === selectedNodeId,
+            selected: selected.has(node.id),
         };
     });
 }
@@ -99,8 +102,8 @@ function toFlowEdges(document: CanvasDocument): FlowEdge[] {
 export function CanvasView({
     document,
     title,
-    selectedNodeId,
-    onSelectNode,
+    selectedNodeIds = [],
+    onSelectionChange,
     onCommand,
     readOnly = false,
     nodeStatuses,
@@ -109,8 +112,10 @@ export function CanvasView({
 }: CanvasViewProps): ReactElement {
     const rootRef = useRef<HTMLDivElement>(null);
     const lastFocusSeq = useRef<number | null>(null);
+    const rightPan = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+    const suppressContextMenu = useRef(false);
     const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(
-        toFlowNodes(document, selectedNodeId, nodeStatuses),
+        toFlowNodes(document, selectedNodeIds, nodeStatuses),
     );
     const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(
         toFlowEdges(document),
@@ -123,9 +128,9 @@ export function CanvasView({
 
     // 文档是事实源：外部加载/命令回写后重新投影；拖拽中间态只存在本地 view state。
     useEffect(() => {
-        setNodes(toFlowNodes(document, selectedNodeId, nodeStatuses));
+        setNodes(toFlowNodes(document, selectedNodeIds, nodeStatuses));
         setEdges(toFlowEdges(document));
-    }, [document, selectedNodeId, nodeStatuses, setNodes, setEdges]);
+    }, [document, selectedNodeIds, nodeStatuses, setNodes, setEdges]);
 
     const kindsKey = useMemo(
         () =>
@@ -234,12 +239,15 @@ export function CanvasView({
         [onCommand, readOnly],
     );
 
-    const handleNodeClick = useCallback(
-        (_event: React.MouseEvent, node: FlowNode) => {
-            setMenu(null);
-            onSelectNode?.(node.id);
+    const handleNodeClick = useCallback(() => {
+        setMenu(null);
+    }, []);
+
+    const handleSelectionChange = useCallback(
+        ({ nodes: selected }: { nodes: Node[] }) => {
+            onSelectionChange?.(selected.map((node) => node.id));
         },
-        [onSelectNode],
+        [onSelectionChange],
     );
 
     const handleMoveEnd = useCallback(
@@ -255,16 +263,39 @@ export function CanvasView({
 
     const handlePaneClick = useCallback(() => {
         setMenu(null);
-        onSelectNode?.(null);
-    }, [onSelectNode]);
+    }, []);
+
+    /** 右键拖动画布后不再弹菜单；普通右键点击仍然弹出。 */
+    const handleRootMouseDown = (event: React.MouseEvent): void => {
+        if (event.button !== 2) return;
+        rightPan.current = { x: event.clientX, y: event.clientY, moved: false };
+        suppressContextMenu.current = false;
+    };
+
+    const handleRootMouseMove = (event: React.MouseEvent): void => {
+        const pan = rightPan.current;
+        if (pan === null) return;
+        if (Math.abs(event.clientX - pan.x) > 4 || Math.abs(event.clientY - pan.y) > 4) {
+            pan.moved = true;
+            suppressContextMenu.current = true;
+        }
+    };
+
+    const handleRootMouseUp = (event: React.MouseEvent): void => {
+        if (event.button === 2) rightPan.current = null;
+    };
 
     const openMenu = (
         event: MouseEvent | React.MouseEvent,
         nodeId?: string,
     ): void => {
         event.preventDefault();
+        if (suppressContextMenu.current) {
+            suppressContextMenu.current = false;
+            return;
+        }
         setMenu({ x: event.clientX, y: event.clientY, nodeId });
-        if (nodeId) onSelectNode?.(nodeId);
+        if (nodeId) onSelectionChange?.([nodeId]);
     };
 
     const deleteNode = (): void => {
@@ -290,6 +321,9 @@ export function CanvasView({
         <div
             ref={rootRef}
             className={styles.root}
+            onMouseDown={handleRootMouseDown}
+            onMouseMove={handleRootMouseMove}
+            onMouseUp={handleRootMouseUp}
             style={
                 {
                     "--fh-node-width": `${String(CANVAS_METRICS.nodeWidth)}px`,
@@ -313,6 +347,7 @@ export function CanvasView({
                 onEdgesDelete={handleEdgesDelete}
                 onNodeDragStop={handleNodeDragStop}
                 onNodeClick={handleNodeClick}
+                onSelectionChange={handleSelectionChange}
                 onInit={handleInit}
                 onMove={(_, viewport) => syncZoom(viewport.zoom)}
                 onMoveEnd={(_, viewport) => handleMoveEnd(viewport)}
@@ -328,6 +363,11 @@ export function CanvasView({
                 nodesConnectable={!readOnly}
                 edgesReconnectable={false}
                 deleteKeyCode={readOnly ? null : ["Backspace", "Delete"]}
+                // 左键拖拽 = 框选；中键 / 右键拖拽 = 平移；右键单击仍弹菜单。
+                selectionOnDrag
+                selectionMode={SelectionMode.Partial}
+                panOnDrag={[1, 2]}
+                multiSelectionKeyCode={["Control", "Meta"]}
                 proOptions={{ hideAttribution: true }}
             >
                 <Background

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import {
     FolderOpen,
     Moon,
@@ -50,6 +50,8 @@ export type TitleBarProps = {
     onToggleRunLog: () => void;
     onToggleInspector: () => void;
     runControls?: RunControls | null;
+    /** 文档切换器（由 App 注入，避免 TitleBar 感知文档状态）。 */
+    documentMenu?: ReactNode;
 };
 
 export function TitleBar({
@@ -69,6 +71,7 @@ export function TitleBar({
     onToggleRunLog,
     onToggleInspector,
     runControls,
+    documentMenu,
 }: TitleBarProps): ReactElement {
     const windowMode = window.flowharness.windowMode;
     const overlay = windowMode === "overlay";
@@ -163,6 +166,8 @@ export function TitleBar({
                             </MenuItem>
                         </MenuContent>
                     </Menu>
+
+                    {documentMenu}
                 </nav>
             </div>
 
@@ -316,7 +321,7 @@ export function TitleBar({
                     </IconButton>
                 </Tooltip>
 
-                <WindowControls mode={windowMode} />
+                <WindowControls mode={windowMode} onClose={onCloseWindow} />
             </div>
         </header>
     );

@@ -8,12 +8,14 @@ import {
     type DocumentRef,
     type DocumentSaveResult,
     type DocumentSnapshot,
+    type HarnessDocumentSummary,
     type IpcEventEnvelope,
     type IpcResult,
     type RunSnapshot,
     type RunStartRequest,
     type WindowStatePayload,
     type WorkspaceCreateInput,
+    type WorkspaceExportHarnessRequest,
     type WorkspaceSaveDocumentRequest,
     type WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -74,6 +76,19 @@ const bridge = {
         request: WorkspaceSaveDocumentRequest,
     ): Promise<IpcResult<DocumentSaveResult>> =>
         invoke(IpcChannel.WorkspaceSaveDocument, request),
+    listDocuments: (
+        workspaceId: string,
+    ): Promise<IpcResult<HarnessDocumentSummary[]>> =>
+        invoke(IpcChannel.WorkspaceListDocuments, { workspaceId }),
+    deleteDocument: (
+        workspaceId: string,
+        ref: DocumentRef,
+    ): Promise<IpcResult<{ deleted: boolean }>> =>
+        invoke(IpcChannel.WorkspaceDeleteDocument, { workspaceId, ref }),
+    exportHarness: (
+        request: WorkspaceExportHarnessRequest,
+    ): Promise<IpcResult<{ path: string | null }>> =>
+        invoke(IpcChannel.WorkspaceExportHarness, request),
     startRun: (request: RunStartRequest): Promise<IpcResult<RunSnapshot>> =>
         invoke(IpcChannel.RunStart, request),
     pauseRun: (runId: string): Promise<IpcResult<RunSnapshot>> =>

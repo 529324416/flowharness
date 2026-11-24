@@ -5,6 +5,7 @@ import { unzipSync, zipSync } from "fflate";
 import {
     FhError,
     type DocumentRef,
+    type HarnessDocumentSummary,
     type WorkspaceCreateInput,
     type WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -218,6 +219,79 @@ export class WorkspaceStore {
         }
 
         return { document, revision: revisionOf(bytes) };
+    }
+
+    /**
+     * 列出工作区内的 Harness 文档。
+     *
+     * 标题来自文档自身的 `title`；损坏 / 非法文件不阻断列表，
+     * 缺失标题时回退到文件名。
+     */
+    async listDocuments(id: string): Promise<HarnessDocumentSummary[]> {
+        const workspace = this.requireOpen(id);
+        const dir = join(workspace.dir, "documents", "harness");
+
+        let entries;
+        try {
+            entries = await fs.readdir(dir, { withFileTypes: true });
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+            throw error;
+        }
+
+        const documents: HarnessDocumentSummary[] = [];
+
+        for (const entry of entries) {
+            if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+
+            const documentId = entry.name.slice(0, -5);
+            if (!SAFE_ID.test(documentId)) continue;
+
+            const file = join(dir, entry.name);
+            const stat = await fs.stat(file).catch(() => undefined);
+            if (stat === undefined) continue;
+
+            let title = documentId;
+            try {
+                const raw = await readJsonFile<unknown>(file);
+                if (
+                    typeof raw === "object" &&
+                    raw !== null &&
+                    !Array.isArray(raw)
+                ) {
+                    const candidate = (raw as { title?: unknown }).title;
+                    if (typeof candidate === "string" && candidate.trim().length > 0) {
+                        title = candidate;
+                    }
+                }
+            } catch {
+                // 保留文件名作为标题，避免单份损坏文档影响列表。
+            }
+
+            documents.push({
+                id: documentId,
+                title,
+                updatedAt: stat.mtime.toISOString(),
+                size: stat.size,
+            });
+        }
+
+        documents.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        return documents;
+    }
+
+    /** 删除一份文档；不存在时返回 false。 */
+    async deleteDocument(id: string, ref: DocumentRef): Promise<boolean> {
+        const workspace = this.requireOpen(id);
+        const file = documentPath(workspace.dir, ref);
+
+        try {
+            await fs.unlink(file);
+            return true;
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+            throw error;
+        }
     }
 
     /**

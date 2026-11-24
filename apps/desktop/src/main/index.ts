@@ -3,6 +3,7 @@ import { join } from "node:path";
 import {
     app,
     BrowserWindow,
+    dialog,
     ipcMain,
     Menu,
     nativeTheme,
@@ -37,8 +38,11 @@ import {
     type WindowStatePayload,
     type WorkspaceCloseRequest,
     type WorkspaceCreateInput,
+    type WorkspaceDeleteDocumentRequest,
+    type WorkspaceExportHarnessRequest,
     type WorkspaceExportRequest,
     type WorkspaceImportRequest,
+    type WorkspaceListDocumentsRequest,
     type WorkspaceOpenRequest,
     type WorkspaceReadDocumentRequest,
     type WorkspaceSaveDocumentRequest,
@@ -565,6 +569,45 @@ function registerIpcHandlers(): void {
         IpcChannel.WorkspaceSaveDocument,
         ({ workspaceId, ref, baseRevision, document }: WorkspaceSaveDocumentRequest) =>
             workspaces.saveDocument(workspaceId, ref, document, baseRevision),
+    );
+
+    registerHandler(
+        IpcChannel.WorkspaceListDocuments,
+        ({ workspaceId }: WorkspaceListDocumentsRequest) =>
+            workspaces.listDocuments(workspaceId),
+    );
+
+    registerHandler(
+        IpcChannel.WorkspaceDeleteDocument,
+        async ({ workspaceId, ref }: WorkspaceDeleteDocumentRequest) => ({
+            deleted: await workspaces.deleteDocument(workspaceId, ref),
+        }),
+    );
+
+    registerHandler(
+        IpcChannel.WorkspaceExportHarness,
+        async ({ text, defaultFileName }: WorkspaceExportHarnessRequest) => {
+            if (typeof text !== "string" || typeof defaultFileName !== "string") {
+                throw new FhError("E_INVALID_ARGUMENT", "invalid harness export request");
+            }
+            const owner = BrowserWindow.getFocusedWindow();
+            const options = {
+                title: "导出 Harness JSON",
+                defaultPath: defaultFileName,
+                filters: [{ name: "Harness JSON", extensions: ["json"] }],
+            };
+            const result =
+                owner === null
+                    ? await dialog.showSaveDialog(options)
+                    : await dialog.showSaveDialog(owner, options);
+
+            if (result.canceled || result.filePath === undefined) {
+                return { path: null };
+            }
+
+            await fsPromises.writeFile(result.filePath, text, "utf8");
+            return { path: result.filePath };
+        },
     );
 
     registerHandler(

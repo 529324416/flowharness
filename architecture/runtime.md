@@ -130,7 +130,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | window | `window:minimize` / `toggle-maximize` / `close` / `is-maximized` | ✅ | ✅ |
 | config | `config:get` / `config:update` / `config:reset` | ✅ | `get`/`update` ✅，`reset` ❌ |
 | secrets | `secrets:has` / `secrets:set` / `secrets:delete`（无 `get`） | ✅ | ❌（M6 接 Provider 时开放） |
-| workspace | `workspace:list` / `create` / `open` / `close` / `readDocument` / `saveDocument` / `export` / `import` | ✅ | 前六个 ✅，`export`/`import` ❌ |
+| workspace | `workspace:list` / `create` / `open` / `close` / `readDocument` / `saveDocument` / `listDocuments` / `deleteDocument` / `exportHarness` / `export` / `import` | ✅ | 前九个 ✅，`export`/`import` ❌ |
 | workspace | `workspace:applyCommands` | ❌（仅契约，见 ADR-012） | ❌ |
 | blob | `blob:stat` / `blob:delete` | ✅ | ❌ |
 | session | `session:create` / `open` / `close` / `list` | ❌（仅契约） | ❌ |
@@ -184,6 +184,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | 执行 | `RuntimeHost` 反序列化 `GraphDocument` → `Graph.run()`；`cancel` 走 `AbortSignal` + `GraphRun.cancel()` |
 | 暂停 / 恢复 | `GraphRun.pause() → GraphCheckpoint`，暂停时落 `checkpoint.json`；`GraphRun.resume()` 进程内恢复；TitleBar 提供暂停 / 继续 / 取消 |
 | 运行可视化 | 节点状态 + 边 active/error 投影；问题面板汇总校验、失效连线与运行错误，可定位到节点 |
+| 多文档 | `workspace:listDocuments` / `deleteDocument`；标题栏文档菜单切换、新建、重命名、复制、删除、导入导出 |
 | 事件 | `GraphEvent → RunEventDto` 投影；按 run 缓冲，16ms 或 run 结束时批量广播 |
 | 持久化 | `runs/<runId>/{meta,graph,events,checkpoint}`；打开工作区时把遗留 `running` 标为 `interrupted` |
 | 审批 | main 发 `approval` 事件 → renderer `approval:respond`；5 分钟超时默认 `deny` |

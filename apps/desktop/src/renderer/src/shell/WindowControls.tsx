@@ -8,7 +8,14 @@ import styles from "./WindowControls.module.css";
  * 自绘窗口按钮。仅在无边框模式下渲染；
  * overlay 模式使用系统原生按钮（titleBarOverlay），standard 模式使用原生窗口框。
  */
-export function WindowControls({ mode }: { mode: string }): ReactElement | null {
+export function WindowControls({
+    mode,
+    onClose,
+}: {
+    mode: string;
+    /** 关闭前先 flush 当前文档；缺省直接关闭窗口。 */
+    onClose?: () => void;
+}): ReactElement | null {
     const bridge = window.flowharness;
     const [maximized, setMaximized] = useState(false);
 
@@ -61,7 +68,10 @@ export function WindowControls({ mode }: { mode: string }): ReactElement | null 
                 className={cx(styles.button, styles.close)}
                 aria-label="关闭"
                 title="关闭"
-                onClick={() => void bridge.windowClose()}
+                onClick={() => {
+                    if (onClose !== undefined) onClose();
+                    else void bridge.windowClose();
+                }}
             >
                 <X size={18} aria-hidden="true" />
             </button>

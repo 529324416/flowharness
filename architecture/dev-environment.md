@@ -104,7 +104,7 @@ pnpm typecheck   # contracts（tsc）+ desktop（node + web 两个 project）
 pnpm test        # vitest：main 服务单测（40 项：config / secrets / blob / workspace / filehost / run-store / runtime / broker）
 pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
-pnpm capture:ui  # Windows：启动应用并截取 FlowHarness 窗口（视觉验收）
+pnpm capture:ui  # Windows：CDP 截取 renderer（加 -NativeWindow 可抓原生窗口）
 ```
 
 Windows 快捷启动：双击 `run.bat`。默认先按标准沙箱启动，失败时自动以 `--no-sandbox` 重试（受限终端/CI 无法初始化 Chromium 沙箱）；也可 `run.bat --no-sandbox` 直接兼容模式，或 `run.bat --sandbox` 强制标准模式。脚本会检查 Node/pnpm、按需 `pnpm install` 与 `build:wireclaw`。

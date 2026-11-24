@@ -1,80 +1,62 @@
 .root {
   display: grid;
+  grid-template-rows:
+    var(--fh-titlebar-height)
+    minmax(0, 1fr)
+    var(--fh-statusbar-height);
   height: 100%;
   min-height: 0;
-  grid-template-columns: var(--fh-rail-width) minmax(0, 1fr) var(--fh-inspector-width);
-  grid-template-rows: var(--fh-topbar-height) minmax(0, 1fr) var(--fh-statusbar-height);
-  grid-template-areas:
-    "top top top"
-    "rail main inspector"
-    "status status status";
   background: var(--fh-bg);
   color: var(--fh-text);
 }
 
-.noInspector {
-  grid-template-columns: var(--fh-rail-width) minmax(0, 1fr);
-  grid-template-areas:
-    "top top"
-    "rail main"
-    "status status";
-}
-
-.top {
-  grid-area: top;
-  z-index: var(--fh-z-topbar);
+.title {
+  z-index: var(--fh-z-titlebar);
+  min-width: 0;
   border-bottom: 1px solid var(--fh-border);
   background: var(--fh-surface);
-  min-width: 0;
 }
 
-.rail {
-  grid-area: rail;
+.body {
+  display: grid;
+  grid-template-columns:
+    var(--fh-rail-width)
+    var(--fh-sidebar-current, var(--fh-sidebar-width))
+    minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.noSidebar .body {
+  grid-template-columns: var(--fh-rail-width) minmax(0, 1fr);
+}
+
+.ribbon {
   z-index: var(--fh-z-rail);
+  min-width: 0;
+  min-height: 0;
   border-right: 1px solid var(--fh-border);
   background: var(--fh-surface);
+}
+
+.sidebar {
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--fh-border);
+  background: var(--fh-surface);
 }
 
 .main {
-  grid-area: main;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   background: var(--fh-bg-subtle);
 }
 
-.noPanel .main {
-  grid-template-rows: minmax(0, 1fr);
-}
-
-.viewport {
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.bottom {
-  height: var(--fh-panel-height);
-  min-height: 0;
-  border-top: 1px solid var(--fh-border);
-  background: var(--fh-surface);
-  overflow: hidden;
-}
-
-.inspector {
-  grid-area: inspector;
-  min-width: 0;
-  min-height: 0;
-  border-left: 1px solid var(--fh-border);
-  background: var(--fh-surface);
-  overflow: auto;
-}
-
 .status {
-  grid-area: status;
+  z-index: var(--fh-z-titlebar);
+  min-width: 0;
   border-top: 1px solid var(--fh-border);
   background: var(--fh-surface);
-  min-width: 0;
 }

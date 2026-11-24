@@ -7,6 +7,7 @@ import styles from "./StatusBar.module.css";
 export type StatusBarProps = {
     snapshot: RunSnapshot | null;
     workspacePath?: string;
+    sessionTitle?: string | null;
     viewLabel: string;
     zoom: string;
 };
@@ -14,6 +15,7 @@ export type StatusBarProps = {
 export function StatusBar({
     snapshot,
     workspacePath,
+    sessionTitle,
     viewLabel,
     zoom,
 }: StatusBarProps): ReactElement {
@@ -25,6 +27,12 @@ export function StatusBar({
                 <StatusDot tone={RUN_STATUS_TONE[status]} pulse={status === "running"} />
                 <span>{RUN_STATUS_LABEL[status]}</span>
                 {snapshot ? <span className={styles.runId}>{snapshot.runId}</span> : null}
+                {sessionTitle ? (
+                    <>
+                        <span className={styles.sep} aria-hidden="true" />
+                        <span className={styles.session}>{sessionTitle}</span>
+                    </>
+                ) : null}
             </div>
 
             <div className={styles.right}>

@@ -1,40 +1,39 @@
-import type { ReactElement, ReactNode } from "react";
+import type { CSSProperties, ReactElement, ReactNode } from "react";
 import { cx } from "../ui/cx";
 import styles from "./AppShell.module.css";
 
 export type AppShellProps = {
-    topBar: ReactNode;
-    rail: ReactNode;
+    titleBar: ReactNode;
+    ribbon: ReactNode;
+    sidebar: ReactNode;
+    sidebarOpen: boolean;
+    sidebarWidth: number;
     main: ReactNode;
-    inspector?: ReactNode | null;
-    bottomPanel?: ReactNode | null;
     statusBar: ReactNode;
 };
 
-/** 六区外壳：TopBar / Rail / Main / Inspector / BottomPanel / StatusBar。 */
+/** VS Code 式外壳：TitleBar / Ribbon + SessionSidebar + Main / StatusBar。 */
 export function AppShell({
-    topBar,
-    rail,
+    titleBar,
+    ribbon,
+    sidebar,
+    sidebarOpen,
+    sidebarWidth,
     main,
-    inspector,
-    bottomPanel,
     statusBar,
 }: AppShellProps): ReactElement {
+    const style = {
+        "--fh-sidebar-current": `${sidebarWidth}px`,
+    } as CSSProperties;
+
     return (
-        <div
-            className={cx(
-                styles.root,
-                inspector ? undefined : styles.noInspector,
-                bottomPanel ? undefined : styles.noPanel,
-            )}
-        >
-            <div className={styles.top}>{topBar}</div>
-            <div className={styles.rail}>{rail}</div>
-            <div className={styles.main}>
-                <div className={styles.viewport}>{main}</div>
-                {bottomPanel ? <div className={styles.bottom}>{bottomPanel}</div> : null}
+        <div className={cx(styles.root, !sidebarOpen && styles.noSidebar)} style={style}>
+            <div className={styles.title}>{titleBar}</div>
+            <div className={styles.body}>
+                <div className={styles.ribbon}>{ribbon}</div>
+                {sidebarOpen ? <div className={styles.sidebar}>{sidebar}</div> : null}
+                <main className={styles.main}>{main}</main>
             </div>
-            {inspector ? <div className={styles.inspector}>{inspector}</div> : null}
             <div className={styles.status}>{statusBar}</div>
         </div>
     );

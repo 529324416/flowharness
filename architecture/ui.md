@@ -26,8 +26,8 @@ renderer/src/
   App.tsx                  # shell 组合、视图切换、自检上报
   styles/                  # tokens.css（唯一视觉事实源）、global.css
   ui/                      # 组件原语（Button/Menu/Dialog/Tabs/...）
-  shell/                   # 六区外壳：TopBar/Rail/Inspector/BottomPanel/StatusBar
-  views/                   # Designer / Diagnostics / Styleguide
+  shell/                   # TitleBar / Ribbon / SessionSidebar / StatusBar / 窗口控制
+  views/                   # Designer / Hero / Diagnostics / Styleguide
   canvas-preview/          # 静态画布样张（Phase 3 由 canvas/ 替换）
   canvas/                  # 几何常量；Phase 3 扩展为 core + view
   run/                     # 运行自检（Phase 2）
@@ -263,7 +263,8 @@ GraphDocument ⇄ CanvasDocument
 | --- | --- |
 | tokens | `styles/tokens.css`：表面 / 文本 / 边框 / 主色（青绿）/ 状态 / 画布 / 阴影 / 圆角 / 间距 / 字体 / 动效 / 尺寸 / 层级；深色默认、亮色覆盖 |
 | 密度 | 控件 30px（sm 26）、节点 220px、4px 间距基线、13px 正文字号 |
-| 外壳 | TopBar 44 / Rail 56 / Inspector 320（可收起）/ BottomPanel 200（可收起）/ StatusBar 24 |
+| 外壳 | TitleBar 36（自绘、拖拽、窗口控制）/ Ribbon 48 / Session Sidebar 260（可收起/拖宽）/ StatusBar 22；无固定 Inspector/BottomPanel，改为 step 2 的内部浮动 Panel |
+| 会话入口 | Session Sidebar 使用 mock 数据（Phase 5 接真实 Session）；无选中会话时设计器显示 Hero |
 | 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
 | 画布视觉 | 节点 anatomy、端口 10 / 命中 16、1.5px 贝塞尔边、六种状态、小地图、缩放控件、右键菜单；常量在 `canvas/metrics.ts` |
 | 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张 |

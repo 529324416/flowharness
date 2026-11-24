@@ -1,0 +1,126 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: var(--fh-space-1);
+  height: 100%;
+  padding-left: 10px;
+  min-width: 0;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.overlay {
+  padding-right: 140px;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-right: 8px;
+  flex: none;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--fh-accent);
+  border-radius: var(--fh-radius-xs);
+  background: var(--fh-accent-soft);
+  color: var(--fh-accent);
+  font-family: var(--fh-font-mono);
+  font-size: 9px;
+  font-weight: var(--fh-weight-semibold);
+  letter-spacing: 0.04em;
+}
+
+.name {
+  color: var(--fh-text);
+  font-size: var(--fh-text-xs);
+  font-weight: var(--fh-weight-semibold);
+  letter-spacing: 0.01em;
+}
+
+.menus {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.menuButton {
+  height: 26px;
+  padding: 0 7px;
+  color: var(--fh-text-muted);
+  font-size: var(--fh-text-xs);
+  font-weight: var(--fh-weight-regular);
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  padding: 0 var(--fh-space-4);
+}
+
+.command {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--fh-border);
+  border-radius: var(--fh-radius-sm);
+  background: var(--fh-bg-subtle);
+  color: var(--fh-text-subtle);
+  font-size: var(--fh-text-xs);
+  text-align: left;
+  cursor: default;
+  transition:
+    border-color var(--fh-motion-fast) var(--fh-ease-standard),
+    background var(--fh-motion-fast) var(--fh-ease-standard),
+    color var(--fh-motion-fast) var(--fh-ease-standard);
+}
+
+.command:hover {
+  border-color: var(--fh-border-strong);
+  background: var(--fh-surface);
+  color: var(--fh-text-muted);
+}
+
+.command:focus-visible {
+  outline: 2px solid var(--fh-accent);
+  outline-offset: 1px;
+}
+
+.commandText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commandMenu {
+  min-width: 280px;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex: none;
+}

@@ -1,7 +1,9 @@
 param(
     [string]$Out = "",
     [int]$TimeoutSeconds = 45,
-    [string]$WindowMode = ""
+    [string]$WindowMode = "",
+    [int]$WaitMs = 1000,
+    [switch]$NativeWindow
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,21 +26,10 @@ if (-not (Test-Path (Join-Path $appDir "out\renderer\index.html"))) {
     throw "Renderer build not found; run 'pnpm build' first."
 }
 
-Add-Type -AssemblyName System.Drawing
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public static class FhWindowCapture {
-    [StructLayout(LayoutKind.Sequential)]
-    public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
-    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
-    [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint flags);
-}
-"@
-
 $logOut = Join-Path $env:TEMP ("fh-capture-" + [guid]::NewGuid().ToString("N") + ".out.txt")
 $logErr = Join-Path $env:TEMP ("fh-capture-" + [guid]::NewGuid().ToString("N") + ".err.txt")
 $proc = $null
+$port = Get-Random -Minimum 9300 -Maximum 9399
 
 try {
     Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
@@ -48,8 +39,14 @@ try {
     $effectiveMode = if ([string]::IsNullOrWhiteSpace($WindowMode)) { "frameless" } else { $WindowMode }
     Write-Host "window mode: $effectiveMode"
 
+    $electronArgs = @("--no-sandbox", "--disable-gpu")
+    if (-not $NativeWindow) {
+        $electronArgs += "--remote-debugging-port=$port"
+    }
+    $electronArgs += $appDir
+
     $proc = Start-Process -FilePath $electron `
-        -ArgumentList "--no-sandbox", "--disable-gpu", $appDir `
+        -ArgumentList $electronArgs `
         -PassThru `
         -RedirectStandardOutput $logOut `
         -RedirectStandardError $logErr
@@ -76,38 +73,59 @@ try {
         }
     }
 
-    Start-Sleep -Milliseconds 1000
-
-    $hwnd = $window.MainWindowHandle
-    $rect = New-Object FhWindowCapture+RECT
-    [FhWindowCapture]::GetWindowRect($hwnd, [ref]$rect) | Out-Null
-    $width = $rect.Right - $rect.Left
-    $height = $rect.Bottom - $rect.Top
-    if ($width -le 0 -or $height -le 0) {
-        throw "Invalid window rect: ${width}x${height}."
-    }
-
-    $bitmap = New-Object System.Drawing.Bitmap $width, $height
-    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    $hdc = $graphics.GetHdc()
-    $ok = [FhWindowCapture]::PrintWindow($hwnd, $hdc, 2)
-    $graphics.ReleaseHdc($hdc)
-    $graphics.Dispose()
-
-    if (-not $ok) {
-        $bitmap.Dispose()
-        throw "PrintWindow failed; the window may not render to a bitmap in this session."
-    }
+    Start-Sleep -Milliseconds $WaitMs
 
     $directory = Split-Path -Parent $Out
     if ($directory -and -not (Test-Path $directory)) {
         New-Item -ItemType Directory -Force -Path $directory | Out-Null
     }
 
-    $bitmap.Save($Out, [System.Drawing.Imaging.ImageFormat]::Png)
-    $bitmap.Dispose()
+    if ($NativeWindow) {
+        Add-Type -AssemblyName System.Drawing
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class FhWindowCapture {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+    [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint flags);
+}
+"@
 
-    Write-Host "captured ${width}x${height}: $Out"
+        $hwnd = $window.MainWindowHandle
+        $rect = New-Object FhWindowCapture+RECT
+        [FhWindowCapture]::GetWindowRect($hwnd, [ref]$rect) | Out-Null
+        $width = $rect.Right - $rect.Left
+        $height = $rect.Bottom - $rect.Top
+        if ($width -le 0 -or $height -le 0) {
+            throw "Invalid window rect: ${width}x${height}."
+        }
+
+        $bitmap = New-Object System.Drawing.Bitmap $width, $height
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $hdc = $graphics.GetHdc()
+        $ok = [FhWindowCapture]::PrintWindow($hwnd, $hdc, 2)
+        $graphics.ReleaseHdc($hdc)
+        $graphics.Dispose()
+
+        if (-not $ok) {
+            $bitmap.Dispose()
+            throw "PrintWindow failed; the window may not render to a bitmap in this session."
+        }
+
+        $bitmap.Save($Out, [System.Drawing.Imaging.ImageFormat]::Png)
+        $bitmap.Dispose()
+        Write-Host "captured native ${width}x${height}: $Out"
+    } else {
+        $captureScript = Join-Path $PSScriptRoot "capture-cdp.mjs"
+        & node $captureScript $port $Out
+        if ($LASTEXITCODE -ne 0) {
+            throw "CDP capture failed (port $port)."
+        }
+        Write-Host "captured renderer: $Out"
+    }
+
     Write-Host "app log: $logOut"
 }
 finally {

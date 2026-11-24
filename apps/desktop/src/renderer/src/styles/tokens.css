@@ -96,10 +96,13 @@
   --fh-ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
   /* Layout sizes */
-  --fh-topbar-height: 44px;
-  --fh-rail-width: 56px;
+  --fh-titlebar-height: 36px;
+  --fh-rail-width: 48px;
+  --fh-sidebar-width: 260px;
+  --fh-sidebar-min: 200px;
+  --fh-sidebar-max: 360px;
   --fh-inspector-width: 320px;
-  --fh-statusbar-height: 24px;
+  --fh-statusbar-height: 22px;
   --fh-panel-height: 200px;
   --fh-control-height: 30px;
   --fh-control-height-sm: 26px;
@@ -107,6 +110,7 @@
   /* Z-index */
   --fh-z-canvas: 0;
   --fh-z-rail: 10;
+  --fh-z-titlebar: 20;
   --fh-z-topbar: 20;
   --fh-z-overlay: 100;
   --fh-z-modal: 200;

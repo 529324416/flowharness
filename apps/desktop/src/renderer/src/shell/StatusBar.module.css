@@ -31,6 +31,14 @@
   font-size: 10px;
 }
 
+.session {
+  max-width: 260px;
+  overflow: hidden;
+  color: var(--fh-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .path {
   max-width: 420px;
   overflow: hidden;

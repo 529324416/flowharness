@@ -56,16 +56,17 @@ apps/desktop/src/renderer/src/
 
 - 每个未来工作台的最终页面；
 - 品牌 logo、插画、空状态插画；
-- 自定义窗口边框 / 无边框拖拽区；
 - 复杂动画编排、主题自定义面板、响应式与移动端。
 
 ## 评审方式（Windows）
 
 ```bash
 pnpm build        # 先产出 out/
-pnpm capture:ui   # 启动应用并截取 FlowHarness 窗口 -> devlog/assets/ui-current.png
+pnpm capture:ui   # 启动应用并通过 CDP 截取 renderer -> devlog/assets/ui-current.png
 ```
 
-截图使用 `PrintWindow` 直接抓取窗口表面（不受遮挡影响），适合逐轮对比。
-历史快照放在 `devlog/assets/`，命名 `ui-<阶段>-<日期>.png`。
+默认走 CDP `Page.captureScreenshot`，得到 1440×900 的 renderer 视图，不受窗口遮挡/动画合成影响；
+需要带原生窗口框/系统按钮的对比图时加 `-NativeWindow`（PrintWindow）。
+历史快照放在 `devlog/assets/`，命名 `<阶段>-<视图>-<日期>.png`。
+
 

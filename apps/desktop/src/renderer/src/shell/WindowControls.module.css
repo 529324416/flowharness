@@ -2,7 +2,7 @@
   display: flex;
   align-items: stretch;
   align-self: stretch;
-  height: var(--fh-topbar-height);
+  height: var(--fh-titlebar-height);
   margin-right: calc(var(--fh-space-2) * -1);
   -webkit-app-region: no-drag;
 }

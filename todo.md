@@ -67,15 +67,15 @@
 - [x] 产出：frameless / overlay / standard 对比截图 + ADR-008
 - [x] 结论：默认 `frameless` 不透明；`transparent` 保留为实验模式，step 4 再定
 
-### 1 Shell v2（1A + 1B 合并，1 轮）
+### 1 Shell v2（布局已完成）
 
-- [ ] TitleBar：应用图标 / 菜单 / 命令中心 / 窗口按钮
-- [ ] 布局：Ribbon 48 + Session Sidebar 260（可收起/拖宽）+ Canvas + StatusBar 22
-- [ ] Hero 空态：新建 / 打开工作区、最近项目、模板
-- [ ] 菜单与快捷键（Ctrl+W 等）在无 Electron 菜单后仍可用
-- [ ] 窗口 bounds 持久化（多显示器/DPI 校正）
-- [ ] Session Sidebar 先用 mock 数据，接口按未来 `SessionSummary` 设计
-- [ ] 产出：`pnpm capture:ui` 截图
+- [x] TitleBar：应用图标 / 菜单 / 命令中心 / 窗口按钮
+- [x] 布局：Ribbon 48 + Session Sidebar 260（可收起/拖宽）+ Canvas + StatusBar 22
+- [x] Hero 空态：新建会话 / 打开示例 / 模板
+- [x] 菜单与快捷键（Ctrl+N / B / W / K / 1–3）
+- [x] Session Sidebar 先用 mock 数据，接口按未来 `SessionSummary` 设计
+- [x] 产出：`shell-v2-hero.png` / `shell-v2-canvas.png` / `shell-v2-collapsed.png`
+- [ ] 窗口 bounds 持久化（多显示器/DPI 校正；step 2 开头补）
 
 ### 2 Panels（1 轮）
 

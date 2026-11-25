@@ -78,14 +78,14 @@
 - [x] `harness-designer` 固定为上工作流 / 下会话；mode 只影响主视图
 - [x] 测试：导航槽位解析；视觉基线 `designer-split-nav`
 
-### M7.5 工作台运行模式与动画（进行中）
+### M7.5 工作台运行模式与动画（2026-11-26 已完成）
 
 - [x] `WorkbenchDefinition` 增加 `RunView`；`WorkbenchHost` 按 `mode` 选择主视图
 - [x] `harness-designer` 运行模式：画布 + 运行上下文条 + 运行结果面板 + Session 导航；无独立运行页
 - [x] 实例持久化 `mode` / `runId` / `sessionId`；设计 ↔ 运行入口（导航与运行条）
-- [ ] 自定义运行页参考实现：固定工作流 + 带动画效果的 RunView
-- [ ] 最小动画原语（pulse / flow / focus）或复用节点状态，按 RunView 需要收敛
-- [ ] 测试 / 视觉基线：设计 → 运行 → 保存草稿会话
+- [x] 自定义运行页参考实现：新增 `flow-runner` 工作台（固定只读画布 + 运行控制 + 节点时间线 + 返回配置）
+- [x] 最小动画原语：运行节点 pulse（CSS）、活跃边 flow（既有流动虚线）、视口 focus（CanvasView.focusNode 跟随 running 节点），遵守 `prefers-reduced-motion`
+- [x] 视觉基线：设计 → 运行 → 保存草稿会话；运行页 `designer-flow-runner`
 
 ### M7.6 收口
 

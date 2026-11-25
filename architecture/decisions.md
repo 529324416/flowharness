@@ -546,3 +546,35 @@ M6.3 完成后，conversation 会话只有读取 / 回放能力，没有任何�
 - 每个 run 自动新建 conversation 会话：会话树噪音大，且无法选择目标；
 - 在通知层（`node:end` 事件）重建消息：缺少 Agent 的 system / tool / usage 信息。
 
+---
+
+## ADR-023：运行页与动画原语
+
+**背景**
+
+M7.5 需要工作台在运行阶段有独立视图，并让运行过程“可看”：节点在执行、连线在流动、视口跟随当前节点。ADR-003 / ui.md 的目标 `CanvasAnimationApi` 一直未实现；如果现在引入完整动画 API，会牵动事件映射、Canvas core 与多个工作台，收益不明。
+
+**决定**
+
+- `WorkbenchDefinition` 增加 `RunView`，`WorkbenchHost` 按 `mode` 选择；`View` 是配置 / 编辑视图，`RunView` 是运行视图。
+- 新增参考实现 `flow-runner` 工作台：固定只读画布 + 运行控制（运行 / 暂停 / 继续 / 取消）+ 节点时间线 + 「返回配置」；实例仍持久化 `mode / runId / sessionId`。
+- 动画不复刻 `CanvasAnimationApi`，先复用节点/边状态与 CSS：
+  - **pulse**：`SciFiNode` 在 `running` 状态使用 CSS box-shadow 脉冲；
+  - **flow**：`SciFiEdge` 的 active 边沿用流动虚线；
+  - **focus**：运行页把当前 running 节点转成 `CanvasView.focusNode`（带 seq），由画布把视口聚焦到该节点；
+  - 全部动画遵守 `prefers-reduced-motion`。
+- `harness-designer` 的运行阶段仍复用设计画布与浮动面板（“画布 + 结果 + 会话”），不改成独立只读页；需要固定只读运行页的场景使用 `flow-runner`。
+
+**后果**
+
+- 运行页有可复用参考，动画成本低且不新增依赖；
+- 动画语义仍分散在节点 / 边状态与 CSS，不是工作台可调用的统一 API；后续需要时再抽出 `CanvasAnimationApi` 包装这些状态；
+- `flow-runner` 使用只读 `CanvasView`，不承担编辑与自动保存；
+- 运行页的焦点跟随只在 `flow-runner` 中启用，设计器运行模式保持用户视口。
+
+**否决**
+
+- 现在实现完整 `CanvasAnimationApi`：事件→动画映射与多工作台适配成本高，当前需求用状态 + CSS 已覆盖；
+- 引入动画库：与“CSS 优先、无额外依赖”的既有决定冲突；
+- 把 `harness-designer` 运行阶段改成只读运行页：与“画布 + 结果面板 + Session 导航”的目标不一致。
+

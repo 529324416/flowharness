@@ -238,7 +238,7 @@ type CanvasDocument = { nodes: CanvasNode[]; edges: CanvasEdge[]; viewport: View
 
 **职责**：把「一个工作台」抽象为「实例文档 + 导航 + 视图 + 运行控制」。
 
-> 现状：`renderer/src/workbench/` 提供 `WorkbenchDefinition`、`WorkbenchController`、`WorkbenchPlan`、registry 与 `WorkbenchHost`；实例文档持久化到 `documents/workbenches/<id>.json`，通过 `workspace:listWorkbenches` 列出。M7.1 起 `WorkbenchDefinition.navigation` 提供左栏 PanelContent（design / run 槽位），Shell 不再硬编码 SessionSidebar；当前设计器 design 使用 `DocumentNavigation`，plan-runner 使用 `PlanNavigation`。View 自持 hooks（设计器复用现有 document/run/undo），`WorkbenchController` 由设计器上报给 Shell。工作台类型：`harness-designer` / `graph-table` / `plan-runner`；`plan-runner` 在 renderer 侧按顺序调用 `run:start`，尚未下沉 RuntimeHost。
+> 现状：`renderer/src/workbench/` 提供 `WorkbenchDefinition`、`WorkbenchController`、`WorkbenchPlan`、registry 与 `WorkbenchHost`；实例文档持久化到 `documents/workbenches/<id>.json`，通过 `workspace:listWorkbenches` 列出。M7.1 起 `WorkbenchDefinition.navigation` 提供左栏 PanelContent（design / run 槽位），Shell 不再硬编码 SessionSidebar；当前设计器 design 使用 `DocumentNavigation`，plan-runner 使用 `PlanNavigation`。View 自持 hooks（设计器复用现有 document/run/undo），`WorkbenchController` 由设计器上报给 Shell。工作台类型：`harness-designer` / `graph-table` / `plan-runner` / `flow-runner`；`plan-runner` 在 renderer 侧按顺序调用 `run:start`，尚未下沉 RuntimeHost。
 
 ```ts
 interface WorkbenchDefinition {
@@ -292,6 +292,7 @@ interface WorkbenchController {
 ## 15. Other Workbenches（L5）
 
 - 运行底层都是 Harness Graph，但以不同动画/交互呈现；
+- `flow-runner` 是固定只读运行页参考实现：`View` 为配置页，`RunView` 用只读 `CanvasView`、运行节点 pulse、活跃边 flow 与 `focusNode` 跟随；
 - 必须实现 `WorkbenchDefinition`，不得绕过 Workbench Framework 直接连 RuntimeHost；
 - 多 graph 组合由 `WorkbenchPlan` 描述（图引用、输入绑定、输出消费）；目标由 RuntimeHost 编排，当前 `plan-runner` 是 renderer 侧临时实现。
 
@@ -319,8 +320,8 @@ interface WorkbenchController {
 - **M7.4 已实现**：wireclaw `RunResult` v1（类型 / 序列化 / 校验 / ModelCall·AgentRun 采集 / graphPath 冒泡）；`RunStore` 写 `result.json`，`RuntimeHost.getResult` 与 `run:result` 暴露结果；运行日志扩展「结果」面板；`SessionStore.createRunSession` 校验 kind 并派生 entryCount / 附件；「保存到会话」进入草稿目录；`session:setDraftFolder` 支持 Session 树右键切换草稿目录。
 - **M7.4.1 已实现**：`WorkbenchDefinition.splitNavigation` + `SplitSidebar`；`NavigationPanel` 增加 `section` 变体；`harness-designer` 左栏固定为上工作流 / 下会话，共享宽度、比例可拖动并持久化（ADR-021）。
 - **M7.4.2 已实现**：`RunResult` entries → conversation 消息（Agent 使用完整 SessionData，ModelCall 重建 system/user/assistant）；`session:appendRun`；运行模式自动写入选中的 conversation 会话，结果面板提供「写入对话」（ADR-022）。
-- **M7.5 部分实现**：`WorkbenchDefinition.RunView` 与 `WorkbenchHost` mode 选择；实例持久化 `mode / runId / sessionId`；harness-designer 运行阶段有独立上下文条；动画原语、自定义 RunView 与完整运行页仍待做。
-- **Workbench Framework（M7.5 未实现）**：`WorkbenchDefinition` 提供 `mode` / `RunView`；工作台运行阶段渲染独立 RunView 与动画，而不是复用设计画布。
+- **M7.5 已实现**：`WorkbenchDefinition.RunView` 与 `WorkbenchHost` mode 选择；实例持久化 `mode / runId / sessionId`；harness-designer 运行阶段有独立上下文条；新增 `flow-runner` 参考运行页（只读固定画布 + 运行控制 + 时间线），动画复用节点/边状态、CSS pulse/flow 与 `focusNode`（ADR-023）。
+- **Workbench Framework**：`WorkbenchDefinition` 提供 `mode` / `RunView`；工作台运行阶段可渲染独立 RunView 与动画，harness-designer 则复用画布 + 浮动面板。
 - **SessionService / SessionStore（M7.4 已完成）**：Session 递归文件夹树；`SessionRecord.kind` 区分 conversation / run；草稿目录；RunResult 写入与校验。
 - **RuntimeHost / RunStore（M7.4 已完成）**：采集 wireclaw `RunResult`，写 `runs/<runId>/result.json`，run 结束向 renderer 提供结果。
 - **Shell（M7.3 已完成）**：左栏改为 Panel 宿主；移除顶层 sessions 视图；运行结果 / 会话历史改为浮动面板；`--fh-panel-alpha` 0.78。

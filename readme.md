@@ -31,7 +31,7 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M7.3 Session 树导航 / 历史浮动面板 / 工作流右键菜单 | ✅ |
 | M7.4 RunResult / 运行结果面板 / 保存到草稿 Session | ✅ |
 | M7.4.1 双区导航（工作流 + 会话上下分区） | ✅ |
-| M7.5 工作台运行模式（RunView 骨架 / mode·runId·sessionId 持久化） | 🚧 部分（动画与自定义 RunView 待做） |
+| M7.5 工作台运行模式 / RunView / 动画运行页 | ✅ |
 | 打包分发 | ⬜ |
 
 **已知限制**
@@ -39,7 +39,7 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 - 真透明窗口可透出桌面，但当前 Chromium/Electron 无法模糊桌面（ADR-009）；
 - 左侧栏是工作台导航 Panel：Harness 设计器为上下双区（上半区工作流、下半区 Session 树，可拖动分隔条）；其他工作台按模式显示单一导航；会话历史为 Canvas 浮动面板；
 - Session 历史以 wireclaw `SessionData` 持久化；run 结果以 wireclaw `RunResult` 持久化，可从运行结果面板「保存到会话」进入草稿目录；Agent / ModelCall 消息会在运行结束后写入选中的 conversation 会话（运行模式自动写入，结果面板也可手动「写入对话」）；手动聊天输入尚未接入；
-- 工作台已持久化 `mode` / `runId` / `sessionId`，设计 ↔ 运行可恢复；运行模式目前复用设计画布，独立 RunView、动画与自定义运行页留待后续；
+- 工作台已持久化 `mode` / `runId` / `sessionId`，设计 ↔ 运行可恢复；`harness-designer` 运行阶段复用设计画布，固定只读 + 动画的运行页由 `flow-runner` 工作台提供；
 - 设计器运行中切换视图会丢失节点/边状态（run 仍在 main 继续）；
 - 暂停 run 的 checkpoint 已可跨重启恢复；wireclaw checkpoint v2 校验 graphHash 与 nodeVersions，恢复入口只在 Diagnostics；
 - 运行前 requirements 目录已从 ProviderRegistry 注入；模型目录需先「测试连接」才会进入 catalog；

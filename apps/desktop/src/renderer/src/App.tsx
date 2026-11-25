@@ -1640,7 +1640,8 @@ export function App(): ReactElement {
                         shell={workbenchShell}
                         onUpdateInstance={updateActiveWorkbench}
                         panelLayer={
-                            activeWorkbench.type === "harness-designer" ? (
+                            activeWorkbench.type === "harness-designer" ||
+                            activeWorkbench.type === "flow-runner" ? (
                                 <PanelLayer
                                     panels={panels}
                                     events={runEvents}

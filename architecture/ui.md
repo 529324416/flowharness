@@ -127,7 +127,7 @@ interface CanvasAnimationApi {
 }
 ```
 
-> **目标，未实现**：当前没有 `CanvasAnimationApi`。运行态只用 `CanvasView` 的 `nodeStatuses` 换节点状态色，连线活跃/失败是 CSS class。
+> **目标，未实现**：当前没有 `CanvasAnimationApi`。运行态只用 `CanvasView` 的 `nodeStatuses` 换节点状态色、CSS 流动虚线表示活跃边；M7.5 的 `flow-runner` 运行页额外用 `focusNode` 让视口跟随 running 节点（ADR-023）。
 
 - 由 CSS class + `requestAnimationFrame` 实现，不引入动画库；
 - 事件到动画的映射在**工作台层**完成（见 5.4），Canvas 只提供原语。
@@ -180,7 +180,7 @@ interface WorkbenchController {
 ```
 
 - 当前 View 自持 hooks（设计器复用现有 document/run/undo），通过 View 收到的 `shell.onControllerChange` 上报 controller；框架级统一工具栏/命令栈注入待后续；
-- 已有三个工作台：`harness-designer`（画布）、`graph-table`（节点清单）、`plan-runner`（批量运行），共用实例文档与 `WorkbenchHost`；
+- 已有四个工作台：`harness-designer`（画布）、`graph-table`（节点清单）、`plan-runner`（批量运行）、`flow-runner`（固定只读运行页），共用实例文档与 `WorkbenchHost`；
 - `plan-runner` 以 `WorkbenchPlan` 顺序运行多个独立图；当前在 renderer 侧调用 `run:start`，尚未下沉 RuntimeHost；
 - 标题栏 WorkbenchMenu 切换 / 新建 / 重命名 / 删除实例；实例存 `documents/workbenches`。
 
@@ -360,7 +360,7 @@ Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布�
 - **M7.4 已实现运行结果**：运行日志新增「结果」页签，渲染 `RunResult` 输出、模型调用 / Agent 会话条目与附件；运行结束自动拉取 `run:result`；「保存到会话」写入草稿目录并打开历史面板；`SessionHistoryView` 按 `kind` 回放 conversation / run；Session 树文件夹右键可设草稿目录。
 - **M7.4.1 已实现双区导航**：`WorkbenchDefinition.splitNavigation` + `SplitSidebar`；`harness-designer` 上半区工作流、下半区 Session 树，共享侧栏宽度、横向拖动比例并写入 `localStorage`；`NavigationPanel` 增加 `section` 变体，收起按钮只保留在上半区（ADR-021）。
 - **M7.4.2 已实现消息写入**：运行模式选中 conversation 会话时，run 结束自动把 Agent / ModelCall 消息追加到该会话；结果面板提供「写入对话」，写入后历史面板与 Session 树计数刷新；run session 仍只存 RunResult（ADR-022）。
-- **M7.5 部分实现**：`WorkbenchDefinition.RunView` + `WorkbenchHost` 按 mode 选择主视图；harness-designer 运行阶段显示「运行模式」上下文条与「返回设计」；实例持久化 `mode / runId / sessionId`；动画原语、自定义 RunView 运行页待做。
+- **M7.5 已实现**：`WorkbenchDefinition.RunView` + `WorkbenchHost` 按 mode 选择主视图；`harness-designer` 运行阶段显示「运行模式」上下文条与「返回设计」，复用画布 / 浮动面板 / Session 导航；实例持久化 `mode / runId / sessionId`；新增 `flow-runner` 参考运行页（只读固定画布 + 运行控制 + 节点时间线）；动画原语为运行节点 pulse、活跃边 flow、视口 focus（ADR-023）。
 - **左栏 = Panel 宿主**：Shell 只提供容器与尺寸；PanelContent 默认由 `activeWorkbench.type` + `mode` 提供；声明 `splitNavigation` 的工作台改为固定上下双区（harness-designer：上工作流 / 下会话）。
 - **设计模式**：`harness-designer` 左栏 = GraphDocument 列表（新建 / 最近 / 重命名 / 复制 / 删除 / 导入导出），选中同步 `WorkbenchInstance.graphs` 的 primaryGraph。
 - **运行模式**：同一实例切到 `run`，主视图进入带动画的运行页；Session 树位于左栏下半区，不再替换整个左栏。

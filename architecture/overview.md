@@ -61,7 +61,7 @@ renderer 访问主进程的唯一通道是 preload 暴露的 `window.flowharness
 │ preload（contextBridge）       │   │ renderer（React）              │
 │ window.flowharness: 白名单 API │   │ shell: 主题 / 视图切换          │
 └───────────────────────────────┘   │ canvas / designer / views      │
-                                    │ （Workbench Framework 未实现）  │
+                                    │ Workbench Framework / 三工作台  │
                                     └────────────────────────────────┘
 ```
 

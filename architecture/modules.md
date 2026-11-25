@@ -18,11 +18,11 @@
 | L2 | RunStore | run 记录、事件日志、checkpoint | ✅ |
 | L2 | RuntimeHost | Graph 执行、事件流、暂停/恢复/取消 | ✅（Provider 已接） |
 | L0 | Contracts | IPC 契约、DTO、错误码 | ✅ |
-| L3 | App Shell | 应用外壳、主题 provider、模块宿主 | 🚧 外壳与主题已实现，模块注册表未开始 |
+| L3 | App Shell | 应用外壳、主题 provider、模块宿主 | ✅（Workbench registry 已接） |
 | L4 | Canvas | 无框架画布核心 + React 视图 | ✅（core 仅几何/边 key/类型） |
 | L4 | Workbench Framework | 工作台契约、实例、视图宿主、运行控制、Plan | ✅ M5 |
-| L5 | Harness Designer | 默认工作台，框架的参考实现 | ✅ M3 |
-| L5 | Other Workbenches | 面向不同目标的工作台 | ⬜ 未实现 |
+| L5 | Harness Designer | 默认工作台，框架的参考实现 | ✅ M6 |
+| L5 | Other Workbenches | 节点清单 / 批量运行 | ✅ M5 |
 
 图例：✅ 已实现 ｜ 🚧 部分实现 ｜ ⬜ 未开始
 
@@ -287,7 +287,7 @@ interface WorkbenchController {
 
 | 格式 | 内容 | 用途 | 状态 |
 | --- | --- | --- | --- |
-| Harness JSON | 单个 `GraphDocument` | 工作流互通、版本管理 | ⬜ 未实现 |
+| Harness JSON | 单个 `GraphDocument` | 工作流互通、版本管理 | ✅ M4（文档菜单导入/导出） |
 | `.fhws` | zip：`export.json` + `manifest.json` + `documents/**` + `objects/**` | 整工作区迁移 | ✅ 已实现（不含 runs/sessions） |
 | 备份 | 迁移前的自动副本 | 恢复 | ⬜ 未实现（无迁移表） |
 

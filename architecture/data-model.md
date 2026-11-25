@@ -5,7 +5,7 @@
 | 文档 | 所有者 | 可移植性 | 内容 |
 | --- | --- | --- | --- |
 | **Harness Graph**（`GraphDocument`） | wireclaw 格式 | 高：单独导出/导入 | 节点、连线、参数、事件、图级 `ui` |
-| **Workbench Instance**（目标，未实现） | FH | 中：随 `.fhws` 迁移 | 绑定哪些 graph、实例级布局、参数、运行计划 |
+| **Workbench Instance**（M5 起） | FH | 中：随 `.fhws` 迁移 | 绑定哪些 graph、实例级布局、参数、运行计划 |
 | **Workspace manifest** | FH | 中：随 `.fhws` 迁移 | 工作区元信息、设置、schema 版本 |
 
 关键约束：

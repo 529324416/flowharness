@@ -198,7 +198,7 @@
 - [x] 事件投影与节流、IPC 事件流
 - [x] 审批 / 用户输入 IPC 往返
 - [x] 自检 run：Constant → Output
-- [ ] 完整 Session 生命周期与 Provider 工厂（M6）
+- [x] Provider 工厂（M6.1）与 Session 生命周期（M6.2）
 
 ### Phase 2.5 — UI 基础
 

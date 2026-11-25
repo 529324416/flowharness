@@ -229,7 +229,7 @@ type CanvasDocument = { nodes: CanvasNode[]; edges: CanvasEdge[]; viewport: View
 
 **不做**：不 import wireclaw、不定义 Harness 语义、不持有运行状态。
 
-## 13. Workbench Framework（L4，M5.1 已实现基础）
+## 13. Workbench Framework（L4，M5 已实现）
 
 **职责**：把「一个工作台」抽象为「实例文档 + 视图 + 运行控制」。
 
@@ -271,7 +271,7 @@ interface WorkbenchController {
 
 - 节点面板数据来自 wireclaw：`createEditorCatalog(registry, { presets })` → `NodeCatalogEntry[]` + presets（M2 已接入，含默认 config / configSchema / 分类 / 关键词）；
 - `GraphDocument` → `CanvasDocument` 单向 adapter 由设计器实现（`designer/core/adapter.ts`）；
-- 布局写入 `GraphDocument.ui`（节点 `ui` 与图级 `ui`）；实例级覆盖（`layout.overrides`）随 Workbench Framework 落地；
+- 布局写入 `GraphDocument.ui`（节点 `ui` 与图级 `ui`）；实例级覆盖（`layout.overrides`）尚未接线；
 - 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌图递归校验与问题定位已在 M3 接入，`requirements` catalog 的宿主来源等 M6；
 - 导入导出：文档菜单提供单 `GraphDocument` JSON 导入（新建文档）与导出（可选剥离 `ui`）；`.fhws` 整工作区导入导出仍只有 main 通道。
 
@@ -279,7 +279,7 @@ interface WorkbenchController {
 
 - 运行底层都是 Harness Graph，但以不同动画/交互呈现；
 - 必须实现 `WorkbenchDefinition`，不得绕过 Workbench Framework 直接连 RuntimeHost；
-- 多 graph 组合由 `WorkbenchPlan` 描述（图引用、输入绑定、输出消费），由 RuntimeHost 编排。
+- 多 graph 组合由 `WorkbenchPlan` 描述（图引用、输入绑定、输出消费）；目标由 RuntimeHost 编排，当前 `plan-runner` 是 renderer 侧临时实现。
 
 ## 16. Import / Export
 

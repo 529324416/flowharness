@@ -24,7 +24,7 @@
     harness/
       <documentId>.json       # GraphDocument；M4 起一个工作区可有多份
     workbenches/
-      <instanceId>.json       # WorkbenchInstanceDocument（M5.1 起）
+      <instanceId>.json       # WorkbenchInstanceDocument（M5 起）
   objects/
     <hash[0:2]>/<hash>        # BlobStore 内容文件
     index.json                # 元数据 + 引用（可重建）
@@ -98,7 +98,7 @@
 - 节点 `type` 必须使用 wireclaw 内建名（`HarnessBuiltinNodeType`，如 `core.constant` / `core.model.call` / `core.log`），不是显示名；
 - `inputs` / `requires` 由 wireclaw 管理，FH 只透传。
 
-## 5. Workbench Instance 文档（M5.1 已实现基础）
+## 5. Workbench Instance 文档（M5 已实现）
 
 ```json
 {

@@ -143,6 +143,6 @@ vendor/wireclaw/               # 引擎（submodule）
 
 ## 7. 当前实现状态
 
-本文件描述**目标架构**。当前已实现：pnpm workspace + wireclaw submodule、Electron main/preload/renderer 三端、contracts、main 服务层（配置 / 密钥 / Blob / 工作区 / 运行记录 / RuntimeHost）、Shell v2、浮动 Panel、Canvas core + view、UI 打磨，以及 M1 ~ M4 Designer（GraphDocument adapter、编辑命令、运行、自动保存、检查器、问题面板、递归校验、暂停/继续、多图文档、撤销复制、框选平移、JSON 导入导出）与 M5.1 Workbench Framework（定义 / 实例 / registry / host / 第二工作台 / 节点内联编辑）。
+本文件描述**目标架构**。当前已实现：pnpm workspace + wireclaw submodule、Electron main/preload/renderer 三端、contracts、main 服务层（配置 / 密钥 / Blob / 工作区 / 运行记录 / RuntimeHost）、Shell v2、浮动 Panel、Canvas core + view、UI 打磨，以及 M1 ~ M4 Designer（GraphDocument adapter、编辑命令、运行、自动保存、检查器、问题面板、递归校验、暂停/继续、多图文档、撤销复制、框选平移、JSON 导入导出）与 M5 Workbench Framework（定义 / 实例 / registry / host / 三个工作台 / WorkbenchPlan / 节点内联与端口槽）。
 
-**尚未实现**：WorkbenchPlan 与参数槽拖拽；Provider 闭环；`applyCommands` 与 `workspace:changed` 事件；`.fhws` UI。迁移顺序见 [../todo.md](../todo.md)。
+**尚未实现**：Plan 编排下沉 RuntimeHost 与 `plan.bindings`；Provider 闭环；`applyCommands` 与 `workspace:changed` 事件；`.fhws` UI。迁移顺序见 [../todo.md](../todo.md)。

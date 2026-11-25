@@ -71,7 +71,7 @@
 ## 2.2 工作台菜单
 
 - 位置：TitleBar 左区，显示当前工作台标题；菜单列出工作区实例与按注册表生成的新建项；
-- 当前类型：`harness-designer`（主工作台，画布）与 `graph-table`（节点清单，只读表格）；
+- 当前类型：`harness-designer`（主工作台，画布）、`graph-table`（节点清单，只读表格）、`plan-runner`（批量运行，顺序独立 run）；
 - 切换前 flush 当前文档；切换后由 `WorkbenchHost` 按实例 `type` 渲染对应 View。
 
 ## 2.3 文档菜单

@@ -1,15 +1,21 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { SessionStore } from "./session-store";
 
+const ATTACHMENT_HASH = "a".repeat(64);
+
 const dirs: string[] = [];
 
-async function makeStore(): Promise<SessionStore> {
+async function makeStoreIn(): Promise<{ store: SessionStore; dir: string }> {
     const dir = await mkdtemp(join(tmpdir(), "fh-session-store-"));
     dirs.push(dir);
-    return new SessionStore(dir);
+    return { store: new SessionStore(dir), dir };
+}
+
+async function makeStore(): Promise<SessionStore> {
+    return (await makeStoreIn()).store;
 }
 
 afterEach(async () => {
@@ -19,12 +25,18 @@ afterEach(async () => {
 });
 
 describe("SessionStore", () => {
-    it("creates, lists and reads sessions", async () => {
+    it("creates, lists and reads sessions with wireclaw history", async () => {
         const store = await makeStore();
         const created = await store.create({ title: "工单分诊" });
 
         expect(created.id.startsWith("ses_")).toBe(true);
         expect(created.messageCount).toBe(0);
+        expect(created.history).toEqual({
+            version: 2,
+            id: created.id,
+            messages: [],
+            isArchived: false,
+        });
 
         const list = await store.list();
         expect(list).toHaveLength(1);
@@ -32,22 +44,79 @@ describe("SessionStore", () => {
         expect((await store.read(created.id)).title).toBe("工单分诊");
     });
 
-    it("saves history and updates messageCount", async () => {
+    it("derives messageCount and attachments from history", async () => {
         const store = await makeStore();
         const created = await store.create();
 
         const saved = await store.save({
             ...created,
             status: "completed",
-            history: [{ role: "user", text: "hello" }],
-            attachments: ["sha256:abc"],
+            history: {
+                version: 2,
+                id: created.id,
+                isArchived: false,
+                messages: [
+                    { role: "user", isCompressed: false, content: "hello" },
+                    {
+                        role: "user",
+                        isCompressed: false,
+                        content: [
+                            { type: "text", text: "看图" },
+                            {
+                                type: "attachment",
+                                attachment: { contentHash: ATTACHMENT_HASH },
+                            },
+                        ],
+                    },
+                ],
+            },
+            attachments: ["ignored"],
         });
 
-        expect(saved.messageCount).toBe(1);
+        expect(saved.messageCount).toBe(2);
+        expect(saved.attachments).toEqual([ATTACHMENT_HASH]);
         expect(saved.status).toBe("completed");
-        expect((await store.read(created.id)).attachments).toEqual([
-            "sha256:abc",
-        ]);
+        expect(saved.history).toMatchObject({
+            version: 2,
+            id: created.id,
+            messages: expect.any(Array),
+        });
+
+        const read = await store.read(created.id);
+        expect(read.messageCount).toBe(2);
+        expect(read.attachments).toEqual([ATTACHMENT_HASH]);
+    });
+
+    it("migrates legacy empty-array history on read", async () => {
+        const { store, dir } = await makeStoreIn();
+        const created = await store.create();
+        const file = join(dir, created.id, "session.json");
+        const raw = JSON.parse(await readFile(file, "utf8")) as Record<
+            string,
+            unknown
+        >;
+
+        await writeFile(file, JSON.stringify({ ...raw, history: [] }), "utf8");
+
+        const read = await store.read(created.id);
+        expect(read.history).toEqual({
+            version: 2,
+            id: created.id,
+            messages: [],
+            isArchived: false,
+        });
+    });
+
+    it("rejects malformed history", async () => {
+        const store = await makeStore();
+        const created = await store.create();
+
+        await expect(
+            store.save({
+                ...created,
+                history: [{ role: "user", text: "legacy" }],
+            }),
+        ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
     });
 
     it("ensures a default session only when empty", async () => {

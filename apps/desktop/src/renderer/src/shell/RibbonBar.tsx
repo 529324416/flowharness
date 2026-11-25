@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { Activity, MessagesSquare, Palette, Settings, Workflow } from "lucide-react";
+import { Activity, History, MessagesSquare, Palette, Settings, Workflow } from "lucide-react";
 import {
     IconButton,
     Menu,
@@ -28,6 +28,7 @@ const VIEW_ITEMS: ReadonlyArray<{
     icon: typeof Workflow;
 }> = [
     { id: "designer", label: "设计器", icon: Workflow },
+    { id: "sessions", label: "会话历史", icon: History },
     { id: "diagnostics", label: "诊断", icon: Activity },
     { id: "styleguide", label: "样式指南", icon: Palette },
 ];

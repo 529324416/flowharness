@@ -105,7 +105,7 @@ main: resolve Promise
 
 ## 8. Session 与附件
 
-- 附件管理器仍是**工作区维度**（还没有 Session 维度）；`SessionStore` 已按会话持久化（M6.2），host 以 contentHash 访问；
+- 附件管理器仍是**工作区维度**（还没有 Session 维度）；`SessionStore` 已按会话持久化（M6.2），M6.3 起校验 wireclaw `SessionData` 并派生消息数 / 附件索引，host 以 contentHash 访问；
 - `IFileHost` 的读写由 `WorkspaceFileHost` 落到当前工作区的 BlobStore；
 - Session 关闭后保留历史与 refs；GC 由 WorkspaceStore 汇总 roots 后触发；
 - 多工作台共享同一 Session 时，引用计数由 refs 管理，不做隐式拷贝。
@@ -198,5 +198,5 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 
 - Agent 只注册了工作区文件工具；MCP / 扩展工具尚未接入；
 - 运行前 requirements 已注入 ProviderRegistry，但模型目录需先在设置页「测试连接」才会进入 catalog；
-- Session 历史消息仍是 opaque JSON，附件回放 UI 未接；
+- Session 历史以 wireclaw `SessionData` 持久化，「会话历史」视图回放消息 / 工具调用 / 附件；消息写入侧（聊天输入与 Agent 会话对接）尚未接入；
 - 受限环境写盘不可用时，RunStore 退化为内存态（日志告警一次），执行本身不受影响。

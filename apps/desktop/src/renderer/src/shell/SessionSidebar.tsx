@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ReactElement } from "react";
-import { PanelLeftClose, Plus, Search } from "lucide-react";
+import { History, PanelLeftClose, Plus, Search } from "lucide-react";
 import { Badge, IconButton, Input, StatusDot, Tooltip } from "../ui";
 import { cx } from "../ui/cx";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "../layout-metrics";
@@ -12,6 +12,7 @@ export type SessionSidebarProps = {
     width: number;
     onSelect: (id: string) => void;
     onNew: () => void;
+    onOpenHistory: (id: string) => void;
     onCollapse: () => void;
     onResize: (width: number) => void;
 };
@@ -26,6 +27,7 @@ export function SessionSidebar({
     width,
     onSelect,
     onNew,
+    onOpenHistory,
     onCollapse,
     onResize,
 }: SessionSidebarProps): ReactElement {
@@ -63,6 +65,18 @@ export function SessionSidebar({
                 <Tooltip label="新建会话">
                     <IconButton label="新建会话" size="sm" onClick={onNew}>
                         <Plus size={19} aria-hidden="true" />
+                    </IconButton>
+                </Tooltip>
+                <Tooltip label="查看会话历史">
+                    <IconButton
+                        label="查看会话历史"
+                        size="sm"
+                        disabled={activeId === null}
+                        onClick={() => {
+                            if (activeId !== null) onOpenHistory(activeId);
+                        }}
+                    >
+                        <History size={19} aria-hidden="true" />
                     </IconButton>
                 </Tooltip>
                 <Tooltip label="收起会话栏">

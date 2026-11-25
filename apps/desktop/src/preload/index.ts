@@ -6,6 +6,7 @@ import {
     type AppConfig,
     type AppConfigUpdate,
     type ApprovalResponseRequest,
+    type BlobMeta,
     type DocumentRef,
     type DocumentSaveResult,
     type DocumentSnapshot,
@@ -119,6 +120,11 @@ const bridge = {
         request: WorkspaceExportHarnessRequest,
     ): Promise<IpcResult<{ path: string | null }>> =>
         invoke(IpcChannel.WorkspaceExportHarness, request),
+    statBlob: (
+        workspaceId: string,
+        hash: string,
+    ): Promise<IpcResult<BlobMeta | null>> =>
+        invoke(IpcChannel.BlobStat, { workspaceId, hash }),
     listSessions: (
         request: SessionListRequest,
     ): Promise<IpcResult<SessionSummary[]>> =>

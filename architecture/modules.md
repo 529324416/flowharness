@@ -14,7 +14,7 @@
 | L2 | BlobStore | 内容寻址的二进制存储 | ✅ |
 | L2 | WorkspaceStore | 工作区文档、索引、迁移、导入导出 | ✅（无 `applyCommands`、无迁移） |
 | L2 | WorkspaceFileHost | wireclaw `IFileHost` 的 FH 实现 | ✅ |
-| L2 | SessionService | Session 生命周期与附件管理器装配 | ✅ M6.2（历史回放 UI 未做） |
+| L2 | SessionService | Session 生命周期、历史与附件管理器装配 | ✅ M6.3 |
 | L2 | RunStore | run 记录、事件日志、checkpoint | ✅ |
 | L2 | RuntimeHost | Graph 执行、事件流、暂停/恢复/取消 | ✅（Provider 已接） |
 | L0 | Contracts | IPC 契约、DTO、错误码 | ✅ |
@@ -164,9 +164,9 @@ class WorkspaceFileHost implements IFileHost {
 
 - 持有当前打开的 session（内存），历史落 `sessions/<sessionId>/`；
 - 提供 wireclaw `GraphHost.attachments`；
-- 会话历史与附件引用持久化，支持重新打开；历史回放 / 附件 UI 尚未实现（M6.2）。
+- 会话历史与附件引用持久化；M6.3 起由 `SessionStore` 校验 / 规范化 wireclaw `SessionData`，派生消息数与附件索引，renderer「会话历史」视图负责回放。
 
-**当前实现（M6.2）**：每个已打开工作区装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore）与一个 `SessionStore`（`sessions/<id>/session.json`）；支持默认会话、创建 / 列表 / 读取 / 保存。消息历史当前是 opaque JSON 数组，附件回放 UI 尚未接入。
+**当前实现（M6.3）**：每个已打开工作区装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore）与一个 `SessionStore`（`sessions/<id>/session.json`）；支持默认会话、创建 / 列表 / 读取 / 保存。`history` 存储 wireclaw `SessionData`（`version / id / messages / isArchived`），M6.2 的空数组在读取/保存时迁移为空会话；`messageCount` 与 `attachments` 从历史派生，非法历史返回 `E_INVALID_ARGUMENT`。
 
 ## 9. RunStore
 

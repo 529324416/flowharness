@@ -49,6 +49,7 @@ import { useFloatingPanels } from "./shell/panels/useFloatingPanels";
 import { VIEW_LABEL, type ViewId } from "./shell/views";
 import type { DesignerSaveStatus } from "./views/DesignerView";
 import { DiagnosticsView } from "./views/DiagnosticsView";
+import { SessionHistoryView } from "./views/SessionHistoryView";
 import { StyleguideView } from "./views/StyleguideView";
 import { useTheme } from "./theme/ThemeProvider";
 import type { RunControls } from "./run/run-controls";
@@ -1278,6 +1279,12 @@ export function App(): ReactElement {
         void refreshSessions(activeWorkspace.id);
     }, [activeWorkspace, refreshSessions]);
 
+    // 进入会话历史时对账：历史可能由 Agent 运行或外部保存写入，侧栏摘要不能停在旧值。
+    useEffect(() => {
+        if (view !== "sessions" || activeWorkspace === null) return;
+        void refreshSessions(activeWorkspace.id);
+    }, [view, activeWorkspace?.id, refreshSessions]);
+
     const handleNewSession = useCallback(async (): Promise<void> => {
         if (activeWorkspace === null) return;
         const result = await bridge.createSession({
@@ -1292,7 +1299,12 @@ export function App(): ReactElement {
 
     const handleSelectSession = useCallback((id: string) => {
         setActiveSessionId(id);
-        setView("designer");
+        setView((current) => (current === "sessions" ? "sessions" : "designer"));
+    }, []);
+
+    const handleOpenHistory = useCallback((id: string) => {
+        setActiveSessionId(id);
+        setView("sessions");
     }, []);
 
     useEffect(() => {
@@ -1339,6 +1351,10 @@ export function App(): ReactElement {
                 case "3":
                     event.preventDefault();
                     setView("styleguide");
+                    break;
+                case "4":
+                    event.preventDefault();
+                    setView("sessions");
                     break;
                 default:
                     break;
@@ -1441,6 +1457,12 @@ export function App(): ReactElement {
                     />
                 ) : null}
             </div>
+        ) : view === "sessions" ? (
+            <SessionHistoryView
+                workspace={activeWorkspace}
+                session={activeSession}
+                onOpenDesigner={() => setView("designer")}
+            />
         ) : view === "diagnostics" ? (
             <DiagnosticsView
                 config={config}
@@ -1551,6 +1573,7 @@ export function App(): ReactElement {
                         width={sidebarWidth}
                         onSelect={handleSelectSession}
                         onNew={handleNewSession}
+                        onOpenHistory={handleOpenHistory}
                         onCollapse={() => setSidebarOpen(false)}
                         onResize={setSidebarWidth}
                     />

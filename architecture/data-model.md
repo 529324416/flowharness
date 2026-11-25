@@ -177,16 +177,17 @@ runs/<runId>/checkpoint.json  # GraphCheckpoint v2（graphHash/nodeVersions）�
 - `checkpoint.json` 只在**显式暂停**时产生：引擎不提供周期性 checkpoint，也没有退出时自动落盘；
 - checkpoint v2 保存 graphHash / nodeVersions；恢复按设计需要 checkpoint + 原 Graph 定义，当前可从 RunStore 跨重启恢复并校验图定义。
 
-## 8. 会话（M6.2 已实现基础）
+## 8. 会话（M6.3 已实现回放）
 
 ```text
-sessions/<sessionId>/session.json     # SessionRecord：摘要 + opaque history + attachments
+sessions/<sessionId>/session.json     # SessionRecord：摘要 + wireclaw SessionData + attachments
 ```
 
-- 会话历史与附件索引分离，保证 `AttachmentFileManager` 的 GC 有可靠 roots；
-- 会话不内联二进制，只引用 Blob。
+- `history` 直接存储 wireclaw `SessionData`（`version / id / messages / isArchived`），FH 不复制消息模型；
+- `messageCount` 与 `attachments` 由主进程从历史派生，附件仍是 Blob contentHash 引用，会话不内联二进制；
+- 会话历史与附件索引分离，保证 `AttachmentFileManager` 的 GC 有可靠 roots。
 
-> 现状（M6.2）：`SessionStore` 按工作区写入 `sessions/<id>/session.json`，支持默认会话、创建 / 列表 / 读取 / 保存；`history` 目前是不透明 JSON 数组，附件索引内联在记录里，回放 UI 未接。
+> 现状（M6.3）：`SessionStore` 按工作区写入 `sessions/<id>/session.json`，支持默认会话、创建 / 列表 / 读取 / 保存；保存时用 `SessionSerializer` 校验并规范化历史，M6.2 的空数组在读取/保存时迁移为空会话。renderer 的「会话历史」视图通过 `session:open` 读取记录、回放消息 / 工具调用，并用 `blob:stat` + `fh-asset://` 展示附件。
 
 ## 9. 导入 / 导出
 

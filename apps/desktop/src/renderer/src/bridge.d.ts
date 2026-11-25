@@ -2,6 +2,7 @@ import type {
     AppConfig,
     AppConfigUpdate,
     ApprovalResponseRequest,
+    BlobMeta,
     DocumentRef,
     DocumentSaveResult,
     DocumentSnapshot,
@@ -88,6 +89,10 @@ interface FlowHarnessBridge {
     readonly exportHarness: (
         request: WorkspaceExportHarnessRequest,
     ) => Promise<IpcResult<{ path: string | null }>>;
+    readonly statBlob: (
+        workspaceId: string,
+        hash: string,
+    ) => Promise<IpcResult<BlobMeta | null>>;
 
     readonly listSessions: (
         request: SessionListRequest,

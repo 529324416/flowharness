@@ -120,7 +120,7 @@ apps/desktop/src/
     shell/                     # TitleBar / Ribbon / SessionSidebar / StatusBar / panels / dialogs
     workbench/                 # L4：Definition / Controller / registry / WorkbenchHost / Plan
     workbenches/               # L5：harness-designer / graph-table / plan-runner
-    views/                     # Designer / Diagnostics / Styleguide（HeroView 未接入，暂无引用）
+    views/                     # Designer / SessionHistory / Diagnostics / Styleguide（HeroView 未接入，暂无引用）
     canvas/core/               # L4：纯 TS 画布领域（几何 / 边 key / 选择辅助 / 类型）
     canvas/view/               # L4：react-flow 受控视图 + 节点/边 renderer
     designer/core/             # L5：GraphDocument adapter / 命令 / validate / run-events
@@ -147,6 +147,6 @@ vendor/wireclaw/               # 引擎（submodule）
 
 ## 7. 当前实现状态
 
-本文件描述**目标架构**。当前已实现：pnpm workspace + wireclaw submodule、Electron main/preload/renderer 三端、contracts、main 服务层（配置 / 密钥 / Blob / 工作区 / 运行记录 / RuntimeHost）、Shell v2、浮动 Panel、Canvas core + view、UI 打磨，以及 M1 ~ M4 Designer（GraphDocument adapter、编辑命令、运行、自动保存、检查器、问题面板、递归校验、暂停/继续、多图文档、撤销复制、框选平移、JSON 导入导出）与 M5 Workbench Framework（定义 / 实例 / registry / host / 三个工作台 / WorkbenchPlan / 节点内联与端口槽），以及 M6.1 ~ M6.2（Provider 工厂 / Secrets / 审批输入 / checkpoint v2 / 工作区工具 / SessionStore）。
+本文件描述**目标架构**。当前已实现：pnpm workspace + wireclaw submodule、Electron main/preload/renderer 三端、contracts、main 服务层（配置 / 密钥 / Blob / 工作区 / 运行记录 / RuntimeHost）、Shell v2、浮动 Panel、Canvas core + view、UI 打磨，以及 M1 ~ M4 Designer（GraphDocument adapter、编辑命令、运行、自动保存、检查器、问题面板、递归校验、暂停/继续、多图文档、撤销复制、框选平移、JSON 导入导出）与 M5 Workbench Framework（定义 / 实例 / registry / host / 三个工作台 / WorkbenchPlan / 节点内联与端口槽），以及 M6（Provider 工厂 / Secrets / 审批输入 / checkpoint v2 / 工作区工具 / SessionStore / Session 历史序列化与回放视图）。
 
-**尚未实现**：Plan 编排下沉 RuntimeHost、`plan.bindings` 与 `layout.overrides`；Session 历史回放 / 附件 UI；MCP 等更多工具 Provider；`applyCommands` 与 `workspace:changed` 事件；`.fhws` UI。迁移顺序见 [../todo.md](../todo.md)。
+**尚未实现**：Plan 编排下沉 RuntimeHost、`plan.bindings` 与 `layout.overrides`；Session 消息写入侧（聊天输入 / Agent 会话对接）；MCP 等更多工具 Provider；`applyCommands` 与 `workspace:changed` 事件；`.fhws` UI。迁移顺序见 [../todo.md](../todo.md)。

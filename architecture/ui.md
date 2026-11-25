@@ -29,7 +29,7 @@ renderer/src/
   shell/                   # TitleBar / DocumentMenu / WorkbenchMenu / Ribbon / SessionSidebar / StatusBar
   workbench/               # WorkbenchDefinition / Controller / registry / WorkbenchHost
   workbenches/             # harness-designer / graph-table 工作台实现
-  views/                   # Designer / Diagnostics / Styleguide（HeroView 存在但未接入）
+  views/                   # Designer / SessionHistory / Diagnostics / Styleguide（HeroView 存在但未接入）
   canvas/core/             # 纯 TS：几何、边 key、类型
   canvas/view/             # React Flow 受控视图、节点/边 renderer
   designer/core/           # GraphDocument adapter / 命令 / validate / problems / run-events
@@ -280,7 +280,8 @@ CanvasCommand → GraphDocument
 - 密钥通过 `secrets:set / delete` 进入 main，renderer 只能看到 `hasKey`；`providers:list` 返回可用状态，`providers:test` 拉取模型目录；
 - run 期间：审批走 `shell/InteractionDialogs.tsx` 的 ApprovalDialog，用户输入走 UserInputDialog；main 发 `approval` / `input` topic，renderer 回 `approval:respond` / `input:respond`；
 - Diagnostics 提供「运行恢复」面板：列出 paused / interrupted run，使用 `run:resume-interrupted` 从 checkpoint + graph 快照恢复；
-- Session Sidebar 读取真实 SessionStore；当前只展示摘要与状态，历史消息 / 附件回放 UI 未接。
+- Session Sidebar 读取真实 SessionStore；摘要与状态来自 `session:list`；
+- 「会话历史」视图（`views/SessionHistoryView.tsx`）通过 `session:open` 读取记录，用 wireclaw `SessionSerializer` 校验 / 迁移历史，回放用户 / 助手 / 系统 / 工具消息、思考、工具调用与结果；附件元信息走 `blob:stat`，字节走 `fh-asset://`；入口为侧栏历史按钮、Ribbon 与 Ctrl+4。
 
 ## 7. 其他工作台
 
@@ -292,6 +293,7 @@ CanvasCommand → GraphDocument
 ## 8. 无障碍与键盘
 
 - 画布支持键盘：空格拖拽、方向键移动选中、Delete 删除、Esc 取消连线；
+- 视图快捷键：Ctrl+1 设计器 / Ctrl+2 诊断 / Ctrl+3 样式指南 / Ctrl+4 会话历史；
 - 工具栏与面板使用可聚焦的原生控件；
 - 颜色不作为唯一状态表达（错误同时有图标/文本）。
 
@@ -304,7 +306,7 @@ CanvasCommand → GraphDocument
 | tokens | `styles/tokens.css`：表面 / 文本 / 边框 / 主色（去饱和青绿）/ 状态 / 画布 / 阴影 / 圆角 / 间距 / 字体 / 动效 / 尺寸 / 层级；深色默认、亮色覆盖 |
 | 密度 | 非画布文字 125% 基准（16.25px 正文）、控件 32px（sm 28）、节点 220px、4px 间距基线；图标同步放大 |
 | 外壳 | TitleBar 40（不透明，无底边框）/ Ribbon 52 / Session Sidebar 200–360（默认 260，可收起/拖宽；token 兜底 280）/ StatusBar 26（全宽不透明 Chrome 层，仅底部圆角）；Session 与 Canvas 面板化（各 1px 外框 + 6px 圆角，间隙 4px），中间 Body 统一 95% 半透；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
-| 会话入口 | Session Sidebar 读取当前工作区 SessionStore（默认会话 / 新建 / 切换）；设计器按工作区加载，无工作区时显示空状态 |
+| 会话入口 | Session Sidebar 读取当前工作区 SessionStore（默认会话 / 新建 / 切换 / 历史入口）；「会话历史」视图回放消息与附件 |
 | 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Field、Select、Checkbox、NumberField、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
 | 画布视觉 | 商务扁平节点：6px 圆角、纯色不透明底、HeaderBar 30 + Body 两层、无 Footer；描边通过 `--fh-canvas-zoom` 反向缩放，屏幕恒为 1px；选中仅换 accent 边框；网格线 24px/低亮度，拖拽吸附同为 24px；边 1.4px 贝塞尔，活跃边用主色流动虚线、失败 danger 虚线；缩放工具栏已移除；节点宽、Header、端口、边宽、网格、小地图与缩放范围全部来自 `canvas/metrics.ts`，并通过 CSS 变量下发 |
 | 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张（跟随全局主题，页面内无主题切换） |

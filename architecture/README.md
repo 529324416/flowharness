@@ -1,8 +1,8 @@
 # FlowHarness 架构文档
 
-> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化、M4 文档生命周期与编辑体验，以及 M5 Workbench Framework；进度见文末。
+> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化、M4 文档生命周期与编辑体验、M5 Workbench Framework，以及 M6 Session / Provider 闭环；进度见文末。
 >
-> 当前阶段：**M6 进行中（M6.2 checkpoint v2 / 工具 / Session 生命周期已完成；Session 历史回放待做）**。
+> 当前阶段：**M6 完成**（M6.1 Provider / Secrets / 审批输入；M6.2 checkpoint v2 / 工具 / Session 生命周期；M6.3 Session 历史序列化与回放）。
 > 术语：FH = FlowHarness。
 
 ## 阅读顺序
@@ -62,7 +62,7 @@
 | M6.1 Provider 工厂 / Secrets / 设置页 / RuntimeHost resolveProvider | ✅ 已实现（M6.1） |
 | M6.1 审批 / 用户输入对话框；跨重启 checkpoint 恢复 | ✅ 已实现（M6.1） |
 | M6.2 Session 生命周期 / SessionStore | ✅ 已实现（M6.2） |
-| M6.2 Session 历史回放 / 附件 UI | ⬜ 未开始 |
+| M6.3 Session 历史序列化 / 回放视图 / 附件渲染 | ✅ 已实现（M6.3） |
 | M6.2 wireclaw checkpoint v2（graphHash + nodeVersions） | ✅ 已实现（M6.2） |
 | M6.2 工作区文件工具 / 运行前 requirements catalog | ✅ 已实现（M6.2） |
 | SessionService（AttachmentFileManager / SessionStore 装配） | ✅ 已实现（Phase 2 附件；M6.2 会话） |
@@ -72,7 +72,7 @@
 | UI 打磨：去饱和色板 / 125% 字号 / 节点双层 / Session+Canvas 面板化 | ✅ 已实现（2026-11-25） |
 | 内部浮动 Panel（运行日志 / 属性检查） | ✅ 已实现（Phase 2.6 step 2） |
 | 窗口 bounds 持久化（多显示器/DPI） | ✅ 已实现（step 2） |
-| Session 生命周期（创建 / 列表 / 读取 / 保存） | ✅ M6.2（历史回放 UI 未做） |
+| Session 生命周期（创建 / 列表 / 读取 / 保存） | ✅ M6.2 / M6.3（历史回放） |
 | Canvas core + react-flow 交互 | ✅ 已实现（Phase 3 Step 3） |
 | Canvas core 纯 TS / view 薄层（无 react-flow 类型泄漏） | ✅ 已实现（M1.1） |
 | 商务扁平节点 / 网格线 / 去辉光 | ✅ 已实现（Step 4C） |

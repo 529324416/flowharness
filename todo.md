@@ -121,15 +121,16 @@
 - [x] 高频节点内联编辑：Constant / Model Call / Log / Value / Agent / Loop / ForEach
 - [x] 拖拽传入：输出端口可落在 Body 输入端口槽，或使用左侧 Handle
 
-### M6 — Session / Provider 闭环（M6.2 已完成）
+### M6 — Session / Provider 闭环（M6.3 已完成）
 
 > M6.1：Provider 工厂 + Secrets + 设置页；`resolveProvider` 接入 RuntimeHost；审批 / 用户输入对话框；跨重启 checkpoint 恢复。
-> M6.2：wireclaw checkpoint 升级到 v2（graphHash + nodeVersions）；工作区 LocalToolProvider 注册真实文件工具；renderer 运行前 requirements catalog 接 ProviderRegistry；SessionStore 生命周期（默认会话 / 创建 / 列表 / 读取 / 保存）与侧栏真实会话。剩余：Session history 消息序列化与附件回放 UI。
+> M6.2：wireclaw checkpoint 升级到 v2（graphHash + nodeVersions）；工作区 LocalToolProvider 注册真实文件工具；renderer 运行前 requirements catalog 接 ProviderRegistry；SessionStore 生命周期（默认会话 / 创建 / 列表 / 读取 / 保存）与侧栏真实会话。
+> M6.3：SessionStore 校验 / 规范化 wireclaw `SessionData`，派生消息数与附件索引；新增「会话历史」视图回放消息 / 工具调用 / 附件，`blob:stat` + `fh-asset://` 渲染附件。剩余：消息写入侧（聊天输入 / Agent 会话对接）。
 
 - [x] Provider 工厂 + Secrets（DeepSeek / Ollama / MiniMax / Qwen）
 - [x] 模型 / Agent 节点真正可运行（Provider + workspace 文件工具 + 审批）
 - [x] Session 生命周期（创建 / 列表 / 读取 / 保存 / 默认会话）
-- [ ] Session 历史消息序列化、附件回放 UI
+- [x] Session 历史消息序列化、附件回放 UI
 - [x] 审批 / 用户输入 UI
 - [x] 跨重启 resume（checkpoint + graph 装载）
 - [x] wireclaw：checkpoint 的 graph hash / node type version（v2）
@@ -276,6 +277,7 @@
 - [x] 30 个测试文件 / 143 个测试通过（M5.2）
 - [x] 31 个测试文件 / 149 个测试通过（M6.1）
 - [x] 33 个测试文件 / 155 个测试通过（M6.2；wireclaw 66/66）
+- [x] 33 个测试文件 / 157 个测试通过（M6.3；新增 session-history 投影与 session-store 历史校验）
 - [x] wireclaw：66 项离线测试通过（新增 `harness-nested-validation`）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步

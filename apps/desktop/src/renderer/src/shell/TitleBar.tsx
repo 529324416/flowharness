@@ -140,6 +140,10 @@ export function TitleBar({
                                 设计器
                                 <MenuShortcut>Ctrl 1</MenuShortcut>
                             </MenuItem>
+                            <MenuItem onSelect={() => onSelectView("sessions")}>
+                                会话历史
+                                <MenuShortcut>Ctrl 4</MenuShortcut>
+                            </MenuItem>
                             <MenuItem onSelect={() => onSelectView("diagnostics")}>
                                 诊断
                                 <MenuShortcut>Ctrl 2</MenuShortcut>
@@ -202,6 +206,10 @@ export function TitleBar({
                         <MenuItem onSelect={() => onSelectView("designer")}>
                             设计器
                             <MenuShortcut>Ctrl 1</MenuShortcut>
+                        </MenuItem>
+                        <MenuItem onSelect={() => onSelectView("sessions")}>
+                            会话历史
+                            <MenuShortcut>Ctrl 4</MenuShortcut>
                         </MenuItem>
                         <MenuItem onSelect={() => onSelectView("diagnostics")}>
                             诊断

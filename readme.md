@@ -24,12 +24,13 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M5 Workbench Framework：定义 / 实例 / 三个工作台 / WorkbenchPlan / 节点内联与端口槽 | ✅ |
 | M6.1 Provider 工厂 / Secrets / 设置页 / 审批输入 / 跨重启恢复 | ✅ |
 | M6.2 checkpoint v2 / 工作区工具 / 运行前依赖目录 / Session 生命周期 | ✅ |
-| Session 历史回放、打包 | ⬜ |
+| M6.3 Session 历史序列化 / 回放视图 / 附件渲染 | ✅ |
+| 打包分发 | ⬜ |
 
 **已知限制**
 
 - 真透明窗口可透出桌面，但当前 Chromium/Electron 无法模糊桌面（ADR-009）；
-- Session Sidebar 已接工作区 SessionStore（创建 / 列表 / 默认会话）；消息历史目前是 opaque JSON，附件回放 UI 尚未实现；
+- Session Sidebar 已接工作区 SessionStore（创建 / 列表 / 默认会话）；历史以 wireclaw `SessionData` 持久化，「会话历史」视图可回放消息 / 工具调用 / 附件；消息写入侧（聊天输入与 Agent 会话对接）尚未接入；
 - 设计器运行中切换视图会丢失节点/边状态（run 仍在 main 继续）；
 - 暂停 run 的 checkpoint 已可跨重启恢复；wireclaw checkpoint v2 校验 graphHash 与 nodeVersions，恢复入口只在 Diagnostics；
 - 运行前 requirements 目录已从 ProviderRegistry 注入；模型目录需先「测试连接」才会进入 catalog；
@@ -118,7 +119,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（33 files / 155 tests） |
+| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（33 files / 157 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

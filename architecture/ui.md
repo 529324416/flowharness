@@ -112,7 +112,8 @@ type CanvasDocument = {
 - `edgeTypes` 提供至少一个带动画能力的默认边；
 - 小地图 / Background 用官方组件；当前没有 `<Controls>`；
 - react-flow 的使用被限制在 `canvas/view/`，其他代码不 import 它。
-- 当前实现（M4）：`@xyflow/react` 12.12.1 受控模式、`useNodesState` / `useEdgesState`、自定义 `SciFiNode` / `SciFiEdge`、per-port Handle、节点 renderer registry、MiniMap、自定义右键菜单；左键拖拽框选（`selectionOnDrag` + Partial），中键 / 右键拖拽平移；右键拖动后抑制上下文菜单，普通右键单击仍弹出；**没有** `<Controls>`（左下缩放工具栏已移除，适配视图在右键菜单）。
+- 当前实现（M6）：`@xyflow/react` 12.12.1 受控模式、`useNodesState` / `useEdgesState`、自定义 `SciFiNode` / `SciFiEdge`、per-port Handle、节点 renderer registry、MiniMap、自定义右键菜单；左键拖拽框选（`selectionOnDrag` + Partial），中键 / 右键拖拽平移；右键拖动后抑制上下文菜单，普通右键单击仍弹出；**没有** `<Controls>`（左下缩放工具栏已移除，适配视图在右键菜单）；
+- **选中状态由 React Flow 本地主控**：框选 / 点选只通过 `onSelectionChange` 上报父层，父层绝不把同一选中集合回灌 `nodes`；只有问题定位、粘贴等程序化选中通过带 seq 的 `selectionRequest` 一次性应用，避免选中反馈循环。
 
 ### 4.5 动画原语
 

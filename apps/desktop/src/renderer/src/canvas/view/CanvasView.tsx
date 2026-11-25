@@ -63,6 +63,11 @@ export type CanvasViewProps = {
     nodeStatuses?: Readonly<Record<string, CanvasStatus>>;
     /** 右键菜单「添加节点」；位置是视口坐标（clientX / clientY）。 */
     onAddNode?: (position: { x: number; y: number }) => void;
+    /**
+     * 程序化选中（问题面板定位 / 粘贴后选中）。
+     * 普通框选/点选由 React Flow 本地管理，绝不回灌，避免选中反馈循环。
+     */
+    selectionRequest?: { nodeIds: readonly string[]; seq: number } | null;
     /** 问题面板定位：seq 变化时把视口聚焦到节点 */
     focusNode?: { nodeId: string; seq: number } | null;
     /** 节点内联编辑：写回该节点的 config。 */
@@ -118,6 +123,7 @@ export function CanvasView({
     document,
     title,
     selectedNodeIds = [],
+    selectionRequest,
     onSelectionChange,
     onCommand,
     readOnly = false,
@@ -132,7 +138,7 @@ export function CanvasView({
     const suppressContextMenu = useRef(false);
     const selectedIdsRef = useRef<readonly string[]>(selectedNodeIds);
     selectedIdsRef.current = selectedNodeIds;
-    const lastSelectionKey = useRef(selectedNodeIds.join("|"));
+    const lastSelectionRequestSeq = useRef<number | null>(null);
     const connectFromRef = useRef<CanvasPortRef | null>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(
         toFlowNodes(
@@ -174,12 +180,14 @@ export function CanvasView({
         setEdges,
     ]);
 
+    // 只响应显式的程序化选中请求；普通选中由 React Flow 内部维护。
     useEffect(() => {
-        const key = selectedNodeIds.join("|");
-        if (lastSelectionKey.current === key) return;
-        lastSelectionKey.current = key;
+        if (selectionRequest === null || selectionRequest === undefined) return;
+        if (lastSelectionRequestSeq.current === selectionRequest.seq) return;
+        lastSelectionRequestSeq.current = selectionRequest.seq;
 
-        const selected = new Set(selectedNodeIds);
+        const selected = new Set(selectionRequest.nodeIds);
+        selectedIdsRef.current = selectionRequest.nodeIds;
         setNodes((current) => {
             let changed = false;
             const next = current.map((node) => {
@@ -190,7 +198,7 @@ export function CanvasView({
             });
             return changed ? next : current;
         });
-    }, [selectedNodeIds, setNodes]);
+    }, [selectionRequest, setNodes]);
 
     const kindsKey = useMemo(
         () =>

@@ -100,6 +100,10 @@ export function DesignerView({
     const canvasRef = useRef<HTMLDivElement>(null);
     const clipboardRef = useRef<NodeClipboard | null>(null);
     const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+    const [selectionRequest, setSelectionRequest] = useState<{
+        nodeIds: string[];
+        seq: number;
+    } | null>(null);
     const [libraryOpen, setLibraryOpen] = useState(false);
     const [libraryAnchor, setLibraryAnchor] = useState<{ x: number; y: number } | null>(
         null,
@@ -108,6 +112,13 @@ export function DesignerView({
         nodeId: string;
         seq: number;
     } | null>(null);
+    const requestSelection = useCallback((nodeIds: string[]): void => {
+        setSelectedNodeIds(nodeIds);
+        setSelectionRequest((current) => ({
+            nodeIds,
+            seq: (current?.seq ?? 0) + 1,
+        }));
+    }, []);
     const { entries: recentNodes, record: recordRecentNode } = useRecentNodes();
     const [requirementCatalog, setRequirementCatalog] = useState<
         RequirementCatalog | undefined
@@ -157,6 +168,10 @@ export function DesignerView({
 
     useEffect(() => {
         setSelectedNodeIds([]);
+        setSelectionRequest((current) => ({
+            nodeIds: [],
+            seq: (current?.seq ?? 0) + 1,
+        }));
         setLibraryOpen(false);
         setLibraryAnchor(null);
         setFocusNode(null);
@@ -214,13 +229,13 @@ export function DesignerView({
             }
             if (nodeId === undefined) return;
 
-            setSelectedNodeIds([nodeId]);
+            requestSelection([nodeId]);
             setFocusNode((current) => ({
                 nodeId,
                 seq: (current?.seq ?? 0) + 1,
             }));
         },
-        [graph],
+        [graph, requestSelection],
     );
 
     const problemsModel = useMemo<DesignerProblemsModel>(
@@ -315,8 +330,8 @@ export function DesignerView({
         if (result.nodeIds.length === 0) return;
 
         replaceDocument(result.graph);
-        setSelectedNodeIds(result.nodeIds);
-    }, [graph, replaceDocument]);
+        requestSelection(result.nodeIds);
+    }, [graph, replaceDocument, requestSelection]);
 
     const isRunning = runStatus === "running";
     const isPaused = runStatus === "paused";
@@ -645,6 +660,7 @@ export function DesignerView({
                 document={canvas}
                 title={graph.title ?? workspace.name}
                 selectedNodeIds={selectedNodeIds}
+                selectionRequest={selectionRequest}
                 onSelectionChange={setSelectedNodeIds}
                 onCommand={applyCommand}
                 nodeStatuses={nodeStatuses}

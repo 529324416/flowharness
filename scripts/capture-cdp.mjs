@@ -55,8 +55,25 @@ function send(method, params = {}) {
     );
 }
 
+const exceptions = [];
+socket.addEventListener("message", (event) => {
+    try {
+        const message = JSON.parse(event.data);
+        if (message.method === "Runtime.exceptionThrown") {
+            exceptions.push(
+                message.params?.exceptionDetails?.exception?.description ??
+                    message.params?.exceptionDetails?.text ??
+                    "unknown exception",
+            );
+        }
+    } catch {
+        // ignore malformed events
+    }
+});
+
 try {
     await send("Page.enable");
+    await send("Runtime.enable");
 
     // Optional deterministic UI state for visual baselines:
     // designer (panels open) | designer-run (run once) | designer-problems |
@@ -140,6 +157,7 @@ try {
         scenario === "designer-workbench-manage" ||
         scenario === "provider-settings" ||
         scenario === "session-new" ||
+        scenario === "canvas-selection-random" ||
         scenario === "designer-inline" ||
         scenario === "designer-inline-type" ||
         scenario === "designer-slot-connect" ||
@@ -986,6 +1004,118 @@ try {
                 returnByValue: true,
             });
             console.log(`selected nodes: ${JSON.stringify(selected.result?.value)}`);
+        }
+
+        if (scenario === "canvas-selection-random") {
+            const seeded = await evaluateAsync(`(async () => {
+                const list = await window.flowharness.listWorkspaces();
+                const workspace = list.ok ? list.data[0] : undefined;
+                if (!workspace) return "no-workspace";
+                const snapshot = await window.flowharness.readDocument(workspace.id, { kind: "harness", id: "main" });
+                const baseRevision = snapshot.ok && snapshot.data ? snapshot.data.revision : null;
+                const nodes = [];
+                for (let index = 0; index < 16; index += 1) {
+                    const col = index % 4;
+                    const row = Math.floor(index / 4);
+                    nodes.push({
+                        id: "n" + index,
+                        type: "core.constant",
+                        typeVersion: 1,
+                        config: { value: { type: "text", text: "v" + index } },
+                        ui: { x: 80 + col * 230, y: 80 + row * 150 },
+                    });
+                }
+                const result = await window.flowharness.saveDocument({
+                    workspaceId: workspace.id,
+                    ref: { kind: "harness", id: "main" },
+                    baseRevision,
+                    document: { version: 1, id: "main", title: "多选压力", nodes, edges: [] },
+                });
+                return result.ok ? "seeded" : result.error.message;
+            })()`);
+            console.log(`random select seed: ${JSON.stringify(seeded.result?.value)}`);
+            await send("Page.reload");
+            await settle(2200);
+
+            const count = await send("Runtime.evaluate", {
+                expression: "document.querySelectorAll('.react-flow__node').length",
+                returnByValue: true,
+            });
+            console.log(`random select nodes: ${String(count.result?.value)}`);
+
+            for (let round = 0; round < 60; round += 1) {
+                const rects = await send("Runtime.evaluate", {
+                    expression:
+                        "[...document.querySelectorAll('.react-flow__node')].map((node) => { const r = node.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, left: r.left, top: r.top, right: r.right, bottom: r.bottom }; })",
+                    returnByValue: true,
+                });
+                const nodes = rects.result?.value ?? [];
+                if (nodes.length === 0) break;
+
+                if (round % 2 === 0) {
+                    const picks = [...nodes]
+                        .sort(() => Math.random() - 0.5)
+                        .slice(0, 2 + (round % 5));
+                    const x1 = Math.min(...picks.map((node) => node.left)) - 30;
+                    const y1 = Math.min(...picks.map((node) => node.top)) - 30;
+                    const x2 = Math.max(...picks.map((node) => node.right)) + 30;
+                    const y2 = Math.max(...picks.map((node) => node.bottom)) + 30;
+                    await send("Input.dispatchMouseEvent", {
+                        type: "mousePressed",
+                        x: x1,
+                        y: y1,
+                        button: "left",
+                        buttons: 1,
+                        clickCount: 1,
+                    });
+                    for (let step = 1; step <= 5; step += 1) {
+                        await send("Input.dispatchMouseEvent", {
+                            type: "mouseMoved",
+                            x: x1 + ((x2 - x1) * step) / 5,
+                            y: y1 + ((y2 - y1) * step) / 5,
+                            button: "left",
+                            buttons: 1,
+                        });
+                    }
+                    await send("Input.dispatchMouseEvent", {
+                        type: "mouseReleased",
+                        x: x2,
+                        y: y2,
+                        button: "left",
+                        buttons: 0,
+                        clickCount: 1,
+                    });
+                } else {
+                    const node = nodes[Math.floor(Math.random() * nodes.length)];
+                    await send("Input.dispatchMouseEvent", {
+                        type: "mousePressed",
+                        x: node.x,
+                        y: node.y,
+                        button: "left",
+                        buttons: 1,
+                        clickCount: 1,
+                        modifiers: 2,
+                    });
+                    await send("Input.dispatchMouseEvent", {
+                        type: "mouseReleased",
+                        x: node.x,
+                        y: node.y,
+                        button: "left",
+                        buttons: 0,
+                        clickCount: 1,
+                        modifiers: 2,
+                    });
+                }
+                await settle(40);
+            }
+
+            const final = await send("Runtime.evaluate", {
+                expression:
+                    "({ nodes: document.querySelectorAll('.react-flow__node').length, selected: document.querySelectorAll('.react-flow__node.selected').length, alive: 1 + 1 })",
+                returnByValue: true,
+            });
+            console.log(`random select final: ${JSON.stringify(final.result?.value)}`);
+            console.log(`random select exceptions: ${JSON.stringify(exceptions.slice(-5))}`);
         }
 
         if (scenario === "canvas-selection-stress") {

@@ -68,7 +68,7 @@
 - [x] run session 回放：结果面板 / 会话面板按 `kind` 渲染；引用 runId / graphId / status / outputs
 - [x] 草稿目录配置：Session 树文件夹右键「设为草稿目录」，持久化到 workspace settings
 - [x] 测试：run→session 往返、草稿目录、输出投影（FH 34 文件 / 171 项；wireclaw 67 项）
-- [ ] Agent / ModelCall 的消息写入（conversation session）仍作为后续项，不与 run session 混用
+- [x] Agent / ModelCall 的消息写入（conversation session）：run 的 entries 解析为真实消息，追加到选中的 conversation 会话；运行模式自动写入，结果面板提供「写入对话」；run session 仍只存 RunResult
 
 ### M7.4.1 双区导航（2026-11-26 已完成）
 
@@ -78,13 +78,13 @@
 - [x] `harness-designer` 固定为上工作流 / 下会话；mode 只影响主视图
 - [x] 测试：导航槽位解析；视觉基线 `designer-split-nav`
 
-### M7.5 工作台运行模式与动画
+### M7.5 工作台运行模式与动画（进行中）
 
-- [ ] `WorkbenchDefinition` 增加 design / run 模式（`DesignView` / `RunView` / `navigation`）
-- [ ] `harness-designer` 运行模式：画布 + 运行结果面板 + Session 导航；无独立运行页
+- [x] `WorkbenchDefinition` 增加 `RunView`；`WorkbenchHost` 按 `mode` 选择主视图
+- [x] `harness-designer` 运行模式：画布 + 运行上下文条 + 运行结果面板 + Session 导航；无独立运行页
+- [x] 实例持久化 `mode` / `runId` / `sessionId`；设计 ↔ 运行入口（导航与运行条）
 - [ ] 自定义运行页参考实现：固定工作流 + 带动画效果的 RunView
 - [ ] 最小动画原语（pulse / flow / focus）或复用节点状态，按 RunView 需要收敛
-- [ ] 实例持久化 mode / runId / sessionId；设计 ↔ 运行入口
 - [ ] 测试 / 视觉基线：设计 → 运行 → 保存草稿会话
 
 ### M7.6 收口

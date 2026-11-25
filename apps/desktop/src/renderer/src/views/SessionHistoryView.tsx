@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { History, RefreshCw, Workflow } from "lucide-react";
 import { RunResultSerializer, type RunResult } from "wireclaw";
 import type { BlobMeta, SessionRecord, WorkspaceSummary } from "@flowharness/contracts";
@@ -19,6 +19,8 @@ export type SessionHistoryViewProps = {
     onOpenDesigner: () => void;
     /** 嵌入浮动面板时隐藏整页标题，只保留紧凑工具栏。 */
     embedded?: boolean;
+    /** 外部写入消息后递增，触发重新读取。 */
+    revision?: number;
 };
 
 /** 会话历史回放：消息、工具调用与附件；run 会话回放 RunResult。 */
@@ -27,6 +29,7 @@ export function SessionHistoryView({
     session,
     onOpenDesigner,
     embedded = false,
+    revision = 0,
 }: SessionHistoryViewProps): ReactElement {
     const workspaceId = workspace?.id ?? null;
     const sessionId = session?.id ?? null;
@@ -100,7 +103,7 @@ export function SessionHistoryView({
         return () => {
             cancelled = true;
         };
-    }, [workspaceId, sessionId, reloadToken]);
+    }, [workspaceId, sessionId, reloadToken, revision]);
 
     const hashes = useMemo(
         () => model?.attachmentHashes ?? [],

@@ -511,3 +511,38 @@ M7.3 把左栏改为按 `(workbench type, mode)` 切换：设计模式只显示�
 - 运行模式继续只显示会话、把工作流入口放进标题栏：与 M7.5 的运行页目标冲突。
 - 恢复全局 Session 侧栏：违背 ADR-019 的工作台作用域原则。
 
+---
+
+## ADR-022：运行消息写入 conversation 会话
+
+**背景**
+
+M6.3 完成后，conversation 会话只有读取 / 回放能力，没有任何生产写入路径：Agent / ModelCall 节点在 wireclaw 内部创建临时 Session，消息只随 RunResult 的 `session` / `model-call` entries 暂存。用户在会话树里打开 conversation 会话时仍是空的；「保存到会话」也只生成 run session（RunResult），消息语义没有落到 conversation session。
+
+**决定**
+
+- FH 在主进程把 `RunResult` entries 转换为真实消息：
+  - `session` 条目直接使用完整的 wireclaw `SessionData`；
+  - `model-call` 条目按实际输入 / 输出重建 system / user / assistant 消息（含附件、thinking、usage、stopReason），失败调用可以只有 user 消息；
+  - 只追加消息，不写 RunResult、不伪造运行状态。
+- 新增 `session:appendRun` 与 `SessionStore.appendRunMessages`：必须写入 `kind: "conversation"` 会话；append 后重新派生 `messageCount` 与附件指纹。
+- 目标会话来自当前选中的 conversation 会话：
+  - 运行模式下，若当前没有 conversation 会话，进入运行阶段时自动创建「运行对话」；
+  - run 结束后自动追加一次（同一 run 去重）；
+  - 结果面板提供手动「写入对话」，供设计模式或切换会话后重试。
+- run session（RunResult）与 conversation session（消息）保持分离；「保存到会话」仍只生成 run session。
+
+**后果**
+
+- conversation 会话开始有真实写入路径，会话历史不再永远为空；
+- 失败调用可能留下以 user 消息结尾的历史；append 使用 SessionHistory 重建而非严格 commit，避免一次失败阻塞后续写入；
+- 同一 run 的消息只追加一次；切换会话后手动写入会写到新会话；
+- 消息写入发生在 run 结束后，不是节点执行中实时流式写入；实时写入与聊天输入留到后续；
+- 手动聊天输入仍缺少入口，Agent 会话的持续对话尚未接入。
+
+**否决**
+
+- 把 RunResult 直接塞进 conversation history：违背 ADR-020 的 kind 分离；
+- 每个 run 自动新建 conversation 会话：会话树噪音大，且无法选择目标；
+- 在通知层（`node:end` 事件）重建消息：缺少 Agent 的 system / tool / usage 信息。
+

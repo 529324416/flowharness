@@ -162,6 +162,14 @@ export function App(): ReactElement {
     const [runResult, setRunResult] = useState<RunResult | null>(null);
     const [savingRunSession, setSavingRunSession] = useState(false);
     const [savedRunSessionId, setSavedRunSessionId] = useState<string | null>(null);
+    const [sessionHistoryRevision, setSessionHistoryRevision] = useState(0);
+    const [writingConversation, setWritingConversation] = useState(false);
+    const [conversationWriteError, setConversationWriteError] = useState<string | null>(
+        null,
+    );
+    const [writtenConversationSessionId, setWrittenConversationSessionId] =
+        useState<string | null>(null);
+    const writtenConversationRunId = useRef<string | null>(null);
     const [sessionRevision, setSessionRevision] = useState(0);
     const fetchedRunResultId = useRef<string | null>(null);
     const [approvalRequests, setApprovalRequests] = useState<
@@ -208,11 +216,30 @@ export function App(): ReactElement {
 
     const panelsEnabled = view === "designer" && activeWorkspace !== null;
 
-    // 切换工作台 / 工作区时回到设计模式，避免把上一个工作台的会话带进 run 导航。
+    // 切换工作台时恢复实例保存的 design / run 阶段与选中的会话。
     useEffect(() => {
-        setWorkbenchMode("design");
-        setActiveSession(null);
-    }, [activeWorkbenchId, activeWorkspace?.id]);
+        const workbench = activeWorkbenchRef.current;
+        setWorkbenchMode(workbench?.mode === "run" ? "run" : "design");
+
+        const sessionId = workbench?.sessionId ?? null;
+        if (sessionId === null || activeWorkspace === null) {
+            setActiveSession(null);
+            return;
+        }
+
+        let cancelled = false;
+        void (async () => {
+            const result = await bridge.openSession({
+                workspaceId: activeWorkspace.id,
+                sessionId,
+            });
+            if (!cancelled) setActiveSession(result.ok ? result.data : null);
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeWorkbench?.id, activeWorkspace?.id, bridge]);
 
     useEffect(() => {
         try {
@@ -570,6 +597,51 @@ export function App(): ReactElement {
             );
         },
         [activeWorkspace, bridge],
+    );
+
+    // 持久化当前阶段与选中的会话，供下次打开工作台时恢复。
+    useEffect(() => {
+        const current = activeWorkbenchRef.current;
+        if (current === null) return;
+        const sessionId = activeSession?.id ?? null;
+        if (current.mode === workbenchMode && current.sessionId === sessionId) return;
+
+        updateActiveWorkbench((value) => ({
+            ...value,
+            mode: workbenchMode,
+            sessionId,
+        }));
+    }, [activeSession?.id, updateActiveWorkbench, workbenchMode]);
+
+    // 最近一次 run 一并写入实例，运行页可据此恢复。
+    useEffect(() => {
+        const current = activeWorkbenchRef.current;
+        if (current === null) return;
+        const runId = runSnapshot?.runId ?? null;
+        if (current.runId === runId) return;
+
+        updateActiveWorkbench((value) => ({ ...value, runId }));
+    }, [runSnapshot?.runId, updateActiveWorkbench]);
+
+    const handleWorkbenchModeChange = useCallback(
+        async (mode: WorkbenchMode): Promise<void> => {
+            setWorkbenchMode(mode);
+            if (mode !== "run") return;
+            if (activeSession?.kind === "conversation") return;
+
+            const workspace = activeWorkspace;
+            if (workspace === null) return;
+
+            const created = await bridge.createSession({
+                workspaceId: workspace.id,
+                title: "运行对话",
+            });
+            if (created.ok) {
+                setActiveSession(created.data);
+                setSessionRevision((current) => current + 1);
+            }
+        },
+        [activeSession, activeWorkspace, bridge],
     );
 
     // 工作台导航选中文档后，统一在工作台壳层维护 primaryGraph 绑定。
@@ -1097,6 +1169,9 @@ export function App(): ReactElement {
         setRunSnapshot(null);
         setRunResult(null);
         setSavedRunSessionId(null);
+        setWrittenConversationSessionId(null);
+        setConversationWriteError(null);
+        writtenConversationRunId.current = null;
         fetchedRunResultId.current = null;
     }, []);
 
@@ -1150,6 +1225,68 @@ export function App(): ReactElement {
             cancelled = true;
         };
     }, [activeWorkspace, bridge, runFinished, runSnapshot?.runId]);
+
+    /**
+     * 把本次运行的 Agent / ModelCall 消息追加到选中的 conversation 会话。
+     * run session 仍保存 RunResult，二者不混用。
+     */
+    const appendRunToConversation = useCallback(
+        async (runId: string): Promise<void> => {
+            const workspace = activeWorkspace;
+            const session = activeSession;
+            const result = runResult;
+            if (
+                workspace === null ||
+                session === null ||
+                session.kind !== "conversation" ||
+                result === null ||
+                result.runId !== runId ||
+                result.entries.length === 0
+            ) {
+                return;
+            }
+            if (writtenConversationRunId.current === runId) return;
+
+            writtenConversationRunId.current = runId;
+            setWritingConversation(true);
+            setConversationWriteError(null);
+            try {
+                const result = await bridge.appendRunToSession({
+                    workspaceId: workspace.id,
+                    runId,
+                    sessionId: session.id,
+                });
+                if (!result.ok) {
+                    writtenConversationRunId.current = null;
+                    setConversationWriteError(result.error.message);
+                    return;
+                }
+
+                setActiveSession(result.data);
+                setWrittenConversationSessionId(result.data.id);
+                setSessionHistoryRevision((current) => current + 1);
+                setSessionRevision((current) => current + 1);
+            } finally {
+                setWritingConversation(false);
+            }
+        },
+        [activeSession, activeWorkspace, bridge, runResult],
+    );
+
+    // 运行模式下的自动写入：选中 conversation 会话时，run 结束即追加消息。
+    useEffect(() => {
+        if (workbenchMode !== "run") return;
+        if (!runFinished || runResult === null || runSnapshot === null) return;
+        if (activeSession?.kind !== "conversation") return;
+        void appendRunToConversation(runSnapshot.runId);
+    }, [
+        activeSession?.kind,
+        appendRunToConversation,
+        runFinished,
+        runResult,
+        runSnapshot?.runId,
+        workbenchMode,
+    ]);
 
     const handleSaveRunToSession = useCallback(async (): Promise<void> => {
         const workspace = activeWorkspace;
@@ -1323,6 +1460,7 @@ export function App(): ReactElement {
             onControllerChange: (controller: WorkbenchController | null) => {
                 workbenchControllerRef.current = controller;
             },
+            onModeChange: (mode) => void handleWorkbenchModeChange(mode),
             onSaveConflictCopy: (graph: GraphDocument) =>
                 void handleSaveConflictCopy(graph),
         }),
@@ -1331,6 +1469,7 @@ export function App(): ReactElement {
             handleDesignerRunWillStart,
             handleDocumentActionsChange,
             handleSaveConflictCopy,
+            handleWorkbenchModeChange,
         ],
     );
 
@@ -1339,6 +1478,9 @@ export function App(): ReactElement {
         setRunSnapshot(null);
         setRunResult(null);
         setSavedRunSessionId(null);
+        setWrittenConversationSessionId(null);
+        setConversationWriteError(null);
+        writtenConversationRunId.current = null;
         fetchedRunResultId.current = null;
     }, [activeWorkspace?.id]);
 
@@ -1492,6 +1634,7 @@ export function App(): ReactElement {
                         workspace={activeWorkspace}
                         documents={documents}
                         activeDocumentId={activeDocumentId}
+                        mode={workbenchMode}
                         busy={busy || documentBusy || workbenchBusy}
                         error={dataError ?? documentError}
                         shell={workbenchShell}
@@ -1506,23 +1649,52 @@ export function App(): ReactElement {
                                     runResult={runResult}
                                     runResultActions={
                                         runResult !== null ? (
-                                            <Button
-                                                size="sm"
-                                                variant="secondary"
-                                                disabled={
-                                                    savingRunSession ||
-                                                    savedRunSessionId !== null
-                                                }
-                                                onClick={() =>
-                                                    void handleSaveRunToSession()
-                                                }
-                                            >
-                                                {savedRunSessionId !== null
-                                                    ? "已保存到会话"
-                                                    : savingRunSession
-                                                      ? "保存中…"
-                                                      : "保存到会话"}
-                                            </Button>
+                                            <>
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    title={
+                                                        conversationWriteError ??
+                                                        undefined
+                                                    }
+                                                    disabled={
+                                                        writingConversation ||
+                                                        runResult.entries.length ===
+                                                            0 ||
+                                                        activeSession?.kind !==
+                                                            "conversation"
+                                                    }
+                                                    onClick={() =>
+                                                        void appendRunToConversation(
+                                                            runResult.runId,
+                                                        )
+                                                    }
+                                                >
+                                                    {writtenConversationSessionId !==
+                                                    null
+                                                        ? "已写入对话"
+                                                        : writingConversation
+                                                          ? "写入中…"
+                                                          : "写入对话"}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    disabled={
+                                                        savingRunSession ||
+                                                        savedRunSessionId !== null
+                                                    }
+                                                    onClick={() =>
+                                                        void handleSaveRunToSession()
+                                                    }
+                                                >
+                                                    {savedRunSessionId !== null
+                                                        ? "已保存到会话"
+                                                        : savingRunSession
+                                                          ? "保存中…"
+                                                          : "保存到会话"}
+                                                </Button>
+                                            </>
                                         ) : null
                                     }
                                     inspector={designerInspector}
@@ -1535,6 +1707,7 @@ export function App(): ReactElement {
                                                   session: fromStoredSession(
                                                       activeSession,
                                                   ),
+                                                  revision: sessionHistoryRevision,
                                                   onOpenDesigner: () =>
                                                       setWorkbenchMode("design"),
                                               }
@@ -1595,7 +1768,7 @@ export function App(): ReactElement {
                   width: sidebarWidth,
                   onResize: setSidebarWidth,
                   onCollapse: () => setSidebarOpen(false),
-                  onModeChange: setWorkbenchMode,
+                  onModeChange: (mode) => void handleWorkbenchModeChange(mode),
                   activeSessionId: activeSession?.id ?? null,
                   sessionRevision,
                   onOpenSession: (session) => {

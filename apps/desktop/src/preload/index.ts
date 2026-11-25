@@ -21,6 +21,7 @@ import {
     type RunResultRequest,
     type SessionCreateRequest,
     type SessionDeleteRequest,
+    type SessionAppendRunRequest,
     type SessionFolder,
     type SessionFolderCreateRequest,
     type SessionFolderDeleteRequest,
@@ -190,6 +191,10 @@ const bridge = {
         request: SessionSaveRunRequest,
     ): Promise<IpcResult<SessionRecord>> =>
         invoke(IpcChannel.SessionSaveRun, request),
+    appendRunToSession: (
+        request: SessionAppendRunRequest,
+    ): Promise<IpcResult<SessionRecord>> =>
+        invoke(IpcChannel.SessionAppendRun, request),
     setDraftSessionFolder: (
         request: SessionSetDraftFolderRequest,
     ): Promise<IpcResult<SessionTree>> =>

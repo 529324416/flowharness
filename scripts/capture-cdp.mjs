@@ -78,6 +78,7 @@ try {
     // Optional deterministic UI state for visual baselines:
     // designer (panels open) | designer-run (run once) | designer-problems |
     // designer-split-nav (workflow + session split sidebar) |
+    // designer-run-mode (run view + auto-selected conversation) |
     // canvas (panels closed) | canvas-zoom | styleguide | styleguide-nodes |
     // designer-form | designer-library | designer-documents (nav actions).
     const scenario = process.env.FH_CAPTURE_SCENARIO;
@@ -133,6 +134,7 @@ try {
     if (
         scenario === "designer" ||
         scenario === "designer-split-nav" ||
+        scenario === "designer-run-mode" ||
         scenario === "canvas" ||
         scenario === "canvas-zoom" ||
         scenario === "designer-run" ||
@@ -1432,6 +1434,13 @@ try {
                 await settle(1600);
             }
         }
+        if (scenario === "designer-run-mode") {
+            await evaluate(
+                `document.querySelector('button[aria-label="进入运行"]')?.click()`,
+            );
+            await settle(1200);
+        }
+
         if (scenario === "designer-run") {
             await evaluate(
                 `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '运行')?.click()`,

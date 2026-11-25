@@ -34,6 +34,7 @@ import {
     type ProvidersTestRequest,
     type SessionCreateRequest,
     type SessionDeleteRequest,
+    type SessionAppendRunRequest,
     type SessionFolderCreateRequest,
     type SessionFolderDeleteRequest,
     type SessionFolderMoveRequest,
@@ -709,6 +710,28 @@ function registerIpcHandlers(): void {
         IpcChannel.SessionSetDraftFolder,
         ({ workspaceId, folderId }: SessionSetDraftFolderRequest) =>
             requireSessionStore(workspaceId).setDraftFolder(folderId),
+    );
+
+    registerHandler(
+        IpcChannel.SessionAppendRun,
+        async ({
+            workspaceId,
+            runId,
+            sessionId,
+        }: SessionAppendRunRequest) => {
+            const raw = await runStoreFor(workspaceId).loadResult(runId);
+            if (raw === undefined) {
+                throw new FhError(
+                    "E_NOT_FOUND",
+                    `run result not found: ${runId}`,
+                );
+            }
+
+            return requireSessionStore(workspaceId).appendRunMessages(
+                sessionId,
+                RunResultSerializer.deserialize(raw),
+            );
+        },
     );
 
     registerHandler(

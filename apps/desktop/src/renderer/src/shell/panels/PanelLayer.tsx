@@ -24,6 +24,8 @@ import styles from "./PanelLayer.module.css";
 export type SessionHistoryPanelInput = {
     workspace: WorkspaceSummary;
     session: SessionSummary;
+    /** 追加消息后递增，触发历史面板重新读取。 */
+    revision?: number;
     onOpenDesigner: () => void;
 };
 
@@ -139,6 +141,9 @@ export function PanelLayer({
                                       session={sessionHistory.session}
                                       onOpenDesigner={sessionHistory.onOpenDesigner}
                                       embedded
+                                      {...(sessionHistory.revision === undefined
+                                          ? {}
+                                          : { revision: sessionHistory.revision })}
                                   />
                               ) : (
                                   <EmptyState

@@ -13,6 +13,8 @@ export type WorkbenchPlan = {
     trigger: "manual" | "onOpen";
 };
 
+export type WorkbenchMode = "design" | "run";
+
 export type WorkbenchInstanceDocument = {
     schemaVersion: 1;
     id: string;
@@ -20,6 +22,11 @@ export type WorkbenchInstanceDocument = {
     title: string;
     graphs: { graphId: string; role: string }[];
     plan: WorkbenchPlan | null;
+    /** 工作台当前阶段；旧实例缺省按 design 处理。 */
+    mode?: WorkbenchMode;
+    /** 运行阶段最近一次 run / 会话，用于恢复运行页。 */
+    runId?: string | null;
+    sessionId?: string | null;
     layout?: {
         viewport?: { x: number; y: number; zoom: number };
         overrides?: Record<string, { x: number; y: number }>;

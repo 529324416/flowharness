@@ -37,6 +37,9 @@ export function createWorkbenchInstance(input: {
                 ? []
                 : [{ graphId: input.graphId, role: "main" }],
         plan: null,
+        mode: "design",
+        runId: null,
+        sessionId: null,
         parameters: {},
         createdAt: now,
         updatedAt: now,
@@ -74,6 +77,27 @@ export function isWorkbenchInstanceDocument(
     if (!Array.isArray(value.graphs)) return false;
     if (!value.graphs.every(isGraphBinding)) return false;
     if (value.plan !== null && !isWorkbenchPlan(value.plan)) return false;
+    if (
+        value.mode !== undefined &&
+        value.mode !== "design" &&
+        value.mode !== "run"
+    ) {
+        return false;
+    }
+    if (
+        value.runId !== undefined &&
+        value.runId !== null &&
+        typeof value.runId !== "string"
+    ) {
+        return false;
+    }
+    if (
+        value.sessionId !== undefined &&
+        value.sessionId !== null &&
+        typeof value.sessionId !== "string"
+    ) {
+        return false;
+    }
     if (!isRecord(value.parameters)) return false;
     return true;
 }

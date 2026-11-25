@@ -17,6 +17,7 @@ import type {
     RunResultRequest,
     SessionCreateRequest,
     SessionDeleteRequest,
+    SessionAppendRunRequest,
     SessionFolder,
     SessionFolderCreateRequest,
     SessionFolderDeleteRequest,
@@ -139,6 +140,9 @@ interface FlowHarnessBridge {
     ) => Promise<IpcResult<{ deleted: boolean }>>;
     readonly saveRunSession: (
         request: SessionSaveRunRequest,
+    ) => Promise<IpcResult<SessionRecord>>;
+    readonly appendRunToSession: (
+        request: SessionAppendRunRequest,
     ) => Promise<IpcResult<SessionRecord>>;
     readonly setDraftSessionFolder: (
         request: SessionSetDraftFolderRequest,

@@ -22,7 +22,40 @@ describe("workbench instance document", () => {
         expect(defaultWorkbenchTitle("plan-runner")).toBe("批量运行");
         expect(instance.graphs).toEqual([{ graphId: "main", role: "main" }]);
         expect(instance.plan).toBeNull();
+        expect(instance.mode).toBe("design");
+        expect(instance.runId).toBeNull();
+        expect(instance.sessionId).toBeNull();
         expect(isWorkbenchInstanceDocument(instance)).toBe(true);
+    });
+
+    it("accepts persisted run context and rejects invalid modes", () => {
+        const instance = createWorkbenchInstance({
+            id: "wb_test",
+            type: "harness-designer",
+            title: "主工作台",
+            graphId: "main",
+        });
+
+        expect(
+            isWorkbenchInstanceDocument({
+                ...instance,
+                mode: "run",
+                runId: "run_1",
+                sessionId: "ses_1",
+            }),
+        ).toBe(true);
+        expect(
+            isWorkbenchInstanceDocument({
+                ...instance,
+                mode: "paused",
+            }),
+        ).toBe(false);
+        expect(
+            isWorkbenchInstanceDocument({
+                ...instance,
+                sessionId: 42,
+            }),
+        ).toBe(false);
     });
 
     it("updates the primary graph without duplicating bindings", () => {

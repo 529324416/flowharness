@@ -21,6 +21,7 @@ import {
     type RunResult,
 } from "wireclaw";
 import { readJsonFile, writeJsonFile } from "./atomic-file";
+import { conversationMessagesFromRun } from "./run-conversation";
 
 const SESSION_ID_PATTERN = /^ses_[A-Za-z0-9_-]{1,64}$/;
 const FOLDER_ID_PATTERN = /^fld_[A-Za-z0-9_-]{1,64}$/;
@@ -362,6 +363,55 @@ export class SessionStore {
         await fs.rm(entry.dir, { recursive: true, force: true });
         // TODO(M7.4): 汇总被删 session 的 attachments，Blob refs / GC 接线后统一清理。
         return true;
+    }
+
+    /**
+     * 把一次运行中的 Agent / ModelCall 消息追加到 conversation 会话。
+     *
+     * 与 run session 分离：这里只追加真实消息，不写 RunResult。
+     */
+    async appendRunMessages(
+        sessionId: string,
+        result: RunResult,
+    ): Promise<SessionRecord> {
+        assertSessionId(sessionId);
+        const entry = await this.findSession(sessionId);
+        if (entry === undefined) {
+            throw new FhError("E_NOT_FOUND", `session not found: ${sessionId}`);
+        }
+
+        const record = await this.readSessionAt(entry);
+        if (record.kind !== "conversation") {
+            throw new FhError(
+                "E_CONFLICT",
+                "run messages can only be appended to a conversation session",
+            );
+        }
+
+        const messages = conversationMessagesFromRun(
+            RunResultSerializer.deserialize(result),
+        );
+        if (messages.length === 0) return record;
+
+        const history = SessionSerializer.deserialize(record.history);
+        const nextHistory = new SessionHistory(
+            history.id,
+            [...history.messages, ...messages],
+            history.isArchived,
+        );
+        const next: SessionRecord = {
+            ...record,
+            updatedAt: new Date().toISOString(),
+            messageCount: nextHistory.messages.length,
+            entryCount: 0,
+            history: SessionSerializer.serialize(nextHistory),
+            attachments: collectAttachmentHashes(nextHistory.messages).filter(
+                isContentHash,
+            ),
+        };
+
+        await this.writeSession(entry.dir, next);
+        return next;
     }
 
     /** 设置工作区草稿目录；目录必须存在，并写入 workspace settings。 */

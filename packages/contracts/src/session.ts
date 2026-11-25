@@ -119,3 +119,15 @@ export type SessionSetDraftFolderRequest = {
     workspaceId: string;
     folderId: string;
 };
+
+/**
+ * 把一次运行中的 Agent / ModelCall 消息追加到 conversation 会话。
+ *
+ * 与 run session 分离：run session 保存 `RunResult`，conversation 只追加消息。
+ */
+export type SessionAppendRunRequest = {
+    workspaceId: string;
+    runId: string;
+    /** 目标 conversation 会话；必须是 `kind: "conversation"`。 */
+    sessionId: string;
+};

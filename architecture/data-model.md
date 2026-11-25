@@ -112,6 +112,9 @@
     { "graphId": "graph-01J9Z2M...", "role": "main" }
   ],
   "plan": null,
+  "mode": "design",
+  "runId": null,
+  "sessionId": null,
   "layout": {
     "viewport": { "x": 0, "y": 0, "zoom": 1 },
     "overrides": { "n1": { "x": 320, "y": 160 } }
@@ -123,6 +126,7 @@
 ```
 
 - `layout.overrides` 只存**实例级**偏移（例如同一 graph 在多工作台里摆放不同）；默认布局以 graph 的 `ui` 为准；
+- `mode / runId / sessionId` 由工作台保存当前阶段与运行上下文；旧实例缺省按 `mode: "design"`、null 处理；
 - `plan` 为空表示单图；`plan-runner` 用 `graphs` 顺序执行独立 run（bindings 暂未使用）；
 - `parameters` 是该实例的运行入参默认值。
 
@@ -336,3 +340,4 @@ type RunResultEntry =
 - `WorkbenchInstance.graphs` 是权威绑定；左栏切换文档时同步 primaryGraph；
 - 删除 graph 前检查实例引用；
 - 运行模式的 Session 树是 workspace 级，不按实例隔离。
+- M7.4.2：运行结束后 Agent / ModelCall 消息可追加到当前选中的 conversation 会话（`session:appendRun`）；run session 仍只保存 `RunResult`，实例只记录 `sessionId`，不内联消息。

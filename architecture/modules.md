@@ -164,7 +164,7 @@ class WorkspaceFileHost implements IFileHost {
 
 - 持有当前打开的 session（内存），历史落 `sessions/<folder...>/<sessionId>/`；
 - 提供 wireclaw `GraphHost.attachments`；
-- 会话历史与附件引用持久化；M6.3 起由 `SessionStore` 校验 / 规范化 wireclaw `SessionData`，派生消息数与附件索引；M7.2 起支持递归文件夹、Session v2 与草稿目录。
+- 会话历史与附件引用持久化；M6.3 起由 `SessionStore` 校验 / 规范化 wireclaw `SessionData`，派生消息数与附件索引；M7.2 起支持递归文件夹、Session v2 与草稿目录；M7.4.2 起运行结束可把 Agent / ModelCall 消息追加到 conversation 会话（`session:appendRun`）。
 
 **当前实现（M7.3）**：每个已打开工作区装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore）与一个 `SessionStore`（`sessions/<folderId>/.../<sessionId>/session.json`）；支持默认会话、创建 / 列表 / 读取 / 保存、文件夹 CRUD、session 移动 / 重命名 / 删除。`SessionRecord` v2 带 `kind / folderId / entryCount`；草稿目录由 `manifest.settings.draftSessionFolderId` 持久化；v1 记录读取时迁移为 v2。`messageCount` / `attachments` 从 conversation history 派生，非法历史返回 `E_INVALID_ARGUMENT`；Session 树与历史面板已接入 renderer。
 
@@ -249,6 +249,8 @@ interface WorkbenchDefinition {
   navigation?: Partial<Record<"design" | "run", React.ComponentType<WorkbenchNavigationProps>>>;
   /** 声明后左栏改为上下双区；mode 只影响主视图。 */
   splitNavigation?: { top: "design" | "run"; bottom: "design" | "run" };
+  /** run 阶段的专用主视图；缺省复用 View。 */
+  RunView?: React.ComponentType<WorkbenchViewProps>;
   View: React.ComponentType<WorkbenchViewProps>;
 }
 ```
@@ -270,6 +272,7 @@ interface WorkbenchController {
 - 当前 View 自持 hooks（设计器复用 `useDesignerDocument` / `useDesignerRun`），通过 Shell 上报 `WorkbenchController`；框架级统一工具栏与命令栈注入留给后续；
 - M7.1 起导航由 `WorkbenchDefinition.navigation` 决定，App 只负责 Panel 宿主与文档数据；`WorkbenchHost.panelLayer` 提供工作台内浮动面板槽；
 - M7.4.1 起支持 `splitNavigation`：App 用 `SplitSidebar` 渲染上下两区（harness-designer = 工作流 + 会话），两区共享侧栏宽度，分隔条比例写入 localStorage；
+- M7.5 起 `WorkbenchHost` 按 `mode` 选择 `RunView`（缺省复用 `View`）；实例文档持久化 `mode / runId / sessionId`；harness-designer 的运行阶段使用带上下文条的 RunView，画布与浮动面板保持不变；
 - 工作台实例文档见 [data-model.md](./data-model.md)；
 - 一个实例可绑定多个 graph；组合优先用 wireclaw 的 subgraph，只有独立多 run 才用 `WorkbenchPlan`；
 - `plan-runner` 已提供顺序执行多个独立 run 的示例；`bindings` 与 RuntimeHost 编排仍未接线。
@@ -315,6 +318,8 @@ interface WorkbenchController {
 - **M7.3 已实现**：设计/运行模式切换；设计左栏工作流列表 + 右键菜单；运行左栏 Session 树（递归、搜索、文件夹/会话 CRUD、移动、草稿标识）；会话历史嵌入 Canvas 浮动 Panel；对外文案统一为“工作流”。
 - **M7.4 已实现**：wireclaw `RunResult` v1（类型 / 序列化 / 校验 / ModelCall·AgentRun 采集 / graphPath 冒泡）；`RunStore` 写 `result.json`，`RuntimeHost.getResult` 与 `run:result` 暴露结果；运行日志扩展「结果」面板；`SessionStore.createRunSession` 校验 kind 并派生 entryCount / 附件；「保存到会话」进入草稿目录；`session:setDraftFolder` 支持 Session 树右键切换草稿目录。
 - **M7.4.1 已实现**：`WorkbenchDefinition.splitNavigation` + `SplitSidebar`；`NavigationPanel` 增加 `section` 变体；`harness-designer` 左栏固定为上工作流 / 下会话，共享宽度、比例可拖动并持久化（ADR-021）。
+- **M7.4.2 已实现**：`RunResult` entries → conversation 消息（Agent 使用完整 SessionData，ModelCall 重建 system/user/assistant）；`session:appendRun`；运行模式自动写入选中的 conversation 会话，结果面板提供「写入对话」（ADR-022）。
+- **M7.5 部分实现**：`WorkbenchDefinition.RunView` 与 `WorkbenchHost` mode 选择；实例持久化 `mode / runId / sessionId`；harness-designer 运行阶段有独立上下文条；动画原语、自定义 RunView 与完整运行页仍待做。
 - **Workbench Framework（M7.5 未实现）**：`WorkbenchDefinition` 提供 `mode` / `RunView`；工作台运行阶段渲染独立 RunView 与动画，而不是复用设计画布。
 - **SessionService / SessionStore（M7.4 已完成）**：Session 递归文件夹树；`SessionRecord.kind` 区分 conversation / run；草稿目录；RunResult 写入与校验。
 - **RuntimeHost / RunStore（M7.4 已完成）**：采集 wireclaw `RunResult`，写 `runs/<runId>/result.json`，run 结束向 renderer 提供结果。

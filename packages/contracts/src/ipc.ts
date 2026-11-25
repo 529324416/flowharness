@@ -17,6 +17,7 @@ import type {
     SessionCloseRequest,
     SessionCreateRequest,
     SessionDeleteRequest,
+    SessionAppendRunRequest,
     SessionFolder,
     SessionFolderCreateRequest,
     SessionFolderDeleteRequest,
@@ -104,6 +105,7 @@ export const IpcChannel = {
     SessionMoveFolder: "session:moveFolder",
     SessionDeleteFolder: "session:deleteFolder",
     SessionSaveRun: "session:saveRun",
+    SessionAppendRun: "session:appendRun",
     SessionSetDraftFolder: "session:setDraftFolder",
 
     RunStart: "run:start",
@@ -299,6 +301,10 @@ export type IpcInvokeContracts = {
     };
     [IpcChannel.SessionSaveRun]: {
         request: SessionSaveRunRequest;
+        response: SessionRecord;
+    };
+    [IpcChannel.SessionAppendRun]: {
+        request: SessionAppendRunRequest;
         response: SessionRecord;
     };
     [IpcChannel.SessionSetDraftFolder]: {

@@ -37,6 +37,8 @@ export type WorkbenchShell = {
     onProblemsChange: (model: DesignerProblemsModel | null) => void;
     onDocumentActionsChange: (actions: DesignerDocumentActions | null) => void;
     onControllerChange: (controller: WorkbenchController | null) => void;
+    /** 主视图在 design / run 阶段之间切换。 */
+    onModeChange: (mode: WorkbenchMode) => void;
     /** 设计器保存冲突时把当前内存文档另存为副本。 */
     onSaveConflictCopy: (graph: GraphDocument) => void;
 };
@@ -46,6 +48,8 @@ export type WorkbenchViewProps = {
     workspace: WorkspaceSummary;
     documents: readonly HarnessDocumentSummary[];
     activeDocumentId: string | null;
+    /** 当前工作台阶段（design / run）。 */
+    mode: WorkbenchMode;
     busy: boolean;
     error: string | null;
     shell: WorkbenchShell;
@@ -119,5 +123,7 @@ export type WorkbenchDefinition = {
      * 声明后左栏改为上下两区，mode 只影响主视图。
      */
     splitNavigation?: WorkbenchSplitNavigation;
+    /** run 阶段的专用主视图；缺省复用 View。 */
+    RunView?: ComponentType<WorkbenchViewProps>;
     View: ComponentType<WorkbenchViewProps>;
 };

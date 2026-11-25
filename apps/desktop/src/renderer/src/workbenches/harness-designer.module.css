@@ -1,0 +1,38 @@
+.runView {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.banner {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--fh-border);
+  background: var(--fh-surface-raised);
+  color: var(--fh-text-muted);
+  font-size: var(--fh-text-xs);
+}
+
+.mode {
+  color: var(--fh-accent);
+  font-weight: var(--fh-weight-semibold);
+  letter-spacing: 0.06em;
+}
+
+.hint {
+  overflow: hidden;
+  color: var(--fh-text-subtle);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}

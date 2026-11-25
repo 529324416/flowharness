@@ -356,6 +356,80 @@ describe("SessionStore", () => {
         ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
     });
 
+    it("appends run messages to a conversation session", async () => {
+        const { store } = await makeStoreIn();
+        const conversation = await store.create({ title: "对话" });
+        const result = {
+            version: 1 as const,
+            runId: "run_2",
+            graphId: "main",
+            status: "completed" as const,
+            startedAt: 10,
+            endedAt: 20,
+            outputs: {},
+            entries: [
+                {
+                    kind: "model-call" as const,
+                    id: "entry-1",
+                    nodeId: "call",
+                    nodeType: "core.model.call",
+                    providerId: "fake",
+                    modelId: "echo",
+                    mode: "chat" as const,
+                    status: "completed" as const,
+                    startedAt: 10,
+                    endedAt: 20,
+                    input: {
+                        prompt: "hello",
+                        attachments: [{ contentHash: ATTACHMENT_HASH }],
+                    },
+                    output: { text: "hi" },
+                },
+            ],
+        };
+
+        const updated = await store.appendRunMessages(conversation.id, result);
+        expect(updated.kind).toBe("conversation");
+        expect(updated.messageCount).toBe(2);
+        expect(updated.attachments).toEqual([ATTACHMENT_HASH]);
+
+        const again = await store.appendRunMessages(conversation.id, result);
+        expect(again.messageCount).toBe(4);
+
+        const read = await store.read(conversation.id);
+        expect(read.messageCount).toBe(4);
+        expect((read.history as { messages: unknown[] }).messages).toHaveLength(4);
+    });
+
+    it("rejects appending run messages to a run session", async () => {
+        const store = await makeStore();
+        const runSession = await store.createRunSession({
+            result: {
+                version: 1,
+                runId: "run_3",
+                graphId: "main",
+                status: "completed",
+                startedAt: 1,
+                endedAt: 2,
+                outputs: {},
+                entries: [],
+            },
+        });
+
+        await expect(
+            store.appendRunMessages(runSession.id, {
+                version: 1,
+                runId: "run_3",
+                graphId: "main",
+                status: "completed",
+                startedAt: 1,
+                endedAt: 2,
+                outputs: {},
+                entries: [],
+            }),
+        ).rejects.toMatchObject({ code: "E_CONFLICT" });
+    });
+
     it("sets the draft folder and persists it in workspace settings", async () => {
         const { store, settings } = await makeStoreIn();
         const folder = await store.createFolder({ title: "输出" });

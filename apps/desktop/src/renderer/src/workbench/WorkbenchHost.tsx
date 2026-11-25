@@ -8,7 +8,7 @@ export type WorkbenchHostProps = WorkbenchViewProps & {
     panelLayer?: ReactNode;
 };
 
-/** 工作台宿主：按实例 type 选择定义并渲染 View。 */
+/** 工作台宿主：按实例 type 与当前阶段选择定义并渲染 View。 */
 export function WorkbenchHost({
     panelLayer,
     ...props
@@ -33,7 +33,10 @@ export function WorkbenchHost({
         );
     }
 
-    const View = definition.View;
+    const View =
+        props.mode === "run" && definition.RunView !== undefined
+            ? definition.RunView
+            : definition.View;
     return (
         <>
             <View {...props} />

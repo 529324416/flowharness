@@ -113,7 +113,7 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 
 ```bash
 pnpm typecheck   # contracts（tsc）+ desktop（node + web 两个 project）
-pnpm test        # vitest：main 服务 + canvas core + designer core/state + workbench（27 文件 / 136 项：config / secrets / blob / workspace / session-service / filehost / run-store / runtime / broker / window-state / geometry / designer adapter / document / commands / edges / layout / layout-metrics / validate / problems / run-events / save-coordinator / catalog / config-path / presets / recent-nodes / recent-documents / harness-json / workbench-instance）
+pnpm test        # vitest：main 服务 + canvas core + designer core/state + workbench（28 文件 / 138 项：config / secrets / blob / workspace / session-service / filehost / run-store / runtime / broker / window-state / geometry / selection / designer adapter / document / commands / edges / layout / layout-metrics / validate / problems / run-events / save-coordinator / catalog / config-path / presets / recent-nodes / recent-documents / harness-json / workbench-instance）
 pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
 pnpm capture:ui  # Windows：CDP 截取 renderer（加 -NativeWindow 可抓原生窗口）

@@ -137,9 +137,11 @@ try {
         scenario === "designer-workbench-flow" ||
         scenario === "designer-workbench-return" ||
         scenario === "designer-inline" ||
+        scenario === "designer-inline-type" ||
         scenario === "designer-import" ||
         scenario === "designer-history" ||
         scenario === "canvas-selection" ||
+        scenario === "canvas-selection-stress" ||
         scenario === "canvas-pan"
     ) {
         await evaluate(`document.querySelector('[data-session-id]')?.click()`);
@@ -428,6 +430,48 @@ try {
             console.log(
                 `workbench return: ${JSON.stringify(trigger.result?.value)} / nodes=${String(nodes.result?.value)} / panels=${String(panels.result?.value)}`,
             );
+        }
+
+        if (scenario === "designer-inline-type") {
+            await evaluate(
+                `document.querySelector('input[aria-label="常量文本"]')?.focus()`,
+            );
+            await settle(200);
+
+            for (const char of "hello") {
+                const code = `Key${char.toUpperCase()}`;
+                await send("Input.dispatchKeyEvent", {
+                    type: "keyDown",
+                    key: char,
+                    code,
+                    text: char,
+                    unmodifiedText: char,
+                    windowsVirtualKeyCode: char.toUpperCase().charCodeAt(0),
+                });
+                await send("Input.dispatchKeyEvent", {
+                    type: "keyUp",
+                    key: char,
+                    code,
+                    windowsVirtualKeyCode: char.toUpperCase().charCodeAt(0),
+                });
+                await settle(60);
+            }
+            await settle(1200);
+
+            const domValue = await evaluateAsync(
+                `document.querySelector('input[aria-label="常量文本"]')?.value`,
+            );
+            const config = await evaluateAsync(`(async () => {
+                const list = await window.flowharness.listWorkspaces();
+                const workspace = list.ok ? list.data[0] : undefined;
+                if (!workspace) return null;
+                const snapshot = await window.flowharness.readDocument(workspace.id, { kind: 'harness', id: 'main' });
+                if (!snapshot.ok || snapshot.data === null) return null;
+                const nodes = snapshot.data.document?.nodes;
+                return Array.isArray(nodes) ? nodes.find((node) => node.id === 'constant')?.config : null;
+            })()`);
+            console.log(`inline typed value: ${JSON.stringify(domValue.result?.value)}`);
+            console.log(`inline typed config: ${JSON.stringify(config.result?.value)}`);
         }
 
         if (scenario === "designer-inline") {
@@ -744,6 +788,94 @@ try {
                 returnByValue: true,
             });
             console.log(`selected nodes: ${JSON.stringify(selected.result?.value)}`);
+        }
+
+        if (scenario === "canvas-selection-stress") {
+            const box = await send("Runtime.evaluate", {
+                expression: `(() => {
+                    const nodes = [...document.querySelectorAll('.react-flow__node')];
+                    if (nodes.length < 2) return null;
+                    const rects = nodes.map((node) => node.getBoundingClientRect());
+                    return {
+                        x1: Math.min(...rects.map((rect) => rect.left)) - 60,
+                        y1: Math.min(...rects.map((rect) => rect.top)) - 50,
+                        x2: Math.max(...rects.map((rect) => rect.right)) + 40,
+                        y2: Math.max(...rects.map((rect) => rect.bottom)) + 40,
+                    };
+                })()`,
+                returnByValue: true,
+            });
+            const point = box.result?.value;
+            for (let round = 0; round < 8 && point; round += 1) {
+                await send("Input.dispatchMouseEvent", {
+                    type: "mousePressed",
+                    x: point.x1,
+                    y: point.y1,
+                    button: "left",
+                    buttons: 1,
+                    clickCount: 1,
+                });
+                for (let step = 1; step <= 6; step += 1) {
+                    await send("Input.dispatchMouseEvent", {
+                        type: "mouseMoved",
+                        x: point.x1 + ((point.x2 - point.x1) * step) / 6,
+                        y: point.y1 + ((point.y2 - point.y1) * step) / 6,
+                        button: "left",
+                        buttons: 1,
+                    });
+                    await settle(25);
+                }
+                await send("Input.dispatchMouseEvent", {
+                    type: "mouseReleased",
+                    x: point.x2,
+                    y: point.y2,
+                    button: "left",
+                    buttons: 0,
+                    clickCount: 1,
+                });
+                await settle(120);
+
+                const roundSelected = await send("Runtime.evaluate", {
+                    expression: "document.querySelectorAll('.react-flow__node.selected').length",
+                    returnByValue: true,
+                });
+                console.log(
+                    `stress round ${round}: selected=${String(roundSelected.result?.value)}`,
+                );
+                await settle(400);
+                const stableSelected = await send("Runtime.evaluate", {
+                    expression: "document.querySelectorAll('.react-flow__node.selected').length",
+                    returnByValue: true,
+                });
+                if (stableSelected.result?.value !== roundSelected.result?.value) {
+                    console.log(
+                        `stress round ${round}: unstable ${String(roundSelected.result?.value)} -> ${String(stableSelected.result?.value)}`,
+                    );
+                }
+
+                await send("Input.dispatchMouseEvent", {
+                    type: "mousePressed",
+                    x: 980,
+                    y: 700,
+                    button: "left",
+                    buttons: 1,
+                    clickCount: 1,
+                });
+                await send("Input.dispatchMouseEvent", {
+                    type: "mouseReleased",
+                    x: 980,
+                    y: 700,
+                    button: "left",
+                    buttons: 0,
+                    clickCount: 1,
+                });
+                await settle(80);
+            }
+            const selected = await send("Runtime.evaluate", {
+                expression: "document.querySelectorAll('.react-flow__node.selected').length",
+                returnByValue: true,
+            });
+            console.log(`stress selected: ${JSON.stringify(selected.result?.value)}`);
         }
 
         if (scenario === "canvas-pan") {

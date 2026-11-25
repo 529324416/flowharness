@@ -22,6 +22,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { CANVAS_METRICS } from "../metrics";
+import { sameNodeSelection } from "../core/selection";
 import type {
     CanvasCommand,
     CanvasDocument,
@@ -128,6 +129,9 @@ export function CanvasView({
     const lastFocusSeq = useRef<number | null>(null);
     const rightPan = useRef<{ x: number; y: number; moved: boolean } | null>(null);
     const suppressContextMenu = useRef(false);
+    const selectedIdsRef = useRef<readonly string[]>(selectedNodeIds);
+    selectedIdsRef.current = selectedNodeIds;
+    const lastSelectionKey = useRef(selectedNodeIds.join("|"));
     const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(
         toFlowNodes(
             document,
@@ -147,11 +151,12 @@ export function CanvasView({
     > | null>(null);
 
     // 文档是事实源：外部加载/命令回写后重新投影；拖拽中间态只存在本地 view state。
+    // 选中状态单独同步，避免每次框选都重建节点对象导致闪烁。
     useEffect(() => {
         setNodes(
             toFlowNodes(
                 document,
-                selectedNodeIds,
+                selectedIdsRef.current,
                 nodeStatuses,
                 onUpdateNodeConfig,
                 readOnly,
@@ -160,13 +165,30 @@ export function CanvasView({
         setEdges(toFlowEdges(document));
     }, [
         document,
-        selectedNodeIds,
         nodeStatuses,
         onUpdateNodeConfig,
         readOnly,
         setNodes,
         setEdges,
     ]);
+
+    useEffect(() => {
+        const key = selectedNodeIds.join("|");
+        if (lastSelectionKey.current === key) return;
+        lastSelectionKey.current = key;
+
+        const selected = new Set(selectedNodeIds);
+        setNodes((current) => {
+            let changed = false;
+            const next = current.map((node) => {
+                const isSelected = selected.has(node.id);
+                if (node.selected === isSelected) return node;
+                changed = true;
+                return { ...node, selected: isSelected };
+            });
+            return changed ? next : current;
+        });
+    }, [selectedNodeIds, setNodes]);
 
     const kindsKey = useMemo(
         () =>
@@ -281,7 +303,13 @@ export function CanvasView({
 
     const handleSelectionChange = useCallback(
         ({ nodes: selected }: { nodes: Node[] }) => {
-            onSelectionChange?.(selected.map((node) => node.id));
+            const ids = selected.map((node) => node.id);
+            const current = selectedIdsRef.current;
+            if (sameNodeSelection(ids, current)) return;
+
+            // 先更新 ref：父组件 state 渲染前可能继续收到同一批 selection 事件。
+            selectedIdsRef.current = ids;
+            onSelectionChange?.(ids);
         },
         [onSelectionChange],
     );

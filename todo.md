@@ -266,6 +266,7 @@
 - [x] 25 个测试文件 / 121 个测试通过（M3）
 - [x] 27 个测试文件 / 135 个测试通过（M4）
 - [x] 27 个测试文件 / 136 个测试通过（M5.1）
+- [x] 28 个测试文件 / 138 个测试通过（M5.1 修复）
 - [x] wireclaw：66 项离线测试通过（新增 `harness-nested-validation`）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步

@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import styles from "./InlineNodeConfig.module.css";
 
 export type InlineNodeConfigProps = {
@@ -22,23 +22,7 @@ export function InlineNodeConfig({
     }
 
     if (kind === "core.constant") {
-        const value = isRecord(config) && isRecord(config.value) ? config.value : {};
-        const text = typeof value.text === "string" ? value.text : "";
-        return (
-            <input
-                className={`${styles.input} nodrag nowheel`}
-                value={text}
-                aria-label="常量文本"
-                placeholder="常量文本"
-                onChange={(event) =>
-                    onChange({
-                        ...(isRecord(config) ? config : {}),
-                        value: { ...value, type: "text", text: event.target.value },
-                    })
-                }
-                onKeyDown={(event) => event.stopPropagation()}
-            />
-        );
+        return <ConstantInline config={config} onChange={onChange} />;
     }
 
     if (kind === "core.model.call") {
@@ -120,6 +104,114 @@ export function InlineNodeConfig({
     }
 
     return <>{summary ? <span className={styles.summary}>{summary}</span> : null}</>;
+}
+
+/**
+ * 常量文本输入。
+ *
+ * 输入过程中只更新本地 draft，避免每次按键都把外部 config 写回并重建节点；
+ * 同时兼容中文 IME composition，失焦 / Enter / 短暂停顿后再提交。
+ */
+function ConstantInline({
+    config,
+    onChange,
+}: {
+    config: unknown;
+    onChange: (config: unknown) => void;
+}): ReactElement {
+    const value = isRecord(config) && isRecord(config.value) ? config.value : {};
+    const externalText = typeof value.text === "string" ? value.text : "";
+
+    const [draft, setDraft] = useState(externalText);
+    const draftRef = useRef(draft);
+    const focusedRef = useRef(false);
+    const composingRef = useRef(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        if (focusedRef.current) return;
+        setDraft(externalText);
+        draftRef.current = externalText;
+    }, [externalText]);
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current !== null) clearTimeout(timerRef.current);
+        };
+    }, []);
+
+    const commit = (text: string): void => {
+        const nextValue = {
+            ...(isRecord(config) && isRecord(config.value) ? config.value : {}),
+            type: "text",
+            text,
+        };
+        onChange({
+            ...(isRecord(config) ? config : {}),
+            value: nextValue,
+        });
+    };
+
+    const scheduleCommit = (text: string): void => {
+        if (timerRef.current !== null) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+            timerRef.current = null;
+            if (composingRef.current || !focusedRef.current) return;
+            if (text === externalText) return;
+            commit(text);
+        }, 450);
+    };
+
+    return (
+        <input
+            className={`${styles.input} nodrag nowheel`}
+            value={draft}
+            aria-label="常量文本"
+            placeholder="常量文本"
+            onFocus={() => {
+                focusedRef.current = true;
+            }}
+            onBlur={() => {
+                focusedRef.current = false;
+                if (timerRef.current !== null) {
+                    clearTimeout(timerRef.current);
+                    timerRef.current = null;
+                }
+                if (draftRef.current !== externalText) commit(draftRef.current);
+            }}
+            onChange={(event) => {
+                const text = event.target.value;
+                draftRef.current = text;
+                setDraft(text);
+                if (!composingRef.current) scheduleCommit(text);
+            }}
+            onCompositionStart={() => {
+                composingRef.current = true;
+                if (timerRef.current !== null) {
+                    clearTimeout(timerRef.current);
+                    timerRef.current = null;
+                }
+            }}
+            onCompositionEnd={(event) => {
+                composingRef.current = false;
+                const text = event.currentTarget.value;
+                draftRef.current = text;
+                setDraft(text);
+                scheduleCommit(text);
+            }}
+            onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                }
+                if (event.key === "Escape") {
+                    draftRef.current = externalText;
+                    setDraft(externalText);
+                    event.currentTarget.blur();
+                }
+            }}
+        />
+    );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

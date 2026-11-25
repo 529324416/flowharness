@@ -224,9 +224,9 @@ objects/**             # 默认包含；ExportOptions.includeObjects=false 可�
 - **一致性**：先写内容文件，再写索引；索引损坏时按目录重建；
 - **自动保存**：renderer 侧 debounce 400ms，卸载/切换工作区时 flush；窗口直接关闭时最后 <400ms 的编辑仍可能丢失（无 main-renderer 退出握手）。
 
-## 12. M7 目标：Session 树与 RunResult（设计定稿，未实现）
+## 12. M7 目标：Session 树与 RunResult（M7.2 已落地存储）
 
-> M7.0 只定稿契约，代码在 M7.2 / M7.4 落地。
+> M7.2 已实现递归目录、`SessionRecord` v2、草稿目录与迁移；`RunResult` 在 M7.4 落地。
 
 ### 12.1 Session 目录树
 
@@ -241,8 +241,8 @@ sessions/
 
 - folder id（`fld_...`）作目录名，用户标题只放 `folder.json`，避免标题进路径；
 - session id（`ses_...`）作目录名；根目录也允许直接放 session；
-- 草稿目录：`manifest.settings.draftSessionFolderId`；
-- 旧 `sessions/<id>/session.json` 迁移到根。
+- 草稿目录：首次读取树时自动创建「草稿」并写入 `manifest.settings.draftSessionFolderId`；草稿目录及其祖先禁止删除；
+- 旧 `sessions/<id>/session.json` 即根级 session；v1 记录在读取时规范化为 v2，保存时写 v2。
 
 ### 12.2 SessionRecord v2
 

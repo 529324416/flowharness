@@ -27,6 +27,7 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M6.3 Session 历史序列化 / 回放视图 / 附件渲染 | ✅ |
 | M7.0 工作台导航 / Session 树 / RunResult 设计 | ✅ 设计定稿（ADR-019 / ADR-020） |
 | M7.1 工作台导航宿主 / 图文档导航 / 左栏切换 | ✅ |
+| M7.2 Session 递归文件夹 / SessionRecord v2 / 草稿目录 | ✅ |
 | 打包分发 | ⬜ |
 
 **已知限制**
@@ -122,7 +123,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（34 files / 159 tests） |
+| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（34 files / 168 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

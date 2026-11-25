@@ -353,6 +353,7 @@ Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布�
 ## 11. M7 目标：工作台导航与运行面板（M7.1 已落地导航宿主）
 
 - **M7.1 已实现**：`NavigationPanel` / `DocumentNavigation` / `PlanNavigation`；`WorkbenchDefinition.navigation`（design）；`WorkbenchHost.panelLayer`；App 按工作台渲染左栏；移除全局 SessionSidebar、顶层 `sessions` 视图与 `Ctrl+4`；文档选择同步 primaryGraph；删除 graph 前检查引用；`--fh-panel-alpha` 0.78。
+- **M7.2 已实现存储**：Session 递归文件夹、`SessionRecord` v2、草稿目录、IPC；`SessionNavigation` 树 UI 与历史面板在 M7.3。
 - **左栏 = Panel 宿主**：Shell 只提供容器与尺寸；PanelContent 由 `activeWorkbench.type` + `mode` 提供，不再硬编码全局 SessionSidebar。
 - **设计模式**：`harness-designer` 左栏 = GraphDocument 列表（新建 / 最近 / 重命名 / 复制 / 删除 / 导入导出），选中同步 `WorkbenchInstance.graphs` 的 primaryGraph。
 - **运行模式**：同一实例切到 `run`，左栏 = Session 树（递归文件夹 + 草稿目录）；画布进入带动画的运行页。

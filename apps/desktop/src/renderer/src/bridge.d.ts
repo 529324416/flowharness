@@ -15,11 +15,19 @@ import type {
     RunStartRequest,
     RunResumeInterruptedRequest,
     SessionCreateRequest,
+    SessionFolder,
+    SessionFolderCreateRequest,
+    SessionFolderDeleteRequest,
+    SessionFolderMoveRequest,
+    SessionFolderRenameRequest,
     SessionListRequest,
+    SessionMoveRequest,
     SessionReadRequest,
     SessionRecord,
     SessionSaveRequest,
     SessionSummary,
+    SessionTree,
+    SessionTreeRequest,
     UserInputResponseRequest,
     WindowStatePayload,
     WorkspaceCreateInput,
@@ -97,9 +105,27 @@ interface FlowHarnessBridge {
     readonly listSessions: (
         request: SessionListRequest,
     ) => Promise<IpcResult<SessionSummary[]>>;
+    readonly listSessionTree: (
+        request: SessionTreeRequest,
+    ) => Promise<IpcResult<SessionTree>>;
     readonly createSession: (
         request: SessionCreateRequest,
     ) => Promise<IpcResult<SessionRecord>>;
+    readonly moveSession: (
+        request: SessionMoveRequest,
+    ) => Promise<IpcResult<SessionRecord>>;
+    readonly createSessionFolder: (
+        request: SessionFolderCreateRequest,
+    ) => Promise<IpcResult<SessionFolder>>;
+    readonly renameSessionFolder: (
+        request: SessionFolderRenameRequest,
+    ) => Promise<IpcResult<SessionFolder>>;
+    readonly moveSessionFolder: (
+        request: SessionFolderMoveRequest,
+    ) => Promise<IpcResult<SessionFolder>>;
+    readonly deleteSessionFolder: (
+        request: SessionFolderDeleteRequest,
+    ) => Promise<IpcResult<{ deleted: boolean }>>;
     readonly openSession: (
         request: SessionReadRequest,
     ) => Promise<IpcResult<SessionRecord>>;

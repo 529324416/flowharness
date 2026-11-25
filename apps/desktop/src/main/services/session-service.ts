@@ -19,6 +19,13 @@ export class SessionService {
     constructor(
         private readonly blobsFor: (workspaceId: string) => BlobStore | undefined,
         private readonly dirFor: (workspaceId: string) => string | undefined,
+        private readonly settingsFor?: (
+            workspaceId: string,
+        ) => { draftSessionFolderId?: string | null },
+        private readonly updateSettings?: (
+            workspaceId: string,
+            patch: { draftSessionFolderId?: string | null },
+        ) => Promise<void>,
     ) {}
 
     attachmentsFor(workspaceId: string): AttachmentFileManager | undefined {
@@ -38,7 +45,11 @@ export class SessionService {
         if (existing) return existing;
         const dir = this.dirFor(workspaceId);
         if (dir === undefined) return undefined;
-        const store = new SessionStore(join(dir, "sessions"));
+        const store = new SessionStore(join(dir, "sessions"), {
+            getSettings: () => this.settingsFor?.(workspaceId) ?? {},
+            updateSettings: (patch) =>
+                this.updateSettings?.(workspaceId, patch) ?? Promise.resolve(),
+        });
         this.stores.set(workspaceId, store);
         return store;
     }

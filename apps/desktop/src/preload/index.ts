@@ -19,11 +19,19 @@ import {
     type RunStartRequest,
     type RunResumeInterruptedRequest,
     type SessionCreateRequest,
+    type SessionFolder,
+    type SessionFolderCreateRequest,
+    type SessionFolderDeleteRequest,
+    type SessionFolderMoveRequest,
+    type SessionFolderRenameRequest,
     type SessionListRequest,
+    type SessionMoveRequest,
     type SessionReadRequest,
     type SessionRecord,
     type SessionSaveRequest,
     type SessionSummary,
+    type SessionTree,
+    type SessionTreeRequest,
     type UserInputResponseRequest,
     type WindowStatePayload,
     type WorkspaceCreateInput,
@@ -129,10 +137,34 @@ const bridge = {
         request: SessionListRequest,
     ): Promise<IpcResult<SessionSummary[]>> =>
         invoke(IpcChannel.SessionList, request),
+    listSessionTree: (
+        request: SessionTreeRequest,
+    ): Promise<IpcResult<SessionTree>> =>
+        invoke(IpcChannel.SessionTree, request),
     createSession: (
         request: SessionCreateRequest,
     ): Promise<IpcResult<SessionRecord>> =>
         invoke(IpcChannel.SessionCreate, request),
+    moveSession: (
+        request: SessionMoveRequest,
+    ): Promise<IpcResult<SessionRecord>> =>
+        invoke(IpcChannel.SessionMove, request),
+    createSessionFolder: (
+        request: SessionFolderCreateRequest,
+    ): Promise<IpcResult<SessionFolder>> =>
+        invoke(IpcChannel.SessionCreateFolder, request),
+    renameSessionFolder: (
+        request: SessionFolderRenameRequest,
+    ): Promise<IpcResult<SessionFolder>> =>
+        invoke(IpcChannel.SessionRenameFolder, request),
+    moveSessionFolder: (
+        request: SessionFolderMoveRequest,
+    ): Promise<IpcResult<SessionFolder>> =>
+        invoke(IpcChannel.SessionMoveFolder, request),
+    deleteSessionFolder: (
+        request: SessionFolderDeleteRequest,
+    ): Promise<IpcResult<{ deleted: boolean }>> =>
+        invoke(IpcChannel.SessionDeleteFolder, request),
     openSession: (
         request: SessionReadRequest,
     ): Promise<IpcResult<SessionRecord>> =>

@@ -150,6 +150,28 @@ describe("WorkspaceStore", () => {
         ).resolves.toBe(true);
     });
 
+    it("persists workspace settings", async () => {
+        const { store, root } = await makeStore();
+        const created = await store.create({ name: "Settings" });
+        await store.open(created.id);
+
+        expect(store.getSettings(created.id)).toEqual({});
+        await store.updateSettings(created.id, {
+            draftSessionFolderId: "fld_abc",
+        });
+        expect(store.getSettings(created.id).draftSessionFolderId).toBe(
+            "fld_abc",
+        );
+
+        await store.close(created.id);
+        const reopened = new WorkspaceStore(root, "0.0.0-test");
+        await reopened.open(created.id);
+        expect(reopened.getSettings(created.id).draftSessionFolderId).toBe(
+            "fld_abc",
+        );
+        await reopened.close(created.id);
+    });
+
     it("keeps listing when a document is corrupt", async () => {
         const { store } = await makeStore();
         const created = await store.create({ name: "Corrupt list" });

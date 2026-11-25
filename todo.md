@@ -41,12 +41,12 @@
 
 ### M7.2 Session 树存储（main）
 
-- [ ] contracts：`SessionFolder` / `SessionTreeNode` / folder CRUD DTO；`SessionSummary` 增加 `folderId` / `kind`
-- [ ] `SessionStore` 支持递归文件夹（创建 / 重命名 / 移动 / 删除）、session 移动与路径安全
-- [ ] 旧 `sessions/<id>` 迁移到根；默认草稿文件夹创建；`manifest.settings.draftSessionFolderId`
-- [ ] `SessionService` / IPC / preload / bridge：list tree、create folder、move、rename、delete
-- [ ] 删除策略：文件夹递归删除、session 删除、Blob refs 清理（GC 未接线前先记录）
-- [ ] 测试：递归创建、重命名 / 移动、路径穿越、旧数据迁移、draft 配置、非法 id
+- [x] contracts：`SessionFolder` / `SessionTreeNode` / `SessionTree` / folder CRUD DTO；`SessionSummary` 增加 `folderId` / `kind` / `entryCount`
+- [x] `SessionStore` 支持递归文件夹（创建 / 重命名 / 移动 / 删除）、session 移动与路径安全
+- [x] 旧 `sessions/<id>`（根级 session）读取时迁移为 v2；默认草稿文件夹创建；`manifest.settings.draftSessionFolderId`
+- [x] `SessionService` / IPC / preload / bridge：list tree、create folder、move、rename、delete
+- [x] 删除策略：文件夹递归删除、session 删除；Blob refs 清理以 TODO 记录，待 GC 接线
+- [x] 测试：递归创建、重命名 / 移动、路径穿越、旧数据迁移、draft 配置、非法 id
 
 ### M7.3 Session 树导航与回放面板
 

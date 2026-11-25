@@ -32,9 +32,15 @@ import {
     type RunStartRequest,
     type ProvidersTestRequest,
     type SessionCreateRequest,
+    type SessionFolderCreateRequest,
+    type SessionFolderDeleteRequest,
+    type SessionFolderMoveRequest,
+    type SessionFolderRenameRequest,
     type SessionListRequest,
+    type SessionMoveRequest,
     type SessionReadRequest,
     type SessionSaveRequest,
+    type SessionTreeRequest,
     type SecretsDeleteRequest,
     type SecretsHasRequest,
     type SecretsSetRequest,
@@ -386,6 +392,9 @@ async function initialize(): Promise<void> {
     sessionService = new SessionService(
         (workspaceId) => workspaces.getBlobStore(workspaceId),
         (workspaceId) => workspaces.getWorkspaceDir(workspaceId),
+        (workspaceId) => workspaces.getSettings(workspaceId),
+        (workspaceId, patch) =>
+            workspaces.updateSettings(workspaceId, patch).then(() => undefined),
     );
 
     runtime = new RuntimeHost({
@@ -583,9 +592,12 @@ function registerIpcHandlers(): void {
 
     registerHandler(
         IpcChannel.SessionCreate,
-        async ({ workspaceId, title }: SessionCreateRequest) => {
+        async ({ workspaceId, title, folderId }: SessionCreateRequest) => {
             const store = requireSessionStore(workspaceId);
-            return store.create(title === undefined ? {} : { title });
+            return store.create({
+                ...(title === undefined ? {} : { title }),
+                ...(folderId === undefined ? {} : { folderId }),
+            });
         },
     );
 
@@ -596,6 +608,57 @@ function registerIpcHandlers(): void {
             await store.ensureDefault();
             return store.list();
         },
+    );
+
+    registerHandler(
+        IpcChannel.SessionTree,
+        async ({ workspaceId }: SessionTreeRequest) => {
+            const store = requireSessionStore(workspaceId);
+            await store.ensureDefault();
+            return store.tree();
+        },
+    );
+
+    registerHandler(
+        IpcChannel.SessionMove,
+        ({ workspaceId, sessionId, folderId }: SessionMoveRequest) =>
+            requireSessionStore(workspaceId).moveSession(sessionId, folderId),
+    );
+
+    registerHandler(
+        IpcChannel.SessionCreateFolder,
+        ({
+            workspaceId,
+            title,
+            parentFolderId,
+        }: SessionFolderCreateRequest) =>
+            requireSessionStore(workspaceId).createFolder({
+                title,
+                parentFolderId,
+            }),
+    );
+
+    registerHandler(
+        IpcChannel.SessionRenameFolder,
+        ({ workspaceId, folderId, title }: SessionFolderRenameRequest) =>
+            requireSessionStore(workspaceId).renameFolder(folderId, title),
+    );
+
+    registerHandler(
+        IpcChannel.SessionMoveFolder,
+        ({ workspaceId, folderId, targetFolderId }: SessionFolderMoveRequest) =>
+            requireSessionStore(workspaceId).moveFolder(
+                folderId,
+                targetFolderId,
+            ),
+    );
+
+    registerHandler(
+        IpcChannel.SessionDeleteFolder,
+        ({ workspaceId, folderId }: SessionFolderDeleteRequest) =>
+            requireSessionStore(workspaceId).deleteFolder(folderId).then(
+                (deleted) => ({ deleted }),
+            ),
     );
 
     registerHandler(

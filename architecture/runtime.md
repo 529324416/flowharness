@@ -105,7 +105,7 @@ main: resolve Promise
 
 ## 8. Session 与附件
 
-- 附件管理器仍是**工作区维度**（还没有 Session 维度）；`SessionStore` 已按会话持久化（M6.2），M6.3 起校验 wireclaw `SessionData` 并派生消息数 / 附件索引，host 以 contentHash 访问；
+- 附件管理器仍是**工作区维度**（还没有 Session 维度）；`SessionStore` 按会话持久化，M7.2 起支持递归文件夹、`SessionRecord` v2 与草稿目录，host 以 contentHash 访问；
 - `IFileHost` 的读写由 `WorkspaceFileHost` 落到当前工作区的 BlobStore；
 - Session 关闭后保留历史与 refs；GC 由 WorkspaceStore 汇总 roots 后触发；
 - 多工作台共享同一 Session 时，引用计数由 refs 管理，不做隐式拷贝。
@@ -134,8 +134,8 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | providers | `providers:list` / `providers:test` | ✅ | ✅ |
 | workspace | `workspace:list` / `create` / `open` / `close` / `readDocument` / `saveDocument` / `listDocuments` / `deleteDocument` / `exportHarness` / `listWorkbenches` / `export` / `import` | ✅ | 前十个 ✅，`export`/`import` ❌ |
 | workspace | `workspace:applyCommands` | ❌（仅契约，见 ADR-012） | ❌ |
-| blob | `blob:stat` / `blob:delete` | ✅ | ❌ |
-| session | `session:create` / `open` / `close` / `list` / `save` | ✅ | ✅ |
+| blob | `blob:stat` / `blob:delete` | ✅ | `stat` ✅，`delete` ❌ |
+| session | `session:create` / `open` / `close` / `list` / `tree` / `save` / `move` / `createFolder` / `renameFolder` / `moveFolder` / `deleteFolder` | ✅ | ✅ |
 | run | `run:start` / `pause` / `resume` / `cancel` / `get` / `list` / `resume-interrupted` | ✅ | ✅ |
 | approval | `approval:respond` | ✅ | ✅ |
 | input | `input:respond` | ✅ | ✅ |

@@ -44,6 +44,26 @@ describe("SessionService", () => {
         expect(created.id.startsWith("ses_")).toBe(true);
     });
 
+    it("passes workspace draft folder settings to the session store", async () => {
+        const dir = await mkdtemp(join(tmpdir(), "fh-session-"));
+        dirs.push(dir);
+        const settings: { draftSessionFolderId?: string | null } = {};
+        const service = new SessionService(
+            () => undefined,
+            () => dir,
+            () => ({ ...settings }),
+            async (_workspaceId, patch) => {
+                Object.assign(settings, patch);
+            },
+        );
+
+        const store = service.sessionsFor("ws_1");
+        expect(store).toBeDefined();
+        const tree = await store!.tree();
+        expect(tree.draftFolderId).not.toBeNull();
+        expect(settings.draftSessionFolderId).toBe(tree.draftFolderId);
+    });
+
     it("returns undefined for a closed workspace", () => {
         const service = new SessionService(
             () => undefined,

@@ -16,11 +16,19 @@ import type { ProviderStatus, ProviderTestResult } from "./provider";
 import type {
     SessionCloseRequest,
     SessionCreateRequest,
+    SessionFolder,
+    SessionFolderCreateRequest,
+    SessionFolderDeleteRequest,
+    SessionFolderMoveRequest,
+    SessionFolderRenameRequest,
     SessionListRequest,
+    SessionMoveRequest,
     SessionReadRequest,
     SessionRecord,
     SessionSaveRequest,
     SessionSummary,
+    SessionTree,
+    SessionTreeRequest,
 } from "./session";
 import type {
     ApprovalResponseRequest,
@@ -81,7 +89,13 @@ export const IpcChannel = {
     SessionOpen: "session:open",
     SessionClose: "session:close",
     SessionList: "session:list",
+    SessionTree: "session:tree",
     SessionSave: "session:save",
+    SessionMove: "session:move",
+    SessionCreateFolder: "session:createFolder",
+    SessionRenameFolder: "session:renameFolder",
+    SessionMoveFolder: "session:moveFolder",
+    SessionDeleteFolder: "session:deleteFolder",
 
     RunStart: "run:start",
     RunPause: "run:pause",
@@ -229,6 +243,10 @@ export type IpcInvokeContracts = {
         request: SessionListRequest;
         response: SessionSummary[];
     };
+    [IpcChannel.SessionTree]: {
+        request: SessionTreeRequest;
+        response: SessionTree;
+    };
     [IpcChannel.SessionOpen]: {
         request: SessionReadRequest;
         response: SessionRecord;
@@ -240,6 +258,26 @@ export type IpcInvokeContracts = {
     [IpcChannel.SessionSave]: {
         request: SessionSaveRequest;
         response: SessionRecord;
+    };
+    [IpcChannel.SessionMove]: {
+        request: SessionMoveRequest;
+        response: SessionRecord;
+    };
+    [IpcChannel.SessionCreateFolder]: {
+        request: SessionFolderCreateRequest;
+        response: SessionFolder;
+    };
+    [IpcChannel.SessionRenameFolder]: {
+        request: SessionFolderRenameRequest;
+        response: SessionFolder;
+    };
+    [IpcChannel.SessionMoveFolder]: {
+        request: SessionFolderMoveRequest;
+        response: SessionFolder;
+    };
+    [IpcChannel.SessionDeleteFolder]: {
+        request: SessionFolderDeleteRequest;
+        response: { deleted: boolean };
     };
 
     [IpcChannel.RunStart]: { request: RunStartRequest; response: RunSnapshot };

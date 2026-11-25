@@ -1,6 +1,6 @@
 # 开发环境
 
-> 本文描述**当前**可运行的开发环境。目标架构见 [README.md](./README.md)；实现进度见 [../todo.md](../todo.md)（M7.1 已完成，M7.2 未开始）。
+> 本文描述**当前**可运行的开发环境。目标架构见 [README.md](./README.md)；实现进度见 [../todo.md](../todo.md)（M7.2 已完成，M7.3 未开始）。
 
 ## 工具链
 
@@ -117,7 +117,7 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 
 ```bash
 pnpm typecheck   # contracts（tsc）+ desktop（node + web 两个 project）
-pnpm test        # vitest：main 服务 + canvas core + designer core/state + workbench（34 文件 / 159 项：config / secrets / provider-registry / blob / workspace / session-service / session-store / workspace-tools / filehost / run-store / runtime / broker / window-state / geometry / selection / session-history / designer adapter / document / commands / edges / layout / layout-metrics / validate / problems / run-events / save-coordinator / catalog / config-path / presets / recent-nodes / recent-documents / harness-json / workbench-instance / workbench-plan / workbench-registry）
+pnpm test        # vitest：main 服务 + canvas core + designer core/state + workbench（34 文件 / 168 项：config / secrets / provider-registry / blob / workspace / session-service / session-store / workspace-tools / filehost / run-store / runtime / broker / window-state / geometry / selection / session-history / designer adapter / document / commands / edges / layout / layout-metrics / validate / problems / run-events / save-coordinator / catalog / config-path / presets / recent-nodes / recent-documents / harness-json / workbench-instance / workbench-plan / workbench-registry）
 pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
 pnpm capture:ui  # Windows：CDP 截取 renderer（加 -NativeWindow 可抓原生窗口）

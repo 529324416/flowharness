@@ -31,7 +31,10 @@ type WorkspaceManifest = {
     name: string;
     createdAt: string;
     updatedAt: string;
-    settings: { defaultWorkbenchId?: string };
+    settings: {
+        defaultWorkbenchId?: string;
+        draftSessionFolderId?: string | null;
+    };
 };
 
 type OpenWorkspace = {
@@ -189,6 +192,27 @@ export class WorkspaceStore {
     /** 已打开工作区的目录；未打开返回 undefined。 */
     getWorkspaceDir(id: string): string | undefined {
         return this.openWorkspaces.get(id)?.dir;
+    }
+
+    getSettings(id: string): WorkspaceManifest["settings"] {
+        return { ...this.requireOpen(id).manifest.settings };
+    }
+
+    async updateSettings(
+        id: string,
+        patch: Partial<WorkspaceManifest["settings"]>,
+    ): Promise<WorkspaceManifest["settings"]> {
+        const workspace = this.requireOpen(id);
+        workspace.manifest.settings = {
+            ...workspace.manifest.settings,
+            ...patch,
+        };
+        workspace.manifest.updatedAt = new Date().toISOString();
+        await writeJsonFile(
+            join(workspace.dir, "manifest.json"),
+            workspace.manifest,
+        );
+        return { ...workspace.manifest.settings };
     }
 
     /**

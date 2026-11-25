@@ -78,7 +78,7 @@ try {
     // Optional deterministic UI state for visual baselines:
     // designer (panels open) | designer-run (run once) | designer-problems |
     // canvas (panels closed) | canvas-zoom | styleguide | styleguide-nodes |
-    // designer-form | designer-library | session-history (seeded messages).
+    // designer-form | designer-library | designer-documents (nav actions).
     const scenario = process.env.FH_CAPTURE_SCENARIO;
     const evaluate = (expression) =>
         send("Runtime.evaluate", {
@@ -156,8 +156,6 @@ try {
         scenario === "designer-plan-runner" ||
         scenario === "designer-workbench-manage" ||
         scenario === "provider-settings" ||
-        scenario === "session-new" ||
-        scenario === "session-history" ||
         scenario === "canvas-selection-random" ||
         scenario === "designer-inline" ||
         scenario === "designer-inline-type" ||
@@ -168,9 +166,6 @@ try {
         scenario === "canvas-selection-stress" ||
         scenario === "canvas-pan"
     ) {
-        await evaluate(`document.querySelector('[data-session-id]')?.click()`);
-        await settle(600);
-
         // M1.2：设计器按工作区加载；受限环境下先创建一个工作区。
         await evaluate(
             `document.querySelector('button[aria-label="新建工作区"]')?.click()`,
@@ -182,66 +177,6 @@ try {
             returnByValue: true,
         });
         console.log(`node count: ${JSON.stringify(nodeCount.result?.value)}`);
-
-        if (scenario === "session-history") {
-            const seeded = await evaluateAsync(`(async () => {
-                const workspaces = await window.flowharness.listWorkspaces();
-                const workspace = workspaces.ok ? workspaces.data[0] : null;
-                if (!workspace) return { ok: false, reason: "no workspace" };
-                const listed = await window.flowharness.listSessions({ workspaceId: workspace.id });
-                const session = listed.ok ? listed.data[0] : null;
-                if (!session) return { ok: false, reason: "no session" };
-                const history = {
-                    version: 2,
-                    id: session.id,
-                    isArchived: false,
-                    messages: [
-                        { role: "user", isCompressed: false, content: "把这张图里的场景拆成三个镜头。" },
-                        {
-                            role: "assistant",
-                            isCompressed: false,
-                            content: "好的，我先读取场景说明，再拆成远景、中景和特写三段提示词。",
-                            thinking: "先识别主体、光线与构图，再按镜头拆分。",
-                            usage: { promptTokens: 128, completionTokens: 96, totalTokens: 224 },
-                            toolCalls: [{ id: "call-1", name: "workspace__readFile", params: { path: "brief.md" } }],
-                            stopReason: "tool_call",
-                        },
-                        {
-                            role: "tool",
-                            isCompressed: false,
-                            content: "读取失败：brief.md 不存在",
-                            toolName: "workspace__readFile",
-                            callId: "call-1",
-                            details: {
-                                isSuccess: false,
-                                duration: 12,
-                                error: { type: "Tool not found", retryable: false, message: "brief.md 不存在" },
-                            },
-                        },
-                        {
-                            role: "assistant",
-                            isCompressed: false,
-                            content: "没有找到 brief.md，我改为直接根据会话描述输出三段镜头：\\n1. 远景：屋顶花园与晨光。\\n2. 中景：小机器人俯身浇水。\\n3. 特写：向日葵上的露珠。",
-                            usage: { promptTokens: 160, completionTokens: 120, totalTokens: 280 },
-                            toolCalls: [],
-                            stopReason: "stop",
-                        },
-                    ],
-                };
-                const saved = await window.flowharness.saveSession({
-                    workspaceId: workspace.id,
-                    session: { ...session, status: "completed", history },
-                });
-                return {
-                    ok: saved.ok,
-                    messageCount: saved.ok ? saved.data.messageCount : 0,
-                    error: saved.ok ? undefined : saved.error.message,
-                };
-            })()`);
-            console.log(`session history seed: ${JSON.stringify(seeded.result?.value)}`);
-            await evaluate(`document.querySelector('[aria-label="会话历史"]')?.click()`);
-            await settle(900);
-        }
 
         if (
             scenario === "designer" ||
@@ -481,19 +416,8 @@ try {
         }
 
         if (scenario === "designer-documents") {
-            await clickElement(`document.querySelector('button[aria-label="切换或管理文档"]')`);
+            await clickElement(`document.querySelector('button[aria-label="文档操作"]')`);
             await settle(500);
-        }
-
-        if (scenario === "session-new") {
-            await clickElement(`document.querySelector('button[aria-label="新建会话"]')`);
-            await settle(900);
-            const sessions = await send("Runtime.evaluate", {
-                expression:
-                    "[...document.querySelectorAll('[data-session-id]')].map((item) => ({ id: item.getAttribute('data-session-id'), text: item.textContent?.trim() }))",
-                returnByValue: true,
-            });
-            console.log(`sessions: ${JSON.stringify(sessions.result?.value)}`);
         }
 
         if (scenario === "provider-settings") {
@@ -580,7 +504,7 @@ try {
 
         if (scenario === "designer-plan-runner") {
             // 先建第二份图，让计划有两个步骤。
-            await clickElement(`document.querySelector('button[aria-label="切换或管理文档"]')`);
+            await clickElement(`document.querySelector('button[aria-label="文档操作"]')`);
             await settle(250);
             await clickElement(
                 `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('新建文档'))`,
@@ -829,7 +753,7 @@ try {
                 return result.ok ? result.data.map((document) => document.title) : null;
             })()`);
             const trigger = await evaluateAsync(
-                `document.querySelector('button[aria-label="切换或管理文档"]')?.textContent?.trim()`,
+                `document.querySelector('[data-document-id][aria-current="page"]')?.textContent?.trim()`,
             );
             console.log(`import documents: ${JSON.stringify(documents.result?.value)} / ${JSON.stringify(trigger.result?.value)}`);
         }
@@ -958,13 +882,13 @@ try {
             };
             const triggerText = async () => {
                 const result = await evaluateAsync(
-                    `document.querySelector('button[aria-label="切换或管理文档"]')?.textContent?.trim()`,
+                    `document.querySelector('[data-document-id][aria-current="page"]')?.textContent?.trim()`,
                 );
                 return result.result?.value;
             };
             const openMenu = async () => {
                 await clickElement(
-                    `document.querySelector('button[aria-label="切换或管理文档"]')`,
+                    `document.querySelector('button[aria-label="文档操作"]')`,
                 );
                 await settle(300);
             };

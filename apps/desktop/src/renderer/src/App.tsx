@@ -27,7 +27,6 @@ import {
     TooltipProvider,
 } from "./ui";
 import { AppShell } from "./shell/AppShell";
-import { DocumentMenu } from "./shell/DocumentMenu";
 import { WorkbenchMenu } from "./shell/WorkbenchMenu";
 import { TitleBar } from "./shell/TitleBar";
 import { ProviderSettingsDialog } from "./shell/ProviderSettingsDialog";
@@ -36,20 +35,17 @@ import {
     ApprovalDialog,
     UserInputDialog,
 } from "./shell/InteractionDialogs";
-import { SessionSidebar } from "./shell/SessionSidebar";
 import {
     SIDEBAR_DEFAULT_WIDTH,
     SIDEBAR_MAX_WIDTH,
     SIDEBAR_MIN_WIDTH,
 } from "./layout-metrics";
 import { StatusBar } from "./shell/StatusBar";
-import { fromStoredSession, type SessionSummary } from "./shell/sessions";
 import { PanelLayer } from "./shell/panels/PanelLayer";
 import { useFloatingPanels } from "./shell/panels/useFloatingPanels";
 import { VIEW_LABEL, type ViewId } from "./shell/views";
 import type { DesignerSaveStatus } from "./views/DesignerView";
 import { DiagnosticsView } from "./views/DiagnosticsView";
-import { SessionHistoryView } from "./views/SessionHistoryView";
 import { StyleguideView } from "./views/StyleguideView";
 import { useTheme } from "./theme/ThemeProvider";
 import type { RunControls } from "./run/run-controls";
@@ -73,6 +69,7 @@ import {
     writeRecentDocuments,
 } from "./designer/state/recent-documents";
 import { WorkbenchHost } from "./workbench/WorkbenchHost";
+import { getWorkbench } from "./workbench/registry";
 import {
     createWorkbenchId,
     createWorkbenchInstance,
@@ -83,6 +80,8 @@ import {
 } from "./workbench/instance";
 import type {
     WorkbenchController,
+    WorkbenchMode,
+    WorkbenchNavigationProps,
     WorkbenchShell,
 } from "./workbench/types";
 import "./workbenches";
@@ -137,9 +136,8 @@ export function App(): ReactElement {
     );
     const [sidebarOpen, setSidebarOpen] = useState(readSidebarOpen);
     const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth);
-
-    const [sessions, setSessions] = useState<SessionSummary[]>([]);
-    const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+    /** M7.5 会在这里切到 run；M7.1 只有 design 导航。 */
+    const workbenchMode: WorkbenchMode = "design";
 
     const [config, setConfig] = useState<AppConfig | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -193,8 +191,6 @@ export function App(): ReactElement {
         update: updatePanel,
     } = useFloatingPanels();
 
-    const activeSession =
-        sessions.find((session) => session.id === activeSessionId) ?? null;
     const panelsEnabled = view === "designer" && activeWorkspace !== null;
 
     useEffect(() => {
@@ -554,6 +550,16 @@ export function App(): ReactElement {
         },
         [activeWorkspace, bridge],
     );
+
+    // 工作台导航选中文档后，统一在工作台壳层维护 primaryGraph 绑定。
+    useEffect(() => {
+        if (activeWorkbench?.type !== "harness-designer") return;
+        if (activeDocumentId === null) return;
+        if (primaryGraphId(activeWorkbench) === activeDocumentId) return;
+        updateActiveWorkbench((current) =>
+            withPrimaryGraph(current, activeDocumentId),
+        );
+    }, [activeDocumentId, activeWorkbench, updateActiveWorkbench]);
 
     const handleSelectWorkbench = useCallback(
         async (workbenchId: string): Promise<void> => {
@@ -1254,59 +1260,6 @@ export function App(): ReactElement {
         setSidebarOpen((value) => !value);
     }, []);
 
-    const refreshSessions = useCallback(
-        async (workspaceId: string): Promise<void> => {
-            const result = await bridge.listSessions({ workspaceId });
-            if (!result.ok) return;
-            const next = result.data.map(fromStoredSession);
-            setSessions(next);
-            setActiveSessionId((current) =>
-                current !== null && next.some((session) => session.id === current)
-                    ? current
-                    : (next[0]?.id ?? null),
-            );
-        },
-        [bridge],
-    );
-
-    useEffect(() => {
-        if (activeWorkspace === null) {
-            setSessions([]);
-            setActiveSessionId(null);
-            return;
-        }
-
-        void refreshSessions(activeWorkspace.id);
-    }, [activeWorkspace, refreshSessions]);
-
-    // 进入会话历史时对账：历史可能由 Agent 运行或外部保存写入，侧栏摘要不能停在旧值。
-    useEffect(() => {
-        if (view !== "sessions" || activeWorkspace === null) return;
-        void refreshSessions(activeWorkspace.id);
-    }, [view, activeWorkspace?.id, refreshSessions]);
-
-    const handleNewSession = useCallback(async (): Promise<void> => {
-        if (activeWorkspace === null) return;
-        const result = await bridge.createSession({
-            workspaceId: activeWorkspace.id,
-        });
-        if (!result.ok) return;
-        setActiveSessionId(result.data.id);
-        await refreshSessions(activeWorkspace.id);
-        setView("designer");
-        setSidebarOpen(true);
-    }, [activeWorkspace, bridge, refreshSessions]);
-
-    const handleSelectSession = useCallback((id: string) => {
-        setActiveSessionId(id);
-        setView((current) => (current === "sessions" ? "sessions" : "designer"));
-    }, []);
-
-    const handleOpenHistory = useCallback((id: string) => {
-        setActiveSessionId(id);
-        setView("sessions");
-    }, []);
-
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent): void => {
             if (!(event.ctrlKey || event.metaKey)) return;
@@ -1322,7 +1275,7 @@ export function App(): ReactElement {
             switch (event.key.toLowerCase()) {
                 case "n":
                     event.preventDefault();
-                    handleNewSession();
+                    void handleCreateDocument();
                     break;
                 case "b":
                     event.preventDefault();
@@ -1352,10 +1305,6 @@ export function App(): ReactElement {
                     event.preventDefault();
                     setView("styleguide");
                     break;
-                case "4":
-                    event.preventDefault();
-                    setView("sessions");
-                    break;
                 default:
                     break;
             }
@@ -1364,9 +1313,8 @@ export function App(): ReactElement {
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [
-        bridge,
         flushAndClose,
-        handleNewSession,
+        handleCreateDocument,
         handleToggleSidebar,
         panelsEnabled,
         togglePanel,
@@ -1440,29 +1388,24 @@ export function App(): ReactElement {
                         error={dataError ?? documentError}
                         shell={workbenchShell}
                         onUpdateInstance={updateActiveWorkbench}
+                        panelLayer={
+                            activeWorkbench.type === "harness-designer" ? (
+                                <PanelLayer
+                                    panels={panels}
+                                    events={runEvents}
+                                    snapshot={runSnapshot}
+                                    inspector={designerInspector}
+                                    problems={designerProblems?.problems ?? []}
+                                    onSelectProblem={designerProblems?.select}
+                                    onClose={closePanel}
+                                    onFocus={focusPanel}
+                                    onUpdate={updatePanel}
+                                />
+                            ) : undefined
+                        }
                     />
                 )}
-
-                {activeWorkbench?.type === "harness-designer" ? (
-                    <PanelLayer
-                        panels={panels}
-                        events={runEvents}
-                        snapshot={runSnapshot}
-                        inspector={designerInspector}
-                        problems={designerProblems?.problems ?? []}
-                        onSelectProblem={designerProblems?.select}
-                        onClose={closePanel}
-                        onFocus={focusPanel}
-                        onUpdate={updatePanel}
-                    />
-                ) : null}
             </div>
-        ) : view === "sessions" ? (
-            <SessionHistoryView
-                workspace={activeWorkspace}
-                session={activeSession}
-                onOpenDesigner={() => setView("designer")}
-            />
         ) : view === "diagnostics" ? (
             <DiagnosticsView
                 config={config}
@@ -1483,18 +1426,50 @@ export function App(): ReactElement {
             <StyleguideView />
         );
 
+    const activeWorkbenchDefinition =
+        activeWorkbench === null ? undefined : getWorkbench(activeWorkbench.type);
+    const Navigation = activeWorkbenchDefinition?.navigation?.[workbenchMode];
+    const navigationProps: WorkbenchNavigationProps | null =
+        activeWorkbench !== null && activeWorkspace !== null
+            ? {
+                  instance: activeWorkbench,
+                  workspace: activeWorkspace,
+                  mode: workbenchMode,
+                  documents,
+                  recentDocumentIds,
+                  activeDocumentId,
+                  busy: busy || documentBusy,
+                  width: sidebarWidth,
+                  onResize: setSidebarWidth,
+                  onCollapse: () => setSidebarOpen(false),
+                  onSelectDocument: (id) => void handleSelectDocument(id),
+                  onCreateDocument: () => void handleCreateDocument(),
+                  onRenameDocument: (id, title) =>
+                      void handleRenameDocument(id, title),
+                  onDuplicateDocument: (id) => void handleDuplicateDocument(id),
+                  onDeleteDocument: (id) => void handleDeleteDocument(id),
+                  onImportDocument: (text, fileName) =>
+                      void handleImportDocument(text, fileName),
+                  onExportDocument: (options) =>
+                      void handleExportDocument(options),
+              }
+            : null;
+    const navigationContent =
+        Navigation !== undefined && navigationProps !== null ? (
+            <Navigation {...navigationProps} />
+        ) : null;
+    const navigationOpen = sidebarOpen && navigationContent !== null;
+
     return (
         <TooltipProvider>
             <AppShell
                 titleBar={
                     <TitleBar
-                        activeSessionTitle={
-                            activeWorkspace?.name ?? activeSession?.title ?? null
-                        }
+                        activeTitle={activeWorkspace?.name ?? null}
                         theme={theme}
                         sidebarOpen={sidebarOpen}
                         busy={busy}
-                        onNewSession={handleNewSession}
+                        onCreateDocument={() => void handleCreateDocument()}
                         onCreateWorkspace={() => void createDemoWorkspace()}
                         onSelectView={setView}
                         onToggleSidebar={handleToggleSidebar}
@@ -1527,33 +1502,6 @@ export function App(): ReactElement {
                                 />
                             )
                         }
-                        documentMenu={
-                            activeWorkspace === null ? undefined : (
-                            <DocumentMenu
-                                documents={documents}
-                                recentDocumentIds={recentDocumentIds}
-                                activeDocumentId={activeDocumentId}
-                                busy={documentBusy || busy}
-                                onSelectDocument={(id) => void handleSelectDocument(id)}
-                                onCreateDocument={() => void handleCreateDocument()}
-                                onRenameDocument={(id, title) =>
-                                    void handleRenameDocument(id, title)
-                                }
-                                onDuplicateDocument={(id) =>
-                                    void handleDuplicateDocument(id)
-                                }
-                                onDeleteDocument={(id) =>
-                                    void handleDeleteDocument(id)
-                                }
-                                onImportDocument={(text, fileName) =>
-                                    void handleImportDocument(text, fileName)
-                                }
-                                onExportDocument={(options) =>
-                                    void handleExportDocument(options)
-                                }
-                            />
-                            )
-                        }
                     />
                 }
                 ribbon={
@@ -1566,28 +1514,15 @@ export function App(): ReactElement {
                         onOpenSettings={() => setSettingsOpen(true)}
                     />
                 }
-                sidebar={
-                    <SessionSidebar
-                        sessions={sessions}
-                        activeId={activeSessionId}
-                        width={sidebarWidth}
-                        onSelect={handleSelectSession}
-                        onNew={handleNewSession}
-                        onOpenHistory={handleOpenHistory}
-                        onCollapse={() => setSidebarOpen(false)}
-                        onResize={setSidebarWidth}
-                    />
-                }
-                sidebarOpen={sidebarOpen}
+                sidebar={navigationContent}
+                sidebarOpen={navigationOpen}
                 sidebarWidth={sidebarWidth}
                 main={main}
                 statusBar={
                     <StatusBar
                         snapshot={runSnapshot}
                         workspacePath={activeWorkspace?.path ?? config?.workspaceRoot}
-                        sessionTitle={
-                            activeWorkspace?.name ?? activeSession?.title ?? null
-                        }
+                        workspaceTitle={activeWorkspace?.name ?? null}
                         saveStatus={designerSaveStatus}
                         viewLabel={VIEW_LABEL[view]}
                         zoom="100%"

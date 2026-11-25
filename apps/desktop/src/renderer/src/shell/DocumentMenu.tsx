@@ -4,6 +4,7 @@ import {
     Copy,
     Download,
     FileText,
+    MoreHorizontal,
     Pencil,
     Plus,
     Trash2,
@@ -14,6 +15,7 @@ import {
     Button,
     Dialog,
     DialogContent,
+    IconButton,
     Input,
     Menu,
     MenuContent,
@@ -29,6 +31,10 @@ export type DocumentMenuProps = {
     recentDocumentIds?: readonly string[];
     activeDocumentId: string | null;
     busy?: boolean;
+    /** false 时只保留动作菜单，不渲染文档列表。 */
+    showList?: boolean;
+    /** title 显示当前文档名；icon 使用紧凑的操作按钮。 */
+    trigger?: "title" | "icon";
     onSelectDocument: (id: string) => void;
     onCreateDocument: () => void;
     onRenameDocument: (id: string, title: string) => void;
@@ -55,6 +61,8 @@ export function DocumentMenu({
     recentDocumentIds = [],
     activeDocumentId,
     busy = false,
+    showList = true,
+    trigger = "title",
     onSelectDocument,
     onCreateDocument,
     onRenameDocument,
@@ -126,55 +134,67 @@ export function DocumentMenu({
         <>
             <Menu>
                 <MenuTrigger asChild>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className={styles.trigger}
-                        disabled={busy}
-                        aria-label="切换或管理文档"
-                    >
-                        <FileText size={15} aria-hidden="true" />
-                        <span className={styles.name}>
-                            {active?.title ?? "文档"}
-                        </span>
-                    </Button>
+                    {trigger === "icon" ? (
+                        <IconButton
+                            label="文档操作"
+                            size="sm"
+                            disabled={busy}
+                        >
+                            <MoreHorizontal size={19} aria-hidden="true" />
+                        </IconButton>
+                    ) : (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className={styles.trigger}
+                            disabled={busy}
+                            aria-label="切换或管理文档"
+                        >
+                            <FileText size={15} aria-hidden="true" />
+                            <span className={styles.name}>
+                                {active?.title ?? "文档"}
+                            </span>
+                        </Button>
+                    )}
                 </MenuTrigger>
                 <MenuContent align="start" className={styles.menu}>
-                    {documents.length === 0 ? (
-                        <>
-                            <MenuLabel>Harness 文档</MenuLabel>
-                            <div className={styles.empty}>还没有文档</div>
-                        </>
-                    ) : (
-                        <>
-                            {recent.length > 0 ? (
-                                <>
-                                    <MenuLabel>最近打开</MenuLabel>
-                                    {recent.map((document) =>
-                                        renderDocument(document, "recent"),
-                                    )}
-                                    {others.length > 0 ? (
-                                        <>
-                                            <MenuSeparator />
-                                            <MenuLabel>更多文档</MenuLabel>
-                                            {others.map((document) =>
-                                                renderDocument(document, "other"),
-                                            )}
-                                        </>
-                                    ) : null}
-                                </>
-                            ) : (
-                                <>
-                                    <MenuLabel>Harness 文档</MenuLabel>
-                                    {documents.map((document) =>
-                                        renderDocument(document, "all"),
-                                    )}
-                                </>
-                            )}
-                        </>
-                    )}
+                    {showList ? (
+                        documents.length === 0 ? (
+                            <>
+                                <MenuLabel>Harness 文档</MenuLabel>
+                                <div className={styles.empty}>还没有文档</div>
+                            </>
+                        ) : (
+                            <>
+                                {recent.length > 0 ? (
+                                    <>
+                                        <MenuLabel>最近打开</MenuLabel>
+                                        {recent.map((document) =>
+                                            renderDocument(document, "recent"),
+                                        )}
+                                        {others.length > 0 ? (
+                                            <>
+                                                <MenuSeparator />
+                                                <MenuLabel>更多文档</MenuLabel>
+                                                {others.map((document) =>
+                                                    renderDocument(document, "other"),
+                                                )}
+                                            </>
+                                        ) : null}
+                                    </>
+                                ) : (
+                                    <>
+                                        <MenuLabel>Harness 文档</MenuLabel>
+                                        {documents.map((document) =>
+                                            renderDocument(document, "all"),
+                                        )}
+                                    </>
+                                )}
+                            </>
+                        )
+                    ) : null}
 
-                    <MenuSeparator />
+                    {showList ? <MenuSeparator /> : null}
                     <MenuItem onSelect={onCreateDocument}>
                         <Plus size={15} aria-hidden="true" />
                         新建文档

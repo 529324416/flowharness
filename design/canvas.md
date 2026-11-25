@@ -85,7 +85,7 @@
 ## 8. 窗口与面板
 
 - 默认真透明，窗口内容 12px 圆角（透明窗口的圆角外露出桌面）；
-- TitleBar 与 StatusBar 完全不透明（`--fh-surface-solid`）；中间的 Body（Session + Canvas）统一 95% 半透（`--fh-body-bg`），两者最终 alpha 相同；
-- 浮动 Panel：默认 95% 不透明（`--fh-panel-alpha`），底色为比节点更深的 `--fh-panel-bg`、头部 `--fh-panel-header-bg`，圆角 8；默认尺寸为属性 280×432、运行日志 448×224；不加 backdrop-filter（透明窗口下会变黑）；
+- TitleBar 与 StatusBar 完全不透明（`--fh-surface-solid`）；中间的 Body（导航 + Canvas）统一 95% 半透（`--fh-body-bg`），两者最终 alpha 相同；
+- 浮动 Panel：默认 78% 不透明（`--fh-panel-alpha`），底色为比节点更深的 `--fh-panel-bg`、头部 `--fh-panel-header-bg`，圆角 8；默认尺寸为属性 280×432、运行日志 448×224；不加 backdrop-filter（透明窗口下会变黑）；
 - 桌面本身**不会模糊**（Chromium/Electron 限制，见 ADR-009）；
 - `prefers-reduced-motion` 下关闭连线流动。

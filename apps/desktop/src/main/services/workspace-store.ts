@@ -343,6 +343,20 @@ export class WorkspaceStore {
     /** 删除一份文档；不存在时返回 false。 */
     async deleteDocument(id: string, ref: DocumentRef): Promise<boolean> {
         const workspace = this.requireOpen(id);
+
+        if (ref.kind === "harness") {
+            const referencedBy = await findWorkbenchReferences(
+                workspace.dir,
+                ref.id,
+            );
+            if (referencedBy.length > 0) {
+                throw new FhError(
+                    "E_CONFLICT",
+                    `graph is referenced by workbench: ${referencedBy.join(", ")}`,
+                );
+            }
+        }
+
         const file = documentPath(workspace.dir, ref);
 
         try {
@@ -622,6 +636,65 @@ function summary(dir: string, manifest: WorkspaceManifest): WorkspaceSummary {
         createdAt: manifest.createdAt,
         updatedAt: manifest.updatedAt,
     };
+}
+
+async function findWorkbenchReferences(
+    workspaceDir: string,
+    graphId: string,
+): Promise<string[]> {
+    const dir = join(workspaceDir, "documents", "workbenches");
+    let entries;
+    try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+        throw error;
+    }
+
+    const references: string[] = [];
+    for (const entry of entries) {
+        if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+
+        const id = entry.name.slice(0, -5);
+        const raw = await readJsonFile<unknown>(join(dir, entry.name)).catch(
+            () => undefined,
+        );
+        if (!isRecord(raw) || !referencesGraph(raw, graphId)) continue;
+
+        const title =
+            typeof raw.title === "string" && raw.title.trim().length > 0
+                ? raw.title
+                : id;
+        references.push(`${title} (${id})`);
+    }
+    return references;
+}
+
+function referencesGraph(
+    value: Record<string, unknown>,
+    graphId: string,
+): boolean {
+    if (
+        Array.isArray(value.graphs) &&
+        value.graphs.some(
+            (item) => isRecord(item) && item.graphId === graphId,
+        )
+    ) {
+        return true;
+    }
+
+    const plan = value.plan;
+    return (
+        isRecord(plan) &&
+        Array.isArray(plan.graphs) &&
+        plan.graphs.some(
+            (item) => isRecord(item) && item.graphId === graphId,
+        )
+    );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function documentPath(dir: string, ref: DocumentRef): string {

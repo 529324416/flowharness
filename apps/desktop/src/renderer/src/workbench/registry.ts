@@ -1,4 +1,4 @@
-import type { WorkbenchDefinition } from "./types";
+import type { WorkbenchDefinition, WorkbenchMode } from "./types";
 
 const definitions = new Map<string, WorkbenchDefinition>();
 
@@ -11,6 +11,10 @@ export function registerWorkbench(definition: WorkbenchDefinition): void {
 
 export function getWorkbench(type: string): WorkbenchDefinition | undefined {
     return definitions.get(type);
+}
+
+export function getWorkbenchNavigation(type: string, mode: WorkbenchMode) {
+    return getWorkbench(type)?.navigation?.[mode];
 }
 
 export function listWorkbenchDefinitions(): readonly WorkbenchDefinition[] {

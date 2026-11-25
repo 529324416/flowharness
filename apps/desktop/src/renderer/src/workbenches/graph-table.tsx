@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 import type { GraphDocument } from "wireclaw";
 import { Button, EmptyState } from "../ui";
+import { DocumentNavigation } from "../shell/navigation/DocumentNavigation";
 import type { WorkbenchDefinition, WorkbenchViewProps } from "../workbench/types";
 import styles from "./GraphTableWorkbench.module.css";
 
@@ -142,5 +143,6 @@ export const graphTableWorkbench: WorkbenchDefinition = {
     title: "节点清单",
     description: "以表格方式审阅当前图的节点，验证工作台框架复用",
     canOpen: (instance) => instance.graphs.length > 0,
+    navigation: { design: DocumentNavigation },
     View: GraphTableWorkbench,
 };

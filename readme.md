@@ -11,7 +11,7 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | 工程链路：pnpm workspace / Electron / Vite / TS | ✅ |
 | main 数据层：Config / Secrets / Blob / Workspace / FileHost | ✅ |
 | RuntimeHost / RunStore / 事件流 / 审批·输入 handler（main 侧） | ✅ |
-| Shell v2：TitleBar / Ribbon / Session Sidebar / StatusBar（Hero 组件未接入） | ✅ |
+| Shell v2：TitleBar / Ribbon / 工作台导航 Panel / StatusBar（Hero 组件未接入） | ✅ |
 | 浮动 Panel：运行日志 / 属性检查 | ✅ |
 | Canvas：React Flow、节点/连线、小地图、右键菜单 | ✅ |
 | 中性配色 + 真透明窗口 + 商务扁平画布 | ✅ |
@@ -25,12 +25,15 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M6.1 Provider 工厂 / Secrets / 设置页 / 审批输入 / 跨重启恢复 | ✅ |
 | M6.2 checkpoint v2 / 工作区工具 / 运行前依赖目录 / Session 生命周期 | ✅ |
 | M6.3 Session 历史序列化 / 回放视图 / 附件渲染 | ✅ |
+| M7.0 工作台导航 / Session 树 / RunResult 设计 | ✅ 设计定稿（ADR-019 / ADR-020） |
+| M7.1 工作台导航宿主 / 图文档导航 / 左栏切换 | ✅ |
 | 打包分发 | ⬜ |
 
 **已知限制**
 
 - 真透明窗口可透出桌面，但当前 Chromium/Electron 无法模糊桌面（ADR-009）；
-- Session Sidebar 已接工作区 SessionStore（创建 / 列表 / 默认会话）；历史以 wireclaw `SessionData` 持久化，「会话历史」视图可回放消息 / 工具调用 / 附件；消息写入侧（聊天输入与 Agent 会话对接）尚未接入；
+- 左侧栏已改为工作台导航 Panel：设计器显示 GraphDocument 列表；Session 导航与历史面板在 M7.3 迁移，当前暂时不显示会话；
+- Session 历史以 wireclaw `SessionData` 持久化；M6.3 的回放视图在 M7.1 暂未挂载，M7.3 以浮动面板恢复；消息写入侧（聊天输入与 Agent 会话对接）尚未接入；
 - 设计器运行中切换视图会丢失节点/边状态（run 仍在 main 继续）；
 - 暂停 run 的 checkpoint 已可跨重启恢复；wireclaw checkpoint v2 校验 graphHash 与 nodeVersions，恢复入口只在 Diagnostics；
 - 运行前 requirements 目录已从 ProviderRegistry 注入；模型目录需先「测试连接」才会进入 catalog；
@@ -119,7 +122,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（33 files / 157 tests） |
+| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（34 files / 159 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

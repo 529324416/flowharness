@@ -98,6 +98,58 @@ describe("WorkspaceStore", () => {
         ]);
     });
 
+    it("refuses to delete a graph referenced by a workbench", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "References" });
+        await store.open(created.id);
+
+        await store.saveDocument(
+            created.id,
+            { kind: "harness", id: "graph-a" },
+            { version: 1, title: "图 A", nodes: [], edges: [] },
+            null,
+        );
+        await store.saveDocument(
+            created.id,
+            { kind: "workbench", id: "wb_a" },
+            {
+                schemaVersion: 1,
+                id: "wb_a",
+                type: "harness-designer",
+                title: "主工作台",
+                graphs: [{ graphId: "graph-a", role: "main" }],
+                plan: null,
+                parameters: {},
+                createdAt: "2026-11-26T00:00:00.000Z",
+                updatedAt: "2026-11-26T00:00:00.000Z",
+            },
+            null,
+        );
+
+        await expect(
+            store.deleteDocument(created.id, {
+                kind: "harness",
+                id: "graph-a",
+            }),
+        ).rejects.toMatchObject({ code: "E_CONFLICT" });
+        await expect(
+            store.readDocument(created.id, {
+                kind: "harness",
+                id: "graph-a",
+            }),
+        ).resolves.not.toBeNull();
+
+        await expect(
+            store.deleteDocument(created.id, { kind: "workbench", id: "wb_a" }),
+        ).resolves.toBe(true);
+        await expect(
+            store.deleteDocument(created.id, {
+                kind: "harness",
+                id: "graph-a",
+            }),
+        ).resolves.toBe(true);
+    });
+
     it("keeps listing when a document is corrupt", async () => {
         const { store } = await makeStore();
         const created = await store.create({ name: "Corrupt list" });

@@ -19,7 +19,7 @@
   --fh-body-bg: rgb(5 7 10 / 0.95);
 
   /* Floating panel translucency: single knob, adjusted by future UI settings */
-  --fh-panel-alpha: 0.95;
+  --fh-panel-alpha: 0.78;
 
   /* Floating panel surfaces — deliberately deeper than --fh-node-bg */
   --fh-panel-bg: #080a0d;

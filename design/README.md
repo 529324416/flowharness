@@ -34,7 +34,7 @@ apps/desktop/src/renderer/src/
   styles/tokens.css      # 唯一视觉事实来源（CSS 变量）
   styles/global.css      # reset 与基础排版
   ui/                    # 组件原语（Button / Menu / Dialog / …）
-  shell/                 # TitleBar / Ribbon / SessionSidebar / panels
+  shell/                 # TitleBar / Ribbon / navigation / panels
   views/                 # Designer / Diagnostics / Styleguide（HeroView 仍在仓库但未接入）
   canvas/core/           # 几何 / 边 key / 类型
   canvas/view/           # React Flow 画布、SciFi 节点/边

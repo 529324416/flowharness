@@ -54,6 +54,33 @@ export type WorkbenchViewProps = {
     ) => void;
 };
 
+export type WorkbenchMode = "design" | "run";
+
+/** 左栏 PanelContent 的公共契约；由 App 提供数据与动作。 */
+export type WorkbenchNavigationProps = {
+    instance: WorkbenchInstanceDocument;
+    workspace: WorkspaceSummary;
+    mode: WorkbenchMode;
+    documents: readonly HarnessDocumentSummary[];
+    recentDocumentIds: readonly string[];
+    activeDocumentId: string | null;
+    busy: boolean;
+    width: number;
+    onResize: (width: number) => void;
+    onCollapse: () => void;
+    onSelectDocument: (id: string) => void;
+    onCreateDocument: () => void;
+    onRenameDocument: (id: string, title: string) => void;
+    onDuplicateDocument: (id: string) => void;
+    onDeleteDocument: (id: string) => void;
+    onImportDocument: (text: string, fileName: string) => void;
+    onExportDocument: (options: { stripUi: boolean }) => void;
+};
+
+export type WorkbenchNavigation = Partial<
+    Record<WorkbenchMode, ComponentType<WorkbenchNavigationProps>>
+>;
+
 /**
  * 工作台定义：同一份实例文档 + 同一套 Shell 模型，可插拔不同的 View。
  *
@@ -64,5 +91,7 @@ export type WorkbenchDefinition = {
     title: string;
     description: string;
     canOpen: (instance: WorkbenchInstanceDocument) => boolean;
+    /** 左栏内容：按模式提供，Shell 只负责 Panel 宿主。 */
+    navigation?: WorkbenchNavigation;
     View: ComponentType<WorkbenchViewProps>;
 };

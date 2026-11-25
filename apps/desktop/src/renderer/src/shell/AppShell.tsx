@@ -12,7 +12,7 @@ export type AppShellProps = {
     statusBar: ReactNode;
 };
 
-/** VS Code 式外壳：TitleBar / Ribbon + SessionSidebar + Main / StatusBar。 */
+/** VS Code 式外壳：TitleBar / Ribbon + 工作台导航 Panel + Main / StatusBar。 */
 export function AppShell({
     titleBar,
     ribbon,

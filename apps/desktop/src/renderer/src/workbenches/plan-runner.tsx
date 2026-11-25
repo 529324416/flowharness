@@ -9,6 +9,7 @@ import type { RunStatus } from "@flowharness/contracts";
 import type { GraphDocument } from "wireclaw";
 import { Badge, Button, EmptyState, type BadgeVariant } from "../ui";
 import type { WorkbenchDefinition, WorkbenchViewProps } from "../workbench/types";
+import { PlanNavigation } from "../shell/navigation/PlanNavigation";
 import { createWorkbenchPlan, planGraphIds } from "../workbench/plan";
 import styles from "./PlanRunnerWorkbench.module.css";
 
@@ -300,5 +301,6 @@ export const planRunnerWorkbench: WorkbenchDefinition = {
     title: "批量运行",
     description: "把多张图作为独立 run 顺序执行，验证 WorkbenchPlan",
     canOpen: (instance) => instance.graphs.length > 0,
+    navigation: { design: PlanNavigation },
     View: PlanRunnerWorkbench,
 };

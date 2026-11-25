@@ -1,8 +1,8 @@
 # FlowHarness 架构文档
 
-> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化、M4 文档生命周期与编辑体验、M5 Workbench Framework，以及 M6 Session / Provider 闭环；进度见文末。
+> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化、M4 文档生命周期与编辑体验、M5 Workbench Framework、M6 Session / Provider 闭环，以及 M7.1 工作台导航宿主；进度见文末。
 >
-> 当前阶段：**M6 完成**（M6.1 Provider / Secrets / 审批输入；M6.2 checkpoint v2 / 工具 / Session 生命周期；M6.3 Session 历史序列化与回放）。
+> 当前阶段：**M7 进行中（M7.0 设计定稿；M7.1 工作台导航宿主 / GraphDocument 左栏已完成）**。
 > 术语：FH = FlowHarness。
 
 ## 阅读顺序
@@ -12,7 +12,7 @@
 3. [data-model.md](./data-model.md) — 工作区数据、文档、导入导出
 4. [runtime.md](./runtime.md) — 执行、事件、IPC、安全
 5. [ui.md](./ui.md) — React、画布、工作台框架、设计器
-6. [decisions.md](./decisions.md) — 架构决策记录（ADR-001 ~ ADR-018）
+6. [decisions.md](./decisions.md) — 架构决策记录（ADR-001 ~ ADR-020）
 
 ## 六个已定稿的关键决策
 
@@ -63,6 +63,8 @@
 | M6.1 审批 / 用户输入对话框；跨重启 checkpoint 恢复 | ✅ 已实现（M6.1） |
 | M6.2 Session 生命周期 / SessionStore | ✅ 已实现（M6.2） |
 | M6.3 Session 历史序列化 / 回放视图 / 附件渲染 | ✅ 已实现（M6.3） |
+| M7.0 工作台导航 / Session 树 / RunResult 设计 | ✅ 设计定稿（ADR-019 / ADR-020） |
+| M7.1 工作台导航宿主 / GraphDocument 左栏 / 文档绑定 | ✅ 已实现（M7.1） |
 | M6.2 wireclaw checkpoint v2（graphHash + nodeVersions） | ✅ 已实现（M6.2） |
 | M6.2 工作区文件工具 / 运行前 requirements catalog | ✅ 已实现（M6.2） |
 | SessionService（AttachmentFileManager / SessionStore 装配） | ✅ 已实现（Phase 2 附件；M6.2 会话） |

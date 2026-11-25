@@ -233,11 +233,11 @@ type CanvasDocument = { nodes: CanvasNode[]; edges: CanvasEdge[]; viewport: View
 
 **不做**：不 import wireclaw、不定义 Harness 语义、不持有运行状态。
 
-## 13. Workbench Framework（L4，M5 已实现）
+## 13. Workbench Framework（L4，M5 / M7.1）
 
-**职责**：把「一个工作台」抽象为「实例文档 + 视图 + 运行控制」。
+**职责**：把「一个工作台」抽象为「实例文档 + 导航 + 视图 + 运行控制」。
 
-> 现状：`renderer/src/workbench/` 提供 `WorkbenchDefinition`、`WorkbenchController`、`WorkbenchPlan`、registry 与 `WorkbenchHost`；实例文档持久化到 `documents/workbenches/<id>.json`，通过 `workspace:listWorkbenches` 列出。当前 View 自持 hooks（设计器复用现有 document/run/undo），`WorkbenchController` 由设计器上报给 Shell。工作台类型：`harness-designer` / `graph-table` / `plan-runner`；`plan-runner` 在 renderer 侧按顺序调用 `run:start`，尚未下沉 RuntimeHost。
+> 现状：`renderer/src/workbench/` 提供 `WorkbenchDefinition`、`WorkbenchController`、`WorkbenchPlan`、registry 与 `WorkbenchHost`；实例文档持久化到 `documents/workbenches/<id>.json`，通过 `workspace:listWorkbenches` 列出。M7.1 起 `WorkbenchDefinition.navigation` 提供左栏 PanelContent（design / run 槽位），Shell 不再硬编码 SessionSidebar；当前设计器 design 使用 `DocumentNavigation`，plan-runner 使用 `PlanNavigation`。View 自持 hooks（设计器复用现有 document/run/undo），`WorkbenchController` 由设计器上报给 Shell。工作台类型：`harness-designer` / `graph-table` / `plan-runner`；`plan-runner` 在 renderer 侧按顺序调用 `run:start`，尚未下沉 RuntimeHost。
 
 ```ts
 interface WorkbenchDefinition {
@@ -245,8 +245,10 @@ interface WorkbenchDefinition {
   title: string;
   description: string;
   canOpen(instance: WorkbenchInstanceDocument): boolean;
+  navigation?: Partial<Record<"design" | "run", React.ComponentType<WorkbenchNavigationProps>>>;
   View: React.ComponentType<WorkbenchViewProps>;
 }
+```
 
 interface WorkbenchController {
   readonly status: RunStatus;
@@ -263,6 +265,7 @@ interface WorkbenchController {
 ```
 
 - 当前 View 自持 hooks（设计器复用 `useDesignerDocument` / `useDesignerRun`），通过 Shell 上报 `WorkbenchController`；框架级统一工具栏与命令栈注入留给后续；
+- M7.1 起导航由 `WorkbenchDefinition.navigation` 决定，App 只负责 Panel 宿主与文档数据；`WorkbenchHost.panelLayer` 提供工作台内浮动面板槽；
 - 工作台实例文档见 [data-model.md](./data-model.md)；
 - 一个实例可绑定多个 graph；组合优先用 wireclaw 的 subgraph，只有独立多 run 才用 `WorkbenchPlan`；
 - `plan-runner` 已提供顺序执行多个独立 run 的示例；`bindings` 与 RuntimeHost 编排仍未接线。
@@ -300,3 +303,12 @@ interface WorkbenchController {
 - main 日志：分级、按 run 分文件、脱敏（密钥永不出现）——当前统一用 `console.*`，未分级/未分文件；
 - run 事件日志：`runs/<runId>/events.jsonl` 已落盘、可回放；导出诊断包未实现；
 - renderer 错误边界：**尚未实现**（没有 ErrorBoundary 组件），UI 异常会冒泡到整棵 React 树。
+
+## 18. M7 目标（M7.1 已落地）
+
+- **M7.1 已实现**：`WorkbenchDefinition.navigation`（design 模式）；`NavigationPanel` / `DocumentNavigation` / `PlanNavigation`；App 按工作台渲染左栏；移除全局 SessionSidebar 与顶层 sessions 视图；`WorkbenchHost` 提供 `panelLayer` 槽；文档选择同步 primaryGraph；删除 graph 前检查工作台引用；`--fh-panel-alpha` 0.78。
+- **Workbench Framework**：`WorkbenchDefinition` 提供 `navigation`（design / run 两套 PanelContent）与 `mode` / `RunView`；Shell 渲染左栏，不再硬编码 SessionSidebar。
+- **SessionService / SessionStore**：Session 改为递归文件夹树；`SessionRecord.kind` 区分 conversation / run；草稿目录；RunResult 写入。
+- **RuntimeHost / RunStore**：采集 wireclaw `RunResult`，写 `runs/<runId>/result.json`，run 结束向 renderer 提供结果。
+- **Shell**：左栏改为 Panel 宿主；移除顶层 sessions 视图；运行结果 / 会话历史改为浮动面板；`--fh-panel-alpha` 0.78。
+- **wireclaw**：`RunResult` / `RunResultEntry` 类型、节点采集、序列化与测试（M7.4）。

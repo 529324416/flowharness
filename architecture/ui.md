@@ -26,7 +26,7 @@ renderer/src/
   App.tsx                  # shell 组合、视图切换、自检上报
   styles/                  # tokens.css（唯一视觉事实源）、global.css
   ui/                      # 组件原语（Button/Menu/Dialog/Tabs/...）
-  shell/                   # TitleBar / DocumentMenu / WorkbenchMenu / Ribbon / SessionSidebar / StatusBar
+  shell/                   # TitleBar / WorkbenchMenu / Ribbon / navigation / StatusBar / panels
   workbench/               # WorkbenchDefinition / Controller / registry / WorkbenchHost
   workbenches/             # harness-designer / graph-table 工作台实现
   views/                   # Designer / SessionHistory / Diagnostics / Styleguide（HeroView 存在但未接入）
@@ -280,8 +280,8 @@ CanvasCommand → GraphDocument
 - 密钥通过 `secrets:set / delete` 进入 main，renderer 只能看到 `hasKey`；`providers:list` 返回可用状态，`providers:test` 拉取模型目录；
 - run 期间：审批走 `shell/InteractionDialogs.tsx` 的 ApprovalDialog，用户输入走 UserInputDialog；main 发 `approval` / `input` topic，renderer 回 `approval:respond` / `input:respond`；
 - Diagnostics 提供「运行恢复」面板：列出 paused / interrupted run，使用 `run:resume-interrupted` 从 checkpoint + graph 快照恢复；
-- Session Sidebar 读取真实 SessionStore；摘要与状态来自 `session:list`；
-- 「会话历史」视图（`views/SessionHistoryView.tsx`）通过 `session:open` 读取记录，用 wireclaw `SessionSerializer` 校验 / 迁移历史，回放用户 / 助手 / 系统 / 工具消息、思考、工具调用与结果；附件元信息走 `blob:stat`，字节走 `fh-asset://`；入口为侧栏历史按钮、Ribbon 与 Ctrl+4。
+- 工作台左栏由 `WorkbenchDefinition.navigation` 提供：`harness-designer` 设计模式显示 GraphDocument 列表（`shell/navigation/DocumentNavigation`），`plan-runner` 显示 Plan 步骤；
+- 会话导航与历史面板在 M7.3 迁移；当前 `SessionSidebar` / `SessionHistoryView` 文件保留但未挂载，M6.3 的 `SessionSerializer` 回放逻辑待迁入面板。
 
 ## 7. 其他工作台
 
@@ -305,8 +305,8 @@ CanvasCommand → GraphDocument
 | --- | --- |
 | tokens | `styles/tokens.css`：表面 / 文本 / 边框 / 主色（去饱和青绿）/ 状态 / 画布 / 阴影 / 圆角 / 间距 / 字体 / 动效 / 尺寸 / 层级；深色默认、亮色覆盖 |
 | 密度 | 非画布文字 125% 基准（16.25px 正文）、控件 32px（sm 28）、节点 220px、4px 间距基线；图标同步放大 |
-| 外壳 | TitleBar 40（不透明，无底边框）/ Ribbon 52 / Session Sidebar 200–360（默认 260，可收起/拖宽；token 兜底 280）/ StatusBar 26（全宽不透明 Chrome 层，仅底部圆角）；Session 与 Canvas 面板化（各 1px 外框 + 6px 圆角，间隙 4px），中间 Body 统一 95% 半透；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
-| 会话入口 | Session Sidebar 读取当前工作区 SessionStore（默认会话 / 新建 / 切换 / 历史入口）；「会话历史」视图回放消息与附件 |
+| 外壳 | TitleBar 40（不透明，无底边框）/ Ribbon 52 / 工作台导航 Panel 200–360（默认 260，可收起/拖宽；token 兜底 280）/ StatusBar 26（全宽不透明 Chrome 层，仅底部圆角）；导航与 Canvas 面板化（各 1px 外框 + 6px 圆角，间隙 4px），中间 Body 统一 95% 半透；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
+| 会话入口 | 设计器左栏 = GraphDocument 列表（`DocumentNavigation`）；Session 树与历史面板在 M7.3 迁移，当前不挂载 |
 | 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Field、Select、Checkbox、NumberField、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
 | 画布视觉 | 商务扁平节点：6px 圆角、纯色不透明底、HeaderBar 30 + Body 两层、无 Footer；描边通过 `--fh-canvas-zoom` 反向缩放，屏幕恒为 1px；选中仅换 accent 边框；网格线 24px/低亮度，拖拽吸附同为 24px；边 1.4px 贝塞尔，活跃边用主色流动虚线、失败 danger 虚线；缩放工具栏已移除；节点宽、Header、端口、边宽、网格、小地图与缩放范围全部来自 `canvas/metrics.ts`，并通过 CSS 变量下发 |
 | 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张（跟随全局主题，页面内无主题切换） |
@@ -321,7 +321,7 @@ smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通
 | `FloatingPanel` | 拖动、右/下/右下缩放、z-index 聚焦、折叠、关闭；位置钳制在画布容器 |
 | `PanelLayer` | 铺在 Main 之上；属性面板默认右上 280×432、运行日志左下 448×224（`PANEL_DEFAULTS`，最小宽度 280） |
 | 状态 | `useFloatingPanels` 管理 open / collapsed / x / y / size / z；首版不做 docking |
-| 材质 | 面板默认 95% 不透明（`--fh-panel-alpha`），底色 `--fh-panel-bg` / 头部 `--fh-panel-header-bg`，比节点更深；后续设置 UI 只调整 alpha；不使用 backdrop-filter |
+| 材质 | 面板默认 78% 不透明（`--fh-panel-alpha`），底色 `--fh-panel-bg` / 头部 `--fh-panel-header-bg`，比节点更深；后续设置 UI 只调整 alpha；不使用 backdrop-filter |
 | 接入 | 属性检查（节点信息 + configSchema 表单，JSON 页签兜底）、运行日志（`RunLogContent`，含问题 Tab：校验 / 失效连线 / 运行错误，点击定位节点；Footer runId） |
 | 开关 | TitleBar 图标、命令中心、`Ctrl J`；条件为**当前视图是设计器且已打开工作区**（与会话选择无关） |
 | 窗口状态 | `WindowStateStore` 写入 `userData/window-state.json`；校验显示器可见性、尺寸/位置钳制、400ms 防抖 + close 保存 |
@@ -335,7 +335,7 @@ Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布�
 | 默认窗口 | `transparent: true` + `frame: false`；TitleBar/StatusBar 不透明，中间 Body 统一 95% 半透；深色基底为中性石墨黑；内容区 12px 圆角 |
 | 透明 fallback | `FLOWHARNESS_WINDOW_MODE=frameless` 回到不透明无边框窗口 |
 | 桌面 blur | **不可用**：CSS `backdrop-filter` 在透明窗口中不采样桌面；当前 Electron 45 + Win11 26H2 的 Acrylic/Mica 仍不透明（ADR-009） |
-| 面板玻璃 | PanelFrame 默认 95% 表面 alpha（`--fh-panel-alpha`）；不使用 `backdrop-filter`（透明窗口中会压成黑块） |
+| 面板玻璃 | PanelFrame 默认 78% 表面 alpha（`--fh-panel-alpha`）；不使用 `backdrop-filter`（透明窗口中会压成黑块） |
 | 节点 | 任何窗口模式下都使用不透明 `--fh-node-bg`，不随窗口材质变透明 |
 | 截图 | `capture:ui` 默认以 opaque frameless 抓 renderer；真透明截图需要 GPU + 屏幕抓取 |
 | 窗口状态 | bounds 持久化见 `WindowStateStore`；透明窗口没有原生阴影，使用 1px inset 边框 |
@@ -349,3 +349,18 @@ Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布�
 | designer adapter | 序列化往返测试（GraphDocument → Canvas → GraphDocument 幂等） | 🚧 有 adapter / commands / layout 单测，无往返幂等测试 |
 | 运行链路 | main 侧集成测试（fake provider + 最小图） | ✅ `runtime-host.test.ts`（无 Provider） |
 | 端到端 | Electron smoke（现有 `pnpm smoke` 扩展） | ✅ |
+
+## 11. M7 目标：工作台导航与运行面板（M7.1 已落地导航宿主）
+
+- **M7.1 已实现**：`NavigationPanel` / `DocumentNavigation` / `PlanNavigation`；`WorkbenchDefinition.navigation`（design）；`WorkbenchHost.panelLayer`；App 按工作台渲染左栏；移除全局 SessionSidebar、顶层 `sessions` 视图与 `Ctrl+4`；文档选择同步 primaryGraph；删除 graph 前检查引用；`--fh-panel-alpha` 0.78。
+- **左栏 = Panel 宿主**：Shell 只提供容器与尺寸；PanelContent 由 `activeWorkbench.type` + `mode` 提供，不再硬编码全局 SessionSidebar。
+- **设计模式**：`harness-designer` 左栏 = GraphDocument 列表（新建 / 最近 / 重命名 / 复制 / 删除 / 导入导出），选中同步 `WorkbenchInstance.graphs` 的 primaryGraph。
+- **运行模式**：同一实例切到 `run`，左栏 = Session 树（递归文件夹 + 草稿目录）；画布进入带动画的运行页。
+- **工作台定义**：`WorkbenchDefinition` 增加 `navigation`（design / run）与 `RunView`；`WorkbenchHost` 渲染导航与对应 View。工作台运行页是“固定工作流 + 动画”的载体，不再有独立全局运行页面。
+- **面板**：
+  - 运行结果面板：输出 / 事件 / 问题，渲染 `node:end` / `run:end` outputs、`node:stream`、附件；
+  - 会话历史面板：由 `SessionHistoryView` 迁移而来，按 `kind` 渲染 conversation / run；
+  - 现有属性检查、运行日志保留。
+- **移除**：顶层 `sessions` 视图与 `Ctrl+4`；`SessionSidebar` 不再作为全局左栏。
+- **材质**：浮动面板 `--fh-panel-alpha` 0.78；TitleBar / StatusBar 等固定 chrome 不变。
+- **数据**：Session 树、`SessionRecord.kind`、RunResult 契约见 [data-model.md](./data-model.md) §12。

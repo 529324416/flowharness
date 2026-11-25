@@ -39,23 +39,23 @@
 │    │ Session         │ Canvas                                 │
 │Rib │ Sidebar 260     │ 各自 1px 外框 + 6px 圆角               │
 │52  │ 独立面板         │ 面板化；与 Session 间隙 4px            │
-│    │ 搜索 / 会话     │ 可滚动 / 自适应                        │
+│    │ 搜索 / 图文档   │ 可滚动 / 自适应                        │
 ├────┴─────────────────┴───────────────────────────────────────┤
 │ StatusBar 26：全宽不透明 Chrome 层，仅底部圆角                  │
 └──────────────────────────────────────────────────────────────┘
-     ↑ 中间 Body（Session + Canvas）统一 95% 半透
+     ↑ 中间 Body（导航 + Canvas）统一 95% 半透
 ```
 
 规则：
 
 - TitleBar 是拖拽区（`-webkit-app-region: drag`），按钮/输入自动 `no-drag`；双击空白处切换最大化；
-- Ribbon 是工作台切换栏：会话栏开关 + 设计器 / 诊断 / 样式指南，底部设置；
-- **只有一个 Session Sidebar**（M6.2 起读取工作区 SessionStore，默认会话 / 新建 / 切换）；可收起、可拖宽，宽度记入 localStorage；
-- Session 与 Canvas 各自带 1px 外框和 6px 圆角，用 4px 间隙分隔，不再用共享分隔线“拼”在一起；
-- TitleBar 与 StatusBar 使用不透明表面，中间 Body 统一 95% 半透；Session 与 Canvas 处于同一层，最终不透明度一致；
-- 设计器按工作区加载：无工作区时显示设计器空状态（「新建工作区」），有工作区时直接进入画布；Session 侧栏目前只是 mock 列表，选中会话不会切换 canvas 文档；
+- Ribbon 是工作台切换栏：导航栏开关 + 设计器 / 诊断 / 样式指南，底部设置；
+- **只有一个工作台导航 Panel**（M7.1 起由 `WorkbenchDefinition.navigation` 提供内容；设计器为 GraphDocument 列表，会话树在 M7.3 迁移）；可收起、可拖宽，宽度记入 localStorage；
+- 导航与 Canvas 各自带 1px 外框和 6px 圆角，用 4px 间隙分隔，不再用共享分隔线“拼”在一起；
+- TitleBar 与 StatusBar 使用不透明表面，中间 Body 统一 95% 半透；导航与 Canvas 处于同一层，最终不透明度一致；
+- 设计器按工作区加载：无工作区时显示设计器空状态（「新建工作区」），有工作区时直接进入画布；左栏切换 GraphDocument 会同步工作台主图绑定；
 - Inspector 与运行日志已是内部浮动 Panel，默认不占固定区域；
-- TitleBar 不画底部边框：下方 Session/Canvas 已有各自 panel 边框，表面色差足以完成分割，再加一条线会显得拥挤；
+- TitleBar 不画底部边框：下方导航/Canvas 已有各自 panel 边框，表面色差足以完成分割，再加一条线会显得拥挤；
 - 状态栏只读，不放主操作；Footer 与 TitleBar 同级，是全宽 Chrome 层（不内缩、不属于 Body），只保留底部 `--fh-window-radius` 圆角；
 
 ## 2.1 内部浮动 Panel
@@ -63,10 +63,10 @@
 - `PanelFrame`：Header / Body / 可选 Footer；Header 是拖拽手柄，右侧固定折叠与关闭；
 - `FloatingPanel`：拖动、右/下/右下缩放、z-index 聚焦、折叠、关闭；位置钳制在画布容器内；
 - `PanelLayer`：铺在 Main 之上，默认属性面板右上（280×432）、运行日志左下（448×224）；
-- 面板背景默认 95% 不透明（`--fh-panel-alpha`），底色用比节点更深的 `--fh-panel-bg`、头部 `--fh-panel-header-bg`，后续设置项只改 alpha；
+- 面板背景默认 78% 不透明（`--fh-panel-alpha`），底色用比节点更深的 `--fh-panel-bg`、头部 `--fh-panel-header-bg`，后续设置项只改 alpha；
 - 运行日志面板：「日志 / 问题」两个页签；问题页签汇总校验、失效连线与运行错误，点击条目选中并聚焦对应节点；
 - 开关：TitleBar 图标、命令中心、`Ctrl J`；首版不做 docking；
-- PanelLayer 只在设计器视图渲染（设计器内始终挂载）；面板开关要求「设计器 + 已打开工作区」，与会话选择无关；Diagnostics / Styleguide 不渲染 PanelLayer。
+- PanelLayer 由 `WorkbenchHost` 的 `panelLayer` 槽渲染（当前仅设计器传入）；面板开关要求「设计器 + 已打开工作区」，与会话选择无关；Diagnostics / Styleguide 不渲染 PanelLayer。
 
 ## 2.2 工作台菜单
 

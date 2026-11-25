@@ -12,7 +12,7 @@
 
 - `GraphDocument` 由 wireclaw 序列化/反序列化，FH **不修改其字段语义**；
 - 工作台实例只**引用** graph（`graphId`），不内联 graph 内容；
-- 删除引用的检查（graph / 实例）**尚未实现**：M4 已支持多图与删除文档，M5 也有实例文档，但 `deleteDocument` 仍不检查目标 graph 是否被工作台实例引用。
+- 删除引用的检查：M7.1 起 `deleteDocument` 会扫描 `documents/workbenches`，仍被实例引用的 graph 返回 `E_CONFLICT`；删除工作台实例本身不反向检查。
 
 ## 2. 工作区目录
 
@@ -223,3 +223,113 @@ objects/**             # 默认包含；ExportOptions.includeObjects=false 可�
 - **单写者**：Electron 单实例锁**未启用**（受限环境无法创建 Chromium 单例锁）；工作区 `lock` 文件写 `pid / startedAt / appVersion`，陈旧判定只看 pid 是否存活，没有超时逻辑；
 - **一致性**：先写内容文件，再写索引；索引损坏时按目录重建；
 - **自动保存**：renderer 侧 debounce 400ms，卸载/切换工作区时 flush；窗口直接关闭时最后 <400ms 的编辑仍可能丢失（无 main-renderer 退出握手）。
+
+## 12. M7 目标：Session 树与 RunResult（设计定稿，未实现）
+
+> M7.0 只定稿契约，代码在 M7.2 / M7.4 落地。
+
+### 12.1 Session 目录树
+
+```text
+sessions/
+  <folderId>/
+    folder.json            # { id, title, createdAt, updatedAt }
+    ...                    # 可继续嵌套 folder
+    <sessionId>/
+      session.json         # SessionRecord v2
+```
+
+- folder id（`fld_...`）作目录名，用户标题只放 `folder.json`，避免标题进路径；
+- session id（`ses_...`）作目录名；根目录也允许直接放 session；
+- 草稿目录：`manifest.settings.draftSessionFolderId`；
+- 旧 `sessions/<id>/session.json` 迁移到根。
+
+### 12.2 SessionRecord v2
+
+```json
+{
+  "schemaVersion": 2,
+  "id": "ses_...",
+  "kind": "conversation",
+  "title": "主会话",
+  "folderId": "fld_...",
+  "status": "completed",
+  "createdAt": "2026-11-26T00:00:00.000Z",
+  "updatedAt": "2026-11-26T00:00:00.000Z",
+  "messageCount": 4,
+  "entryCount": 0,
+  "history": { "version": 2, "id": "ses_...", "messages": [], "isArchived": false },
+  "attachments": []
+}
+```
+
+- `kind: "conversation"`：`history` 为 wireclaw `SessionData`，`messageCount` 有效；
+- `kind: "run"`：`history` 为 wireclaw `RunResult`，`entryCount` 有效；
+- `attachments` 从两种 history 的附件引用派生；
+- v1 记录迁移为 `kind: "conversation"`。
+
+### 12.3 RunResult v1（wireclaw）
+
+```ts
+type RunResult = {
+  version: 1;
+  runId: string;
+  graphId: string;
+  status: GraphRunStatus;
+  startedAt: number;
+  endedAt: number;
+  input?: GraphRunInput;
+  outputs: NodeOutputValues;
+  entries: RunResultEntry[];
+  error?: string;
+};
+
+type RunResultEntry =
+  | {
+      kind: "model-call";
+      id: string;
+      nodeId: string;
+      nodeType: string;
+      graphPath?: string[];
+      providerId: string;
+      modelId: string;
+      mode: "chat" | "generate";
+      status: "completed" | "failed";
+      startedAt: number;
+      endedAt: number;
+      input: { prompt: string; system?: string; attachments?: AttachmentRef[] };
+      output?: {
+        text: string;
+        thinking?: string;
+        attachments?: AttachmentRef[];
+        usage?: ChatUsage;
+        stopReason?: string;
+        failureReason?: string;
+      };
+      error?: string;
+    }
+  | {
+      kind: "session";
+      id: string;
+      nodeId: string;
+      nodeType: string;
+      graphPath?: string[];
+      providerId: string;
+      modelId: string;
+      status: "completed" | "failed";
+      startedAt: number;
+      endedAt: number;
+      session: SessionData;
+      error?: string;
+    };
+```
+
+- RunResult 归 wireclaw；`GraphRunResult` 增加 `graphId` / `entries`，由 `createRunResult(result, input?)` 生成版本化文档；FH 只负责持久化、展示与「保存为 session」；
+- `runs/<runId>/result.json` 与 meta / graph / events / checkpoint 同级；
+- partial RunResult 暂不写 checkpoint。
+
+### 12.4 文档绑定
+
+- `WorkbenchInstance.graphs` 是权威绑定；左栏切换文档时同步 primaryGraph；
+- 删除 graph 前检查实例引用；
+- 运行模式的 Session 树是 workspace 级，不按实例隔离。

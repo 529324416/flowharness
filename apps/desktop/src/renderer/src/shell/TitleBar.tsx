@@ -34,11 +34,11 @@ import type { ViewId } from "./views";
 import styles from "./TitleBar.module.css";
 
 export type TitleBarProps = {
-    activeSessionTitle: string | null;
+    activeTitle: string | null;
     theme: ResolvedTheme;
     sidebarOpen: boolean;
     busy: boolean;
-    onNewSession: () => void;
+    onCreateDocument: () => void;
     onCreateWorkspace: () => void;
     onSelectView: (view: ViewId) => void;
     onToggleSidebar: () => void;
@@ -50,18 +50,16 @@ export type TitleBarProps = {
     onToggleRunLog: () => void;
     onToggleInspector: () => void;
     runControls?: RunControls | null;
-    /** 文档切换器（由 App 注入，避免 TitleBar 感知文档状态）。 */
-    documentMenu?: ReactNode;
     /** 工作台切换器（由 App 注入）。 */
     workbenchMenu?: ReactNode;
 };
 
 export function TitleBar({
-    activeSessionTitle,
+    activeTitle,
     theme,
     sidebarOpen,
     busy,
-    onNewSession,
+    onCreateDocument,
     onCreateWorkspace,
     onSelectView,
     onToggleSidebar,
@@ -73,7 +71,6 @@ export function TitleBar({
     onToggleRunLog,
     onToggleInspector,
     runControls,
-    documentMenu,
     workbenchMenu,
 }: TitleBarProps): ReactElement {
     const windowMode = window.flowharness.windowMode;
@@ -114,9 +111,9 @@ export function TitleBar({
                         </MenuTrigger>
                         <MenuContent align="start">
                             <MenuLabel>文件</MenuLabel>
-                            <MenuItem onSelect={onNewSession}>
+                            <MenuItem onSelect={onCreateDocument} disabled={busy}>
                                 <Plus size={16} aria-hidden="true" />
-                                新建会话
+                                新建图文档
                                 <MenuShortcut>Ctrl N</MenuShortcut>
                             </MenuItem>
                             <MenuItem onSelect={onCreateWorkspace} disabled={busy}>
@@ -140,10 +137,6 @@ export function TitleBar({
                                 设计器
                                 <MenuShortcut>Ctrl 1</MenuShortcut>
                             </MenuItem>
-                            <MenuItem onSelect={() => onSelectView("sessions")}>
-                                会话历史
-                                <MenuShortcut>Ctrl 4</MenuShortcut>
-                            </MenuItem>
                             <MenuItem onSelect={() => onSelectView("diagnostics")}>
                                 诊断
                                 <MenuShortcut>Ctrl 2</MenuShortcut>
@@ -154,7 +147,7 @@ export function TitleBar({
                             </MenuItem>
                             <MenuSeparator />
                             <MenuItem onSelect={onToggleSidebar}>
-                                切换会话栏
+                                切换导航栏
                                 <MenuShortcut>Ctrl B</MenuShortcut>
                             </MenuItem>
                             <MenuItem onSelect={onToggleTheme}>
@@ -175,7 +168,6 @@ export function TitleBar({
                     </Menu>
 
                     {workbenchMenu}
-                    {documentMenu}
                 </nav>
             </div>
 
@@ -185,31 +177,27 @@ export function TitleBar({
                         <button type="button" className={styles.command}>
                             <Search size={16} aria-hidden="true" />
                             <span className={styles.commandText}>
-                                {activeSessionTitle ?? "搜索或跳转…"}
+                                {activeTitle ?? "搜索或跳转…"}
                             </span>
                             <Kbd>Ctrl K</Kbd>
                         </button>
                     </MenuTrigger>
                     <MenuContent align="center" className={styles.commandMenu}>
                         <MenuLabel>命令</MenuLabel>
-                        <MenuItem onSelect={onNewSession}>
+                        <MenuItem onSelect={onCreateDocument} disabled={busy}>
                             <Plus size={16} aria-hidden="true" />
-                            新建会话
+                            新建图文档
                             <MenuShortcut>Ctrl N</MenuShortcut>
                         </MenuItem>
                         <MenuItem onSelect={onToggleSidebar}>
                             <PanelLeft size={16} aria-hidden="true" />
-                            切换会话栏
+                            切换导航栏
                             <MenuShortcut>Ctrl B</MenuShortcut>
                         </MenuItem>
                         <MenuSeparator />
                         <MenuItem onSelect={() => onSelectView("designer")}>
                             设计器
                             <MenuShortcut>Ctrl 1</MenuShortcut>
-                        </MenuItem>
-                        <MenuItem onSelect={() => onSelectView("sessions")}>
-                            会话历史
-                            <MenuShortcut>Ctrl 4</MenuShortcut>
                         </MenuItem>
                         <MenuItem onSelect={() => onSelectView("diagnostics")}>
                             诊断
@@ -292,9 +280,9 @@ export function TitleBar({
                     </IconButton>
                 </Tooltip>
 
-                <Tooltip label={sidebarOpen ? "收起会话栏" : "展开会话栏"}>
+                <Tooltip label={sidebarOpen ? "收起导航栏" : "展开导航栏"}>
                     <IconButton
-                        label="切换会话栏"
+                        label="切换导航栏"
                         size="sm"
                         aria-pressed={sidebarOpen}
                         onClick={onToggleSidebar}

@@ -399,3 +399,82 @@ M2 需要按节点类型生成参数表单、给新节点预填默认 config、�
 - 引入 `@radix-ui/react-select`：当前只有单选枚举，DropdownMenu 已覆盖键盘与关闭行为，新增依赖收益不足；
 - 仅用 `accent-color` 美化原生 checkbox：跨平台外观不可控，无法与 FH 表面/描边体系一致。
 
+---
+
+## ADR-019：工作台作用域导航与 Session 树
+
+**背景**
+
+M6.3 之后，左侧栏仍是全局 Session 列表，而设计器画布承载的是 Workspace 内的 `GraphDocument`。Session 是运行 / 对话上下文，不是工作区文档；M6.2 把 Session 接到真实存储后，这个层级错位更明显：文档与工作台切换藏在 TitleBar，左栏却展示与当前画布无直接关系的会话。M6.3 的会话历史还以顶层视图存在，进一步把「运行结果」和「工作区文档」混在一起。
+
+**决定**
+
+- 数据归属不变：`GraphDocument` / `Session` / `Blob` / `Run` 归 **Workspace**；`WorkbenchInstance` 只保存 `type / graphs / plan / parameters / layout` 等展示与绑定状态，是「视图 + 绑定 + 已保存状态」，不是数据所有者。
+- 左侧栏改为 Shell 提供的 **Panel 宿主**；PanelContent 由当前 `(workbench type, mode)` 提供：
+  - `harness-designer` 设计模式：GraphDocument 列表；
+  - `harness-designer` 运行模式：Session 树；
+  - 其他工作台各自提供导航（Plan 步骤、未来 Agent 会话等）。
+- 移除全局 SessionSidebar、顶层 `sessions` 视图与 `Ctrl+4`；运行结果与会话历史改为 Canvas 浮动面板。
+- Session 采用 Workspace 级**递归文件夹树**：
+  - `sessions/<folderId>/.../<sessionId>/session.json` + 每层 `folder.json`；
+  - folder id 作目录名，用户标题只放元数据，避免标题进路径；
+  - 旧 `sessions/<id>` 迁移到根；
+  - 草稿目录由 `manifest.settings.draftSessionFolderId` 配置。
+- `WorkbenchInstance.graphs` 是权威绑定：切换文档时同步 primaryGraph；删除 graph 前检查被实例引用的关系。
+- 工作台运行阶段是「固定工作流 + 动画」的运行页；设计 → 运行是同一实例的 `design` / `run` 模式切换，不是新的全局页面。
+- 浮动面板透明度 `--fh-panel-alpha` 从 0.95 调整为 0.78；固定 TitleBar / StatusBar 不变。
+
+**后果**
+
+- Shell 增加导航宿主；`WorkbenchDefinition` 增加 navigation / mode 契约；`PanelLayer` 提升到工作台壳层。
+- 现有 SessionSidebar / DocumentMenu / SessionHistoryView 的职责重新分配；DocumentMenu 动作迁移或复用。
+- 需要目录 CRUD、移动 / 重命名、路径安全、旧数据迁移与草稿目录设置。
+- 导航语义与工作台类型绑定，后续新增工作台必须提供 PanelContent。
+
+**否决**
+
+- 保留全局 Session 侧栏：与画布内容层级不一致，且 Session 尚未成为真实写入方。
+- 每个视图各自维护左栏：会出现多套导航，选中状态与刷新难以统一。
+- 独立全局运行页面：工作台本身就是运行载体，独立页面会割裂画布与结果。
+- 先用逻辑 manifest 树代替真实目录：文件树更符合 workspace 可调试 / 可迁移原则；真实目录的移动 / 重命名成本由 folder id 与元数据承担。
+
+---
+
+## ADR-020：RunResult 作为 wireclaw 的运行结果聚合
+
+**背景**
+
+`GraphRunResult` 目前有 run 状态、输出与节点记录（`NodeRunRecord`），但模型调用的 provider / model / usage / thinking，以及 Agent 会话的完整 `SessionData` 都只存在于节点局部变量里。FH 需要把一次运行的结果持久化、展示，并能「保存为会话」；仅靠 `events.jsonl` 或 `NodeRunRecord.outputs` 无法还原这些数据。RunResult 属于执行层，应由 wireclaw 定义，FH 不复制引擎模型。
+
+**决定**
+
+- wireclaw 新增版本化、JSON-safe 的 `RunResult` v1：
+  - 运行元信息：`runId / graphId / status / startedAt / endedAt / input / outputs / error?`；
+  - `entries: RunResultEntry[]`，按节点执行顺序聚合。
+- `RunResultEntry` 使用判别联合：
+  - `kind: "model-call"`：`nodeId / nodeType / graphPath? / providerId / modelId / mode("chat" | "generate")`、输入 `prompt / system / attachments`、输出 `text / thinking / attachments / usage / stopReason / failureReason`、状态与耗时；
+  - `kind: "session"`：`nodeId / nodeType / graphPath? / providerId / modelId`、完整 `SessionData`、状态与耗时；
+  - 错误统一为字符串，不跨边界传 `Error` / 类实例。
+- 采集方式：节点在 `execute` 内把结果写到 NodeContext 的收集器，或由 runner 在节点完成后调用 `collectRunResults()`；`Subgraph / Loop / ForEach` 的 entries 带 `graphPath` 向上冒泡。
+- 暂停 / 中断的 partial entries 先不写入 checkpoint（v1）；RunStore 仍保留事件与节点记录。若需要跨重启保留 partial RunResult，再升 checkpoint v3。
+- `GraphRunResult` 增加 `graphId` 与 `entries`；wireclaw 提供 `createRunResult(result, input?)` 生成版本化 `RunResult` 文档，FH 直接持久化该文档。
+- FH 侧：
+  - `runs/<runId>/result.json` 持久化 RunResult；
+  - `SessionRecord.schemaVersion: 2`，新增 `kind: "conversation" | "run"`；
+  - `conversation` 的 `history` 是 wireclaw `SessionData`；`run` 的 `history` 是 `RunResult`；
+  - run session 默认保存到草稿文件夹；`attachments` 从 RunResult 的附件引用派生；
+  - `messageCount` 只用于 conversation；run session 用 `entryCount`，不伪造消息。
+- 不在 FH 侧用 `node:end` 事件拼 RunResult；不把 RunResult 改写成 wireclaw `SessionData`。
+
+**后果**
+
+- wireclaw 增加 RunResult 类型、序列化 / 校验、节点采集与测试；`GraphRunResult` 形状扩展。
+- FH contracts 的 `SessionRecord` 升到 schemaVersion 2，SessionStore 按 `kind` 校验 / 回放，RunStore 增加 `result.json`，IPC / UI 需要区分两种 session。
+- RunResult 可能较大（Agent 会话完整 history）；需要体积上限，后续再评估按 entry 引用 / 裁剪。
+
+**否决**
+
+- 复用 `NodeRunRecord.outputs`：丢失 provider / model / usage / thinking / session history。
+- FH 从事件流重建：session 数据（工具调用、system prompt、usage）不在事件里。
+- 把 run 结果伪造成 `SessionData` 消息：消息语义不成立，回放与后续 Agent 会话会混淆。
+

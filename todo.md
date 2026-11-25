@@ -1,9 +1,90 @@
 # TODO
 
-> 当前主线：**M6 Session / Provider 闭环**（M5 Workbench Framework 已完成）。
-> 原则：垂直切片；UI 外壳冻结，只改组件；wireclaw 契约先行、submodule 联合开发。
+> 当前主线：**M7 工作台导航、Session 树与运行页**（M6 已完成）。
+> 原则：垂直切片；契约先行；工作台即视图；信息架构调整优先于新功能。
 
-## 当前里程碑（M1 已完成）
+## 设计约束（M7 起）
+
+- **工作台 = 视图 + 绑定 + 导航**：GraphDocument / Session / Blob / Run 都归 workspace；工作台实例只保存 type、graphs、plan、parameters、layout 等展示与绑定状态。
+- **导航跟随工作台 / 阶段**：左侧栏是 Panel 宿主，PanelContent 由当前 `(workbench type, mode)` 提供——设计阶段是 GraphDocument 列表，运行阶段是 Session 树；没有全局 Session 侧栏。
+- **Session 是 workspace 级递归文件夹树**：目录用稳定 id，标题放元数据；草稿目录由工作区配置，用于承接临时运行结果。
+- **运行结果可持久化为 Session**：临时 run 结果可「保存到会话」，默认落入草稿目录；run session 与 conversation session 用 `kind` 区分，不伪造 wireclaw 消息。
+- **运行结果与会话历史是 Canvas 浮动面板**：不再有独立的会话 / 运行主视图；面板透明度 `--fh-panel-alpha` = 0.78。
+- **工作台运行阶段是带动画的固定工作流运行页**：设计 → 运行是同一工作台实例的模式切换（推荐），不是新的全局页面。
+
+## 当前里程碑：M7 — 工作台导航与 Session 树
+
+> 目标：先把壳层信息架构与 Session 数据模型重构到位，再回到模板 / 发布。
+> 本阶段会改变左栏语义、Session 存储结构与工作台契约；每轮结束保持可运行。
+
+### M7.0 设计定稿（ADR + 契约）
+
+- [x] ADR-019：工作台作用域导航（工作台 = 视图 + 绑定 + 导航；数据归 workspace）
+- [x] ADR-020：RunResult 归 wireclaw，聚合 model-call / session entries
+- [x] 确认运行阶段形态：同一 `WorkbenchInstance` 的 `design` / `run` 模式（不是独立全局页面）
+- [x] 确认 Session 树存储：真实目录 `sessions/<folderId>/<sessionId>/session.json` + `folder.json`；folder id 作目录名
+- [x] 确认 run session 模型：`SessionRecord.kind: "conversation" | "run"`，run session 保存 wireclaw `RunResult`
+- [x] 确认文档绑定语义：`WorkbenchInstance.graphs` 为权威绑定；切换文档同步 primaryGraph；删除 graph 前检查引用
+- [x] 面板材质：`--fh-panel-alpha` 0.95 → 0.78
+- [x] 同步 architecture/ui.md、data-model.md、modules.md、decisions.md
+
+### M7.1 壳层导航宿主
+
+- [x] `WorkbenchDefinition` 增加 `navigation`（design / run 槽位）与 `WorkbenchNavigationProps`；run 导航与 RunView 在 M7.5
+- [x] `WorkbenchHost` / `App` 按当前工作台渲染左栏；移除全局 `SessionSidebar` 作为左栏
+- [x] 抽出 `DocumentNavigation`（即 DesignerNavigation）：GraphDocument 列表（搜索 / 新建 / 最近 / 重命名 / 复制 / 删除 / 导入导出，复用 DocumentMenu 动作）
+- [x] 移除顶层 `sessions` 视图与 Ctrl+4；会话历史面板归 M7.3
+- [x] `PanelLayer` 通过 `WorkbenchHost.panelLayer` 槽提升到工作台壳层，供运行页与导航复用
+- [x] 浮动面板 `--fh-panel-alpha` 改为 0.78，更新 design/tokens 文档
+- [x] 文档选择同步 `WorkbenchInstance.graphs` 的 primaryGraph；删除 graph 前检查工作台引用
+- [x] 测试：导航解析（type + mode）、文档绑定、删除引用（`E_CONFLICT`）
+
+### M7.2 Session 树存储（main）
+
+- [ ] contracts：`SessionFolder` / `SessionTreeNode` / folder CRUD DTO；`SessionSummary` 增加 `folderId` / `kind`
+- [ ] `SessionStore` 支持递归文件夹（创建 / 重命名 / 移动 / 删除）、session 移动与路径安全
+- [ ] 旧 `sessions/<id>` 迁移到根；默认草稿文件夹创建；`manifest.settings.draftSessionFolderId`
+- [ ] `SessionService` / IPC / preload / bridge：list tree、create folder、move、rename、delete
+- [ ] 删除策略：文件夹递归删除、session 删除、Blob refs 清理（GC 未接线前先记录）
+- [ ] 测试：递归创建、重命名 / 移动、路径穿越、旧数据迁移、draft 配置、非法 id
+
+### M7.3 Session 树导航与回放面板
+
+- [ ] `SessionNavigation`：递归树、展开 / 折叠、搜索、新建文件夹 / 会话、重命名、移动、删除、草稿目录标识
+- [ ] `SessionHistoryView` → `SessionHistoryPanel`，挂 `PanelLayer`；入口为树节点 / 运行结果面板
+- [ ] 运行阶段左栏 = Session 树；设计阶段左栏 = GraphDocument
+- [ ] 空态 / 错误态 / 附件渲染复用 M6.3
+- [ ] 测试：树操作投影、选中联动；视觉基线：设计文档树 / 运行会话树 / 历史面板
+
+### M7.4 运行结果 → 草稿 Session
+
+- [ ] 运行结果面板（扩展运行日志）：输出 / 事件 / 问题；渲染 `node:end` / `run:end` outputs、`node:stream`、附件
+- [ ] wireclaw：`RunResult` / `RunResultEntry` 类型、JSON 校验 / 序列化
+- [ ] wireclaw：ModelCall / AgentRun 采集 entries；Subgraph / Loop / ForEach 带 `graphPath` 冒泡
+- [ ] FH：RunStore 写 `runs/<runId>/result.json`，RuntimeHost 暴露结果
+- [ ] FH：`SessionRecord` v2 / SessionStore 按 `kind` 校验，run session 存 RunResult
+- [ ] 「保存到会话」：run → `SessionRecord(kind: "run")`，默认写入草稿目录，可移动
+- [ ] run session 回放：结果面板 / 会话面板按 `kind` 渲染；引用 runId / graphId / status / outputs
+- [ ] 草稿目录配置 UI（工作区设置），默认「草稿」
+- [ ] Agent / ModelCall 的消息写入（conversation session）仍作为后续项，不与 run session 混用
+- [ ] 测试：run→session 往返、草稿目录、输出投影
+
+### M7.5 工作台运行模式与动画
+
+- [ ] `WorkbenchDefinition` 增加 design / run 模式（`DesignView` / `RunView` / `navigation`）
+- [ ] `harness-designer` 运行模式：画布 + 运行结果面板 + Session 导航；无独立运行页
+- [ ] 自定义运行页参考实现：固定工作流 + 带动画效果的 RunView
+- [ ] 最小动画原语（pulse / flow / focus）或复用节点状态，按 RunView 需要收敛
+- [ ] 实例持久化 mode / runId / sessionId；设计 ↔ 运行入口
+- [ ] 测试 / 视觉基线：设计 → 运行 → 保存草稿会话
+
+### M7.6 收口
+
+- [ ] `pnpm typecheck / test / build / smoke` + `capture:ui`
+- [ ] 文档同步（readme / architecture / design / devlog）
+- [ ] 旧 M7 顺延为 M8
+
+## 已完成里程碑（M1–M6）
 
 ### M1 — 最小可运行 Harness Designer（5 轮）
 
@@ -135,13 +216,13 @@
 - [x] 跨重启 resume（checkpoint + graph 装载）
 - [x] wireclaw：checkpoint 的 graph hash / node type version（v2）
 
-### M7 — 模板、导入导出与多工作台（原 Phase 6）
+### M8 — 模板、导入导出与多工作台（原 M7）
 
 - [ ] 工作台模板 / 节点预设
 - [ ] `.fhws` 导入导出 UI 与冲突策略
 - [ ] 更多工作台类型
 
-### M8 — 可观测性与工程化（原 Phase 7）
+### M9 — 可观测性与工程化（原 M8）
 
 - [ ] run 事件回放 / 诊断包导出
 - [ ] 日志分级、脱敏、traceId 展示
@@ -151,7 +232,7 @@
 - [ ] 亮色主题视觉走查
 - [ ] 真实桌面可读性 / 性能 / 窗口阴影 / 缩放验收
 
-### M9 — 打包与发布（原 Phase 8）
+### M10 — 打包与发布（原 M9）
 
 - [ ] electron-builder / electron-forge 打包
 - [ ] 自动更新通道与签名
@@ -292,4 +373,5 @@
 
 - [ ] 补齐未完成的 Agent 模块能力（见 `vendor/wireclaw/todo.md`）
 - [ ] 在 FH 中验证并收敛 Graph 运行时 API
+- [ ] `RunResult` 聚合（model-call / session entries、序列化、graphPath、partial 策略）
 - [ ] 发布节奏：submodule commit 固定 + npm 发布并行

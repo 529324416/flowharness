@@ -29,16 +29,18 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M7.1 工作台导航宿主 / 工作流导航 / 左栏切换 | ✅ |
 | M7.2 Session 递归文件夹 / SessionRecord v2 / 草稿目录 | ✅ |
 | M7.3 Session 树导航 / 历史浮动面板 / 工作流右键菜单 | ✅ |
+| M7.4 RunResult / 运行结果面板 / 保存到草稿 Session | ✅ |
 | 打包分发 | ⬜ |
 
 **已知限制**
 
 - 真透明窗口可透出桌面，但当前 Chromium/Electron 无法模糊桌面（ADR-009）；
-- 左侧栏已改为工作台导航 Panel：设计器显示 GraphDocument 列表；Session 导航与历史面板在 M7.3 迁移，当前暂时不显示会话；
-- Session 历史以 wireclaw `SessionData` 持久化；M6.3 的回放视图已恢复为 Canvas 浮动面板；消息写入侧（聊天输入与 Agent 会话对接）尚未接入；
-- 设计器运行中切换视图会丢失节点/边状态（run 仍在 main 继续）；
+- 左侧栏已改为工作台导航 Panel：设计器显示 GraphDocument 列表；运行阶段显示 Session 树；会话历史为 Canvas 浮动面板；
+- Session 历史以 wireclaw `SessionData` 持久化；run 结果以 wireclaw `RunResult` 持久化，可从运行结果面板「保存到会话」进入草稿目录；conversation 的消息写入侧（聊天输入与 Agent 会话对接）尚未接入；
+- 设计器运行中切换视图会丢失节点/边状态（run 仍在 main 继续）；运行阶段仍复用设计画布，独立 RunView 与动画在 M7.5；
 - 暂停 run 的 checkpoint 已可跨重启恢复；wireclaw checkpoint v2 校验 graphHash 与 nodeVersions，恢复入口只在 Diagnostics；
 - 运行前 requirements 目录已从 ProviderRegistry 注入；模型目录需先「测试连接」才会进入 catalog；
+- 草稿目录通过 Session 树文件夹右键「设为草稿目录」配置，暂无独立工作区设置页；
 - 标题栏关闭与 Ctrl+W 会先 flush 当前文档；系统级关闭（Alt+F4）仍无退出握手；
 - 撤销栈只覆盖画布结构编辑与 config，重启后不保留；
 - Agent 节点已接 Provider / 审批 / 用户输入，并注册工作区 LocalToolProvider（readFile / writeFile）；MCP 等更多工具待后续；
@@ -124,7 +126,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（34 files / 169 tests） |
+| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（34 files / 171 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

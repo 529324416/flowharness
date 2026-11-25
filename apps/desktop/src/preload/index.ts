@@ -18,6 +18,7 @@ import {
     type RunSnapshot,
     type RunStartRequest,
     type RunResumeInterruptedRequest,
+    type RunResultRequest,
     type SessionCreateRequest,
     type SessionDeleteRequest,
     type SessionFolder,
@@ -31,6 +32,8 @@ import {
     type SessionRecord,
     type SessionRenameRequest,
     type SessionSaveRequest,
+    type SessionSaveRunRequest,
+    type SessionSetDraftFolderRequest,
     type SessionSummary,
     type SessionTree,
     type SessionTreeRequest,
@@ -183,6 +186,14 @@ const bridge = {
         request: SessionSaveRequest,
     ): Promise<IpcResult<SessionRecord>> =>
         invoke(IpcChannel.SessionSave, request),
+    saveRunSession: (
+        request: SessionSaveRunRequest,
+    ): Promise<IpcResult<SessionRecord>> =>
+        invoke(IpcChannel.SessionSaveRun, request),
+    setDraftSessionFolder: (
+        request: SessionSetDraftFolderRequest,
+    ): Promise<IpcResult<SessionTree>> =>
+        invoke(IpcChannel.SessionSetDraftFolder, request),
     closeSession: (
         workspaceId: string,
         sessionId: string,
@@ -198,6 +209,10 @@ const bridge = {
         invoke(IpcChannel.RunCancel, { runId }),
     getRun: (runId: string): Promise<IpcResult<RunSnapshot | null>> =>
         invoke(IpcChannel.RunGet, { runId }),
+    getRunResult: (
+        request: RunResultRequest,
+    ): Promise<IpcResult<unknown | null>> =>
+        invoke(IpcChannel.RunResult, request),
     listRuns: (workspaceId?: string): Promise<IpcResult<RunSnapshot[]>> =>
         invoke(IpcChannel.RunList, { workspaceId }),
     resumeInterrupted: (

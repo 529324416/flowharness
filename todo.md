@@ -57,18 +57,18 @@
 - [x] 空态 / 错误态 / 附件渲染复用 M6.3
 - [x] 测试：树操作投影、选中联动；视觉基线：工作流右键菜单 / 运行会话树 / 历史面板
 
-### M7.4 运行结果 → 草稿 Session
+### M7.4 运行结果 → 草稿 Session（2026-11-26 已完成）
 
-- [ ] 运行结果面板（扩展运行日志）：输出 / 事件 / 问题；渲染 `node:end` / `run:end` outputs、`node:stream`、附件
-- [ ] wireclaw：`RunResult` / `RunResultEntry` 类型、JSON 校验 / 序列化
-- [ ] wireclaw：ModelCall / AgentRun 采集 entries；Subgraph / Loop / ForEach 带 `graphPath` 冒泡
-- [ ] FH：RunStore 写 `runs/<runId>/result.json`，RuntimeHost 暴露结果
-- [ ] FH：`SessionRecord` v2 / SessionStore 按 `kind` 校验，run session 存 RunResult
-- [ ] 「保存到会话」：run → `SessionRecord(kind: "run")`，默认写入草稿目录，可移动
-- [ ] run session 回放：结果面板 / 会话面板按 `kind` 渲染；引用 runId / graphId / status / outputs
-- [ ] 草稿目录配置 UI（工作区设置），默认「草稿」
+- [x] 运行结果面板（扩展运行日志）：输出 / 结果条目 / 问题；日志页签渲染 `node:end` 输出键、`node:stream` 文本与附件，结果页签汇总 `RunResult`
+- [x] wireclaw：`RunResult` / `RunResultEntry` 类型、JSON 校验 / 序列化（`RunResultSerializer`）
+- [x] wireclaw：ModelCall / AgentRun 采集 entries；Subgraph / Loop / ForEach 带 `graphPath` 冒泡
+- [x] FH：RunStore 写 `runs/<runId>/result.json`，RuntimeHost 暴露结果（`run:result`，跨重启可读）
+- [x] FH：`SessionRecord` v2 / SessionStore 按 `kind` 校验，run session 存 RunResult
+- [x] 「保存到会话」：run → `SessionRecord(kind: "run")`，默认写入草稿目录，可移动
+- [x] run session 回放：结果面板 / 会话面板按 `kind` 渲染；引用 runId / graphId / status / outputs
+- [x] 草稿目录配置：Session 树文件夹右键「设为草稿目录」，持久化到 workspace settings
+- [x] 测试：run→session 往返、草稿目录、输出投影（FH 34 文件 / 171 项；wireclaw 67 项）
 - [ ] Agent / ModelCall 的消息写入（conversation session）仍作为后续项，不与 run session 混用
-- [ ] 测试：run→session 往返、草稿目录、输出投影
 
 ### M7.5 工作台运行模式与动画
 

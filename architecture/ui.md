@@ -281,7 +281,8 @@ CanvasCommand → GraphDocument
 - run 期间：审批走 `shell/InteractionDialogs.tsx` 的 ApprovalDialog，用户输入走 UserInputDialog；main 发 `approval` / `input` topic，renderer 回 `approval:respond` / `input:respond`；
 - Diagnostics 提供「运行恢复」面板：列出 paused / interrupted run，使用 `run:resume-interrupted` 从 checkpoint + graph 快照恢复；
 - 工作台左栏由 `WorkbenchDefinition.navigation` 提供：`harness-designer` 设计模式显示工作流列表（`shell/navigation/DocumentNavigation`），运行模式显示 Session 树（`shell/navigation/SessionNavigation`），`plan-runner` 显示 Plan 步骤；
-- 会话历史已迁入 Canvas 浮动面板（`PanelLayer` 的 `session-history`），点击 Session 树节点即打开；M6.3 的 `SessionSerializer` 回放逻辑复用。
+- 会话历史已迁入 Canvas 浮动面板（`PanelLayer` 的 `session-history`），点击 Session 树节点即打开；M6.3 的 `SessionSerializer` 回放逻辑复用；M7.4 起 run 会话用 `RunResultView` 展示输出与条目；
+- 运行日志面板的「结果」页签展示 `RunResult`（输出 / 模型调用 / Agent 会话），可在其中「保存到会话」；保存后切换到运行模式并打开会话历史面板；
 - 对外 UI 统一称 **工作流（workflow）**；`GraphDocument` 仅保留为 wireclaw / 契约内部类型名。
 
 ## 7. 其他工作台
@@ -356,6 +357,7 @@ Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布�
 - **M7.1 已实现**：`NavigationPanel` / `DocumentNavigation` / `PlanNavigation`；`WorkbenchDefinition.navigation`（design）；`WorkbenchHost.panelLayer`；App 按工作台渲染左栏；移除全局 SessionSidebar、顶层 `sessions` 视图与 `Ctrl+4`；文档选择同步 primaryGraph；删除 graph 前检查引用；`--fh-panel-alpha` 0.78。
 - **M7.2 已实现存储**：Session 递归文件夹、`SessionRecord` v2、草稿目录、IPC。
 - **M7.3 已实现导航/面板**：`SessionNavigation` 递归树（搜索、文件夹/会话 CRUD、移动、草稿标识、右键菜单）；`SessionHistoryView` 嵌入 `session-history` 浮动面板；设计/运行模式切换；工作流列表右键菜单与“工作流”对外文案。
+- **M7.4 已实现运行结果**：运行日志新增「结果」页签，渲染 `RunResult` 输出、模型调用 / Agent 会话条目与附件；运行结束自动拉取 `run:result`；「保存到会话」写入草稿目录并打开历史面板；`SessionHistoryView` 按 `kind` 回放 conversation / run；Session 树文件夹右键可设草稿目录。
 - **左栏 = Panel 宿主**：Shell 只提供容器与尺寸；PanelContent 由 `activeWorkbench.type` + `mode` 提供，不再硬编码全局 SessionSidebar。
 - **设计模式**：`harness-designer` 左栏 = GraphDocument 列表（新建 / 最近 / 重命名 / 复制 / 删除 / 导入导出），选中同步 `WorkbenchInstance.graphs` 的 primaryGraph。
 - **运行模式**：同一实例切到 `run`，左栏 = Session 树（递归文件夹 + 草稿目录）；画布进入带动画的运行页。

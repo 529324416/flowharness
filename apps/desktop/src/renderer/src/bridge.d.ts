@@ -14,6 +14,7 @@ import type {
     RunSnapshot,
     RunStartRequest,
     RunResumeInterruptedRequest,
+    RunResultRequest,
     SessionCreateRequest,
     SessionDeleteRequest,
     SessionFolder,
@@ -27,6 +28,8 @@ import type {
     SessionRecord,
     SessionRenameRequest,
     SessionSaveRequest,
+    SessionSaveRunRequest,
+    SessionSetDraftFolderRequest,
     SessionSummary,
     SessionTree,
     SessionTreeRequest,
@@ -134,6 +137,12 @@ interface FlowHarnessBridge {
     readonly deleteSessionFolder: (
         request: SessionFolderDeleteRequest,
     ) => Promise<IpcResult<{ deleted: boolean }>>;
+    readonly saveRunSession: (
+        request: SessionSaveRunRequest,
+    ) => Promise<IpcResult<SessionRecord>>;
+    readonly setDraftSessionFolder: (
+        request: SessionSetDraftFolderRequest,
+    ) => Promise<IpcResult<SessionTree>>;
     readonly openSession: (
         request: SessionReadRequest,
     ) => Promise<IpcResult<SessionRecord>>;
@@ -149,6 +158,9 @@ interface FlowHarnessBridge {
     readonly resumeRun: (runId: string) => Promise<IpcResult<RunSnapshot>>;
     readonly cancelRun: (runId: string) => Promise<IpcResult<void>>;
     readonly getRun: (runId: string) => Promise<IpcResult<RunSnapshot | null>>;
+    readonly getRunResult: (
+        request: RunResultRequest,
+    ) => Promise<IpcResult<unknown | null>>;
     readonly listRuns: (workspaceId?: string) => Promise<IpcResult<RunSnapshot[]>>;
     readonly resumeInterrupted: (
         request: RunResumeInterruptedRequest,

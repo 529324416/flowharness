@@ -134,6 +134,8 @@ try {
         scenario === "canvas" ||
         scenario === "canvas-zoom" ||
         scenario === "designer-run" ||
+        scenario === "designer-run-result" ||
+        scenario === "designer-run-session" ||
         scenario === "designer-edit" ||
         scenario === "designer-drag" ||
         scenario === "designer-config" ||
@@ -1412,6 +1414,22 @@ try {
             console.log(`problem count: ${JSON.stringify(total.result?.value)}`);
         }
 
+        if (scenario === "designer-run-result" || scenario === "designer-run-session") {
+            await evaluate(
+                `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '运行')?.click()`,
+            );
+            await settle(2500);
+            await clickElement(
+                `[...document.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent?.trim().startsWith('结果'))`,
+            );
+            await settle(600);
+            if (scenario === "designer-run-session") {
+                await evaluate(
+                    `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '保存到会话')?.click()`,
+                );
+                await settle(1600);
+            }
+        }
         if (scenario === "designer-run") {
             await evaluate(
                 `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '运行')?.click()`,

@@ -73,6 +73,8 @@ export type WorkbenchNavigationProps = {
     onModeChange: (mode: WorkbenchMode) => void;
     /** 当前打开的会话；run 模式的 Session 树与历史面板共用。 */
     activeSessionId: string | null;
+    /** 外部新增 / 变更会话后递增，用于让 Session 树刷新。 */
+    sessionRevision?: number;
     onOpenSession: (session: SessionSummary) => void;
     onSelectDocument: (id: string) => void;
     onCreateDocument: () => void;

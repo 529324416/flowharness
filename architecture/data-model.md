@@ -226,9 +226,9 @@ objects/**             # 默认包含；ExportOptions.includeObjects=false 可�
 - **一致性**：先写内容文件，再写索引；索引损坏时按目录重建；
 - **自动保存**：renderer 侧 debounce 400ms，卸载/切换工作区时 flush；窗口直接关闭时最后 <400ms 的编辑仍可能丢失（无 main-renderer 退出握手）。
 
-## 12. M7 目标：Session 树与 RunResult（M7.2 已落地存储）
+## 12. M7 目标：Session 树与 RunResult（M7.2 / M7.4 已落地）
 
-> M7.2 已实现递归目录、`SessionRecord` v2、草稿目录与迁移；`RunResult` 在 M7.4 落地。
+> M7.2 已实现递归目录、`SessionRecord` v2、草稿目录与迁移；M7.4 已实现 RunResult 采集 / 校验 / 持久化、运行结果面板、run 会话保存与回放；草稿目录可在 Session 树文件夹右键切换。
 
 ### 12.1 Session 目录树
 
@@ -329,6 +329,7 @@ type RunResultEntry =
 - RunResult 归 wireclaw；`GraphRunResult` 增加 `graphId` / `entries`，由 `createRunResult(result, input?)` 生成版本化文档；FH 只负责持久化、展示与「保存为 session」；
 - `runs/<runId>/result.json` 与 meta / graph / events / checkpoint 同级；
 - partial RunResult 暂不写 checkpoint。
+- 实现备注（M7.4）：`RunResultSerializer` 负责 JSON 校验与规范化（session entry 复用 `SessionSerializer`）；`ModelCall` / `AgentRun` 通过 `NodeContext.collect` 提交条目，`Subgraph` / `Loop` / `ForEach` 让 `graphPath` 冒泡；FH 在持久化前把 `runId` 改写为自身稳定 runId，`run:result` 支持跨重启读取；`SessionStore.createRunSession` 负责派生 `entryCount` 与附件指纹。
 
 ### 12.4 文档绑定
 

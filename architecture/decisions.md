@@ -456,6 +456,7 @@ M6.3 之后，左侧栏仍是全局 Session 列表，而设计器画布承载的
   - `kind: "session"`：`nodeId / nodeType / graphPath? / providerId / modelId`、完整 `SessionData`、状态与耗时；
   - 错误统一为字符串，不跨边界传 `Error` / 类实例。
 - 采集方式：节点在 `execute` 内把结果写到 NodeContext 的收集器，或由 runner 在节点完成后调用 `collectRunResults()`；`Subgraph / Loop / ForEach` 的 entries 带 `graphPath` 向上冒泡。
+  - 实现（M7.4）：`GraphRun` 内建 `RunResultCollector`；`NodeContext.collect` 提交 entry 草稿，运行时补齐 `id / nodeId / nodeType / graphPath`；容器节点共享 collector 并追加路径段（数组形式）。
 - 暂停 / 中断的 partial entries 先不写入 checkpoint（v1）；RunStore 仍保留事件与节点记录。若需要跨重启保留 partial RunResult，再升 checkpoint v3。
 - `GraphRunResult` 增加 `graphId` 与 `entries`；wireclaw 提供 `createRunResult(result, input?)` 生成版本化 `RunResult` 文档，FH 直接持久化该文档。
 - FH 侧：
@@ -465,6 +466,9 @@ M6.3 之后，左侧栏仍是全局 Session 列表，而设计器画布承载的
   - run session 默认保存到草稿文件夹；`attachments` 从 RunResult 的附件引用派生；
   - `messageCount` 只用于 conversation；run session 用 `entryCount`，不伪造消息。
 - 不在 FH 侧用 `node:end` 事件拼 RunResult；不把 RunResult 改写成 wireclaw `SessionData`。
+- FH 持久化前把 `RunResult.runId` 改写为自身稳定 `runId`（wireclaw 引擎 runId 只留在事件与日志中），使 `runs/<runId>/result.json`、run session 与 UI 引用一致。
+
+**状态**：M7.4 已实现（wireclaw `RunResult` v1 / 序列化 / 采集，FH result.json / 运行结果面板 / run 会话保存与回放）。
 
 **后果**
 

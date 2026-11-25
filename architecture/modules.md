@@ -177,6 +177,7 @@ runs/<runId>/meta.json      # 状态、graphId、起止时间、错误摘要
 runs/<runId>/graph.json     # 运行时的 Graph 定义快照（恢复所需）
 runs/<runId>/events.jsonl   # GraphEvent 追加日志
 runs/<runId>/checkpoint.json# GraphCheckpoint（暂停时写入）
+runs/<runId>/result.json    # wireclaw RunResult v1（运行结束后写入）
 ```
 
 - 追加写事件日志：按批次（RuntimeHost 每 16ms flush）追加，避免每事件一次 write；
@@ -304,13 +305,14 @@ interface WorkbenchController {
 - run 事件日志：`runs/<runId>/events.jsonl` 已落盘、可回放；导出诊断包未实现；
 - renderer 错误边界：**尚未实现**（没有 ErrorBoundary 组件），UI 异常会冒泡到整棵 React 树。
 
-## 18. M7 目标（M7.1 已落地）
+## 18. M7 目标（M7.1–M7.4 已落地）
 
 - **M7.1 已实现**：`WorkbenchDefinition.navigation`（design 模式）；`NavigationPanel` / `DocumentNavigation` / `PlanNavigation`；App 按工作台渲染左栏；移除全局 SessionSidebar 与顶层 sessions 视图；`WorkbenchHost` 提供 `panelLayer` 槽；文档选择同步 primaryGraph；删除 graph 前检查工作台引用；`--fh-panel-alpha` 0.78。
 - **M7.2 已实现**：Session 递归文件夹树、SessionRecord v2、草稿目录、session/folder 移动与 IPC。
 - **M7.3 已实现**：设计/运行模式切换；设计左栏工作流列表 + 右键菜单；运行左栏 Session 树（递归、搜索、文件夹/会话 CRUD、移动、草稿标识）；会话历史嵌入 Canvas 浮动 Panel；对外文案统一为“工作流”。
-- **Workbench Framework**：`WorkbenchDefinition` 提供 `navigation`（design / run 两套 PanelContent）与 `mode` / `RunView`；Shell 渲染左栏，不再硬编码 SessionSidebar。
-- **SessionService / SessionStore**：Session 改为递归文件夹树；`SessionRecord.kind` 区分 conversation / run；草稿目录；RunResult 写入。
-- **RuntimeHost / RunStore**：采集 wireclaw `RunResult`，写 `runs/<runId>/result.json`，run 结束向 renderer 提供结果。
-- **Shell**：左栏改为 Panel 宿主；移除顶层 sessions 视图；运行结果 / 会话历史改为浮动面板；`--fh-panel-alpha` 0.78。
-- **wireclaw**：`RunResult` / `RunResultEntry` 类型、节点采集、序列化与测试（M7.4）。
+- **M7.4 已实现**：wireclaw `RunResult` v1（类型 / 序列化 / 校验 / ModelCall·AgentRun 采集 / graphPath 冒泡）；`RunStore` 写 `result.json`，`RuntimeHost.getResult` 与 `run:result` 暴露结果；运行日志扩展「结果」面板；`SessionStore.createRunSession` 校验 kind 并派生 entryCount / 附件；「保存到会话」进入草稿目录；`session:setDraftFolder` 支持 Session 树右键切换草稿目录。
+- **Workbench Framework（M7.5 未实现）**：`WorkbenchDefinition` 提供 `mode` / `RunView`；工作台运行阶段渲染独立 RunView 与动画，而不是复用设计画布。
+- **SessionService / SessionStore（M7.4 已完成）**：Session 递归文件夹树；`SessionRecord.kind` 区分 conversation / run；草稿目录；RunResult 写入与校验。
+- **RuntimeHost / RunStore（M7.4 已完成）**：采集 wireclaw `RunResult`，写 `runs/<runId>/result.json`，run 结束向 renderer 提供结果。
+- **Shell（M7.3 已完成）**：左栏改为 Panel 宿主；移除顶层 sessions 视图；运行结果 / 会话历史改为浮动面板；`--fh-panel-alpha` 0.78。
+- **wireclaw（M7.4 已完成）**：`RunResult` / `RunResultEntry` 类型、节点采集、序列化与测试。

@@ -13,9 +13,12 @@ export interface RunStorePort {
     /** 非终态状态切换（paused / running）；不写 endedAt。 */
     updateStatus?(runId: string, status: RunStatus): Promise<void>;
     saveCheckpoint(runId: string, checkpoint: unknown): Promise<void>;
+    /** 持久化版本化 RunResult（`runs/<runId>/result.json`）。 */
+    saveResult?(runId: string, result: unknown): Promise<void>;
     loadMeta(runId: string): Promise<RunSnapshot | undefined>;
     loadGraph(runId: string): Promise<unknown | undefined>;
     loadCheckpoint(runId: string): Promise<unknown | undefined>;
+    loadResult?(runId: string): Promise<unknown | undefined>;
     list(workspaceId?: string): Promise<RunSnapshot[]>;
     /** 启动/打开工作区时调用：把遗留的 running 标记为 interrupted。 */
     markInterrupted(): Promise<number>;
@@ -92,6 +95,12 @@ export class RunStore implements RunStorePort {
         });
     }
 
+    async saveResult(runId: string, result: unknown): Promise<void> {
+        await this.safeWrite(async () => {
+            await writeJsonFile(join(this.runDir(runId), "result.json"), result);
+        });
+    }
+
     async loadMeta(runId: string): Promise<RunSnapshot | undefined> {
         return this.safeRead(() => readJsonFile<RunSnapshot>(join(this.runDir(runId), "meta.json")));
     }
@@ -103,6 +112,12 @@ export class RunStore implements RunStorePort {
     async loadCheckpoint(runId: string): Promise<unknown | undefined> {
         return this.safeRead(() =>
             readJsonFile<unknown>(join(this.runDir(runId), "checkpoint.json")),
+        );
+    }
+
+    async loadResult(runId: string): Promise<unknown | undefined> {
+        return this.safeRead(() =>
+            readJsonFile<unknown>(join(this.runDir(runId), "result.json")),
         );
     }
 

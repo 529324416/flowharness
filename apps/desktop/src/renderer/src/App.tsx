@@ -6,8 +6,13 @@ import {
     useState,
     type ReactElement,
 } from "react";
-// Wireclaw 以普通包依赖的方式引入；这里用于启动自检。
-import { Graph, type GraphDocument } from "wireclaw";
+// Wireclaw 以普通包依赖的方式引入；这里用于启动自检与 RunResult 校验。
+import {
+    Graph,
+    RunResultSerializer,
+    type GraphDocument,
+    type RunResult,
+} from "wireclaw";
 import type {
     AppConfig,
     ApprovalRequestPayload,
@@ -153,6 +158,11 @@ export function App(): ReactElement {
 
     const [runSnapshot, setRunSnapshot] = useState<RunSnapshot | null>(null);
     const [runEvents, setRunEvents] = useState<RunEventDto[]>([]);
+    const [runResult, setRunResult] = useState<RunResult | null>(null);
+    const [savingRunSession, setSavingRunSession] = useState(false);
+    const [savedRunSessionId, setSavedRunSessionId] = useState<string | null>(null);
+    const [sessionRevision, setSessionRevision] = useState(0);
+    const fetchedRunResultId = useRef<string | null>(null);
     const [approvalRequests, setApprovalRequests] = useState<
         ApprovalRequestPayload[]
     >([]);
@@ -1084,6 +1094,9 @@ export function App(): ReactElement {
     const handleDesignerRunWillStart = useCallback(() => {
         setRunEvents([]);
         setRunSnapshot(null);
+        setRunResult(null);
+        setSavedRunSessionId(null);
+        fetchedRunResultId.current = null;
     }, []);
 
     const handleDesignerRunStarted = useCallback((snapshot: RunSnapshot) => {
@@ -1099,6 +1112,84 @@ export function App(): ReactElement {
             return snapshot;
         });
     }, []);
+
+    const runFinished =
+        runSnapshot !== null &&
+        (runSnapshot.status === "completed" ||
+            runSnapshot.status === "failed" ||
+            runSnapshot.status === "cancelled");
+
+    // 运行结束后从 main 拉取 wireclaw RunResult；按 runId 去重，避免事件批次重复请求。
+    useEffect(() => {
+        if (!runFinished || runSnapshot === null || activeWorkspace === null) return;
+        if (fetchedRunResultId.current === runSnapshot.runId) return;
+
+        fetchedRunResultId.current = runSnapshot.runId;
+        const runId = runSnapshot.runId;
+        const workspaceId = activeWorkspace.id;
+        let cancelled = false;
+
+        void (async () => {
+            const loaded = await bridge.getRunResult({ runId, workspaceId });
+            if (cancelled) return;
+
+            if (!loaded.ok || loaded.data === null) {
+                setRunResult(null);
+                return;
+            }
+
+            try {
+                setRunResult(RunResultSerializer.deserialize(loaded.data));
+            } catch {
+                setRunResult(null);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeWorkspace, bridge, runFinished, runSnapshot?.runId]);
+
+    const handleSaveRunToSession = useCallback(async (): Promise<void> => {
+        const workspace = activeWorkspace;
+        const runId = runSnapshot?.runId;
+        if (
+            workspace === null ||
+            runId === undefined ||
+            savingRunSession ||
+            savedRunSessionId !== null
+        ) {
+            return;
+        }
+
+        setSavingRunSession(true);
+        setDataError(null);
+        try {
+            const saved = await bridge.saveRunSession({
+                workspaceId: workspace.id,
+                runId,
+            });
+            if (!saved.ok) {
+                setDataError(saved.error.message);
+                return;
+            }
+
+            setSavedRunSessionId(saved.data.id);
+            setSessionRevision((current) => current + 1);
+            setActiveSession(saved.data);
+            setWorkbenchMode("run");
+            openPanel("session-history");
+        } finally {
+            setSavingRunSession(false);
+        }
+    }, [
+        activeWorkspace,
+        bridge,
+        openPanel,
+        runSnapshot,
+        savedRunSessionId,
+        savingRunSession,
+    ]);
 
     const handleRenameWorkbench = useCallback(
         async (workbenchId: string, title: string): Promise<void> => {
@@ -1245,6 +1336,9 @@ export function App(): ReactElement {
     useEffect(() => {
         setRunEvents([]);
         setRunSnapshot(null);
+        setRunResult(null);
+        setSavedRunSessionId(null);
+        fetchedRunResultId.current = null;
     }, [activeWorkspace?.id]);
 
     useEffect(() => {
@@ -1407,6 +1501,29 @@ export function App(): ReactElement {
                                     panels={panels}
                                     events={runEvents}
                                     snapshot={runSnapshot}
+                                    workspaceId={activeWorkspace.id}
+                                    runResult={runResult}
+                                    runResultActions={
+                                        runResult !== null ? (
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                disabled={
+                                                    savingRunSession ||
+                                                    savedRunSessionId !== null
+                                                }
+                                                onClick={() =>
+                                                    void handleSaveRunToSession()
+                                                }
+                                            >
+                                                {savedRunSessionId !== null
+                                                    ? "已保存到会话"
+                                                    : savingRunSession
+                                                      ? "保存中…"
+                                                      : "保存到会话"}
+                                            </Button>
+                                        ) : null
+                                    }
                                     inspector={designerInspector}
                                     problems={designerProblems?.problems ?? []}
                                     sessionHistory={
@@ -1470,6 +1587,7 @@ export function App(): ReactElement {
                   onCollapse: () => setSidebarOpen(false),
                   onModeChange: setWorkbenchMode,
                   activeSessionId: activeSession?.id ?? null,
+                  sessionRevision,
                   onOpenSession: (session) => {
                       setActiveSession(session);
                       openPanel("session-history");

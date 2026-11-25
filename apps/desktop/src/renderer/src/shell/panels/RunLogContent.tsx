@@ -1,5 +1,6 @@
-import { useMemo, type ReactElement } from "react";
+import { useMemo, type ReactElement, type ReactNode } from "react";
 import type { RunEventDto, RunSnapshot } from "@flowharness/contracts";
+import type { RunResult } from "wireclaw";
 import {
     Badge,
     EmptyState,
@@ -14,6 +15,7 @@ import {
     type DesignerProblem,
     type DesignerProblemSource,
 } from "../../designer/core/problems";
+import { RunResultView } from "../../views/RunResultView";
 import styles from "./RunLogContent.module.css";
 
 function badgeFor(event: RunEventDto): BadgeVariant {
@@ -36,17 +38,45 @@ function detailFor(event: RunEventDto): string {
         case "run:end":
             return `status=${event.status}`;
         case "node:start":
-        case "node:end":
         case "node:skipped":
         case "node:error":
-        case "node:stream":
             return event.nodeId;
+        case "node:end":
+            return `${event.nodeId} · ${outputKeys(event.outputs)}`;
+        case "node:stream":
+            return `${event.nodeId}:${event.port} ${truncate(streamText(event.chunk), 96)}`;
         case "custom":
             return `${event.name} (${event.nodeId})`;
         case "run:paused":
         case "run:resumed":
             return "";
     }
+}
+
+function outputKeys(outputs: unknown): string {
+    if (typeof outputs !== "object" || outputs === null) return "";
+    const keys = Object.keys(outputs);
+    return keys.length === 0 ? "无输出" : keys.join(", ");
+}
+
+function streamText(chunk: unknown): string {
+    if (typeof chunk === "string") return chunk;
+    if (typeof chunk === "object" && chunk !== null) {
+        const value = chunk as { type?: unknown; text?: unknown };
+        if (value.type === "text" && typeof value.text === "string") {
+            return value.text;
+        }
+    }
+
+    try {
+        return JSON.stringify(chunk);
+    } catch {
+        return String(chunk);
+    }
+}
+
+function truncate(text: string, length: number): string {
+    return text.length > length ? `${text.slice(0, length)}…` : text;
 }
 
 function formatTime(at: number): string {
@@ -73,6 +103,10 @@ export type RunLogContentProps = {
     /** 运行前的校验 / 失效连线问题 */
     problems?: readonly DesignerProblem[];
     onSelectProblem?: (problem: DesignerProblem) => void;
+    /** 运行结束后加载的 wireclaw RunResult */
+    result?: RunResult | null;
+    workspaceId?: string;
+    resultActions?: ReactNode;
 };
 
 /** 运行日志面板内容；面板外框由 PanelFrame 提供。 */
@@ -81,6 +115,9 @@ export function RunLogContent({
     snapshot = null,
     problems = [],
     onSelectProblem,
+    result = null,
+    workspaceId,
+    resultActions,
 }: RunLogContentProps): ReactElement {
     const visible = events.slice(-120);
     const runProblems = useMemo(
@@ -96,6 +133,9 @@ export function RunLogContent({
         <Tabs defaultValue="log" className={styles.root}>
             <TabsList className={styles.list}>
                 <TabsTrigger value="log">日志</TabsTrigger>
+                <TabsTrigger value="result">
+                    结果{result !== null ? ` (${String(result.entries.length)})` : ""}
+                </TabsTrigger>
                 <TabsTrigger value="problems">
                     问题{allProblems.length > 0 ? ` (${String(allProblems.length)})` : ""}
                 </TabsTrigger>
@@ -118,6 +158,22 @@ export function RunLogContent({
                             </li>
                         ))}
                     </ul>
+                )}
+            </TabsContent>
+
+            <TabsContent value="result" className={styles.content}>
+                {result !== null && workspaceId !== undefined ? (
+                    <RunResultView
+                        workspaceId={workspaceId}
+                        result={result}
+                        actions={resultActions}
+                    />
+                ) : (
+                    <EmptyState
+                        compact
+                        title="暂无运行结果"
+                        description="运行结束后，输出、模型调用与 Agent 会话会汇总在这里"
+                    />
                 )}
             </TabsContent>
 

@@ -282,6 +282,14 @@ describe("RuntimeHost", () => {
         );
 
         expect((await store.list("ws_test"))[0]?.runId).toBe(snapshot.runId);
+
+        await waitForAsync(
+            async () => (await store.loadResult(snapshot.runId)) !== undefined,
+        );
+        const result = await host.getResult(snapshot.runId);
+        expect(result?.runId).toBe(snapshot.runId);
+        expect(result?.graphId).toBe(snapshot.graphId);
+        expect(result?.entries).toEqual([]);
     });
 
     it("resumes an interrupted run from persisted graph + checkpoint", async () => {

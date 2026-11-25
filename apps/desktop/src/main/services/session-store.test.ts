@@ -289,21 +289,81 @@ describe("SessionStore", () => {
         });
     });
 
-    it("stores opaque run session payloads", async () => {
-        const { store } = await makeStoreIn();
-        const created = await store.create();
-        const saved = await store.save({
-            ...created,
-            kind: "run",
-            history: { version: 1, runId: "run_1", entries: [] },
-            entryCount: 2,
-            attachments: [ATTACHMENT_HASH],
+    it("stores a validated run result in the draft folder", async () => {
+        const { store, settings } = await makeStoreIn();
+        const saved = await store.createRunSession({
+            result: {
+                version: 1,
+                runId: "run_1",
+                graphId: "main",
+                status: "completed",
+                startedAt: 1_000,
+                endedAt: 2_000,
+                outputs: { text: { type: "text", text: "ok" } },
+                entries: [
+                    {
+                        kind: "model-call",
+                        id: "entry-1",
+                        nodeId: "call",
+                        nodeType: "core.model.call",
+                        providerId: "fake",
+                        modelId: "echo",
+                        mode: "chat",
+                        status: "completed",
+                        startedAt: 1_000,
+                        endedAt: 2_000,
+                        input: {
+                            prompt: "hi",
+                            attachments: [{ contentHash: ATTACHMENT_HASH }],
+                        },
+                        output: { text: "ok" },
+                    },
+                ],
+            },
         });
 
         expect(saved.kind).toBe("run");
         expect(saved.messageCount).toBe(0);
-        expect(saved.entryCount).toBe(2);
+        expect(saved.entryCount).toBe(1);
         expect(saved.attachments).toEqual([ATTACHMENT_HASH]);
+        expect(saved.folderId).toBe(settings.draftSessionFolderId);
+
+        const read = await store.read(saved.id);
+        expect(read.entryCount).toBe(1);
+        expect(
+            (read.history as { entries: unknown[] }).entries,
+        ).toHaveLength(1);
+    });
+
+    it("rejects invalid run results", async () => {
+        const store = await makeStore();
+
+        await expect(
+            store.createRunSession({
+                result: { version: 1, entries: [] } as never,
+            }),
+        ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
+
+        const created = await store.create();
+        await expect(
+            store.save({
+                ...created,
+                kind: "run",
+                history: { version: 1, runId: "run_1", entries: [] },
+                entryCount: 2,
+                attachments: [ATTACHMENT_HASH],
+            }),
+        ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
+    });
+
+    it("sets the draft folder and persists it in workspace settings", async () => {
+        const { store, settings } = await makeStoreIn();
+        const folder = await store.createFolder({ title: "输出" });
+
+        const tree = await store.setDraftFolder(folder.id);
+
+        expect(tree.draftFolderId).toBe(folder.id);
+        expect(settings.draftSessionFolderId).toBe(folder.id);
     });
 
     it("rejects malformed history", async () => {

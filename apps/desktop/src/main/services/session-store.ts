@@ -13,9 +13,12 @@ import type {
 import { FhError } from "@flowharness/contracts";
 import {
     collectAttachmentHashes,
+    collectRunResultAttachmentHashes,
     isContentHash,
+    RunResultSerializer,
     SessionHistory,
     SessionSerializer,
+    type RunResult,
 } from "wireclaw";
 import { readJsonFile, writeJsonFile } from "./atomic-file";
 
@@ -130,6 +133,10 @@ export class SessionStore {
                       record.id,
                       "E_INVALID_ARGUMENT",
                   );
+        const runResult =
+            record.kind === "run"
+                ? parseRunResultValue(record.history, "E_INVALID_ARGUMENT")
+                : undefined;
 
         const next: SessionRecord = {
             ...record,
@@ -139,20 +146,58 @@ export class SessionStore {
             messageCount:
                 parsed === undefined ? 0 : parsed.messages.length,
             entryCount:
-                record.kind === "run" ? Math.max(0, record.entryCount) : 0,
+                runResult === undefined ? 0 : runResult.entries.length,
             history:
-                parsed === undefined
+                runResult ??
+                (parsed === undefined
                     ? record.history
-                    : SessionSerializer.serialize(parsed),
+                    : SessionSerializer.serialize(parsed)),
             attachments:
-                parsed === undefined
-                    ? record.attachments.filter(isContentHash)
-                    : collectAttachmentHashes(parsed.messages).filter(
-                          isContentHash,
-                      ),
+                runResult !== undefined
+                    ? collectRunResultAttachmentHashes(runResult)
+                    : parsed === undefined
+                        ? record.attachments.filter(isContentHash)
+                        : collectAttachmentHashes(parsed.messages).filter(
+                              isContentHash,
+                          ),
         };
         await this.writeSession(dir, next);
         return next;
+    }
+
+    /**
+     * 把一次运行结果保存为 `kind: "run"` 会话。
+     *
+     * `folderId` 省略时写入工作区草稿目录；显式 `null` 表示根目录。
+     */
+    async createRunSession(input: {
+        result: RunResult;
+        title?: string;
+        folderId?: string | null;
+    }): Promise<SessionRecord> {
+        const result = parseRunResultValue(input.result, "E_INVALID_ARGUMENT");
+        const folderId = input.folderId === undefined
+            ? await this.ensureDraftFolder()
+            : input.folderId;
+        const folderDir = await this.requireFolderDir(folderId);
+        const now = new Date().toISOString();
+        const id = `ses_${randomBytes(6).toString("hex")}`;
+        const record: SessionRecord = {
+            schemaVersion: SESSION_SCHEMA_VERSION,
+            id,
+            kind: "run",
+            title: input.title?.trim() || defaultRunTitle(result),
+            status: runStatusToSession(result.status),
+            folderId,
+            createdAt: now,
+            updatedAt: now,
+            messageCount: 0,
+            entryCount: result.entries.length,
+            history: result,
+            attachments: collectRunResultAttachmentHashes(result),
+        };
+        await this.writeSession(join(folderDir, id), record);
+        return record;
     }
 
     async delete(sessionId: string): Promise<boolean> {
@@ -319,6 +364,19 @@ export class SessionStore {
         return true;
     }
 
+    /** 设置工作区草稿目录；目录必须存在，并写入 workspace settings。 */
+    async setDraftFolder(folderId: string): Promise<SessionTree> {
+        assertFolderId(folderId);
+        const entry = await this.findFolderEntry(folderId);
+        if (entry === undefined) {
+            throw new FhError("E_NOT_FOUND", `folder not found: ${folderId}`);
+        }
+
+        this.draftFolderId = folderId;
+        await this.persistDraftFolder(folderId);
+        return this.tree();
+    }
+
     private async readSessionAt(entry: SessionEntry): Promise<SessionRecord> {
         const raw = await readJsonFile<unknown>(join(entry.dir, SESSION_FILE));
         if (raw === undefined) {
@@ -332,14 +390,25 @@ export class SessionStore {
             record.kind === "conversation"
                 ? parseHistoryValue(record.history, record.id, "E_IO")
                 : undefined;
+        const runResult =
+            record.kind === "run"
+                ? parseRunResultValue(record.history, "E_IO")
+                : undefined;
         return {
             ...record,
             folderId: entry.folderId,
             messageCount: parsed === undefined ? 0 : parsed.messages.length,
+            entryCount:
+                runResult === undefined ? 0 : runResult.entries.length,
             history:
-                parsed === undefined
+                runResult ??
+                (parsed === undefined
                     ? record.history
-                    : SessionSerializer.serialize(parsed),
+                    : SessionSerializer.serialize(parsed)),
+            attachments:
+                runResult === undefined
+                    ? record.attachments
+                    : collectRunResultAttachmentHashes(runResult),
         };
     }
 
@@ -686,6 +755,41 @@ function parseHistoryValue(
             `invalid session history: ${cause instanceof Error ? cause.message : String(cause)}`,
         );
     }
+}
+
+function parseRunResultValue(
+    value: unknown,
+    code: "E_IO" | "E_INVALID_ARGUMENT",
+): RunResult {
+    try {
+        return RunResultSerializer.deserialize(value);
+    } catch (cause) {
+        throw new FhError(
+            code,
+            `invalid run result: ${cause instanceof Error ? cause.message : String(cause)}`,
+        );
+    }
+}
+
+function runStatusToSession(status: RunResult["status"]): SessionStatus {
+    switch (status) {
+        case "completed":
+            return "completed";
+        case "failed":
+        case "cancelled":
+            return "failed";
+        default:
+            return "idle";
+    }
+}
+
+function defaultRunTitle(result: RunResult): string {
+    const at = new Date(result.startedAt);
+    if (Number.isNaN(at.getTime())) return `运行结果 ${result.graphId}`;
+
+    const pad = (value: number): string => String(value).padStart(2, "0");
+    return `运行结果 ${String(at.getFullYear())}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} `
+        + `${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
 
 async function pathExists(path: string): Promise<boolean> {

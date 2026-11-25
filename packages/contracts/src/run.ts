@@ -77,6 +77,17 @@ export type RunCancelRequest = { runId: string };
 export type RunGetRequest = { runId: string };
 export type RunListRequest = { workspaceId?: string };
 
+/**
+ * 读取一次运行的 wireclaw `RunResult`。
+ *
+ * 返回原始 JSON（由 wireclaw 的 `RunResultSerializer` 校验）；未知 run 返回 null。
+ */
+export type RunResultRequest = {
+    runId: string;
+    /** 跨重启读取时提供；缺省时只查当前进程内的运行结果。 */
+    workspaceId?: string;
+};
+
 // ---- 审批 / 用户输入 ----
 
 export type ApprovalRequestPayload = {

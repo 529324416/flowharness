@@ -26,9 +26,11 @@ export function fromStoredSession(
         id: session.id,
         title: session.title,
         subtitle:
-            session.messageCount === 0
-                ? "空会话 · 0 条消息"
-                : `${session.messageCount} 条消息`,
+            session.kind === "run"
+                ? `${session.entryCount} 条结果`
+                : session.messageCount === 0
+                  ? "空会话 · 0 条消息"
+                  : `${session.messageCount} 条消息`,
         status: session.status,
         updatedAt: formatRelativeTime(session.updatedAt),
     };

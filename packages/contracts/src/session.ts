@@ -101,3 +101,21 @@ export type SessionFolderDeleteRequest = {
     workspaceId: string;
     folderId: string;
 };
+
+/**
+ * 把一次已持久化的 run 结果保存为 run 会话。
+ *
+ * `folderId` 省略时写入工作区草稿目录；显式 `null` 表示根目录。
+ */
+export type SessionSaveRunRequest = {
+    workspaceId: string;
+    runId: string;
+    title?: string;
+    folderId?: string | null;
+};
+
+/** 设置工作区草稿目录；返回新的会话树。 */
+export type SessionSetDraftFolderRequest = {
+    workspaceId: string;
+    folderId: string;
+};

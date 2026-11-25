@@ -28,6 +28,8 @@ import type {
     SessionRecord,
     SessionRenameRequest,
     SessionSaveRequest,
+    SessionSaveRunRequest,
+    SessionSetDraftFolderRequest,
     SessionSummary,
     SessionTree,
     SessionTreeRequest,
@@ -39,6 +41,7 @@ import type {
     RunGetRequest,
     RunListRequest,
     RunPauseRequest,
+    RunResultRequest,
     RunResumeInterruptedRequest,
     RunResumeRequest,
     RunSnapshot,
@@ -100,6 +103,8 @@ export const IpcChannel = {
     SessionRenameFolder: "session:renameFolder",
     SessionMoveFolder: "session:moveFolder",
     SessionDeleteFolder: "session:deleteFolder",
+    SessionSaveRun: "session:saveRun",
+    SessionSetDraftFolder: "session:setDraftFolder",
 
     RunStart: "run:start",
     RunPause: "run:pause",
@@ -107,6 +112,7 @@ export const IpcChannel = {
     RunCancel: "run:cancel",
     RunGet: "run:get",
     RunList: "run:list",
+    RunResult: "run:result",
     RunResumeInterrupted: "run:resume-interrupted",
 
     ApprovalRespond: "approval:respond",
@@ -291,6 +297,14 @@ export type IpcInvokeContracts = {
         request: SessionFolderDeleteRequest;
         response: { deleted: boolean };
     };
+    [IpcChannel.SessionSaveRun]: {
+        request: SessionSaveRunRequest;
+        response: SessionRecord;
+    };
+    [IpcChannel.SessionSetDraftFolder]: {
+        request: SessionSetDraftFolderRequest;
+        response: SessionTree;
+    };
 
     [IpcChannel.RunStart]: { request: RunStartRequest; response: RunSnapshot };
     [IpcChannel.RunPause]: { request: RunPauseRequest; response: RunSnapshot };
@@ -298,6 +312,7 @@ export type IpcInvokeContracts = {
     [IpcChannel.RunCancel]: { request: RunCancelRequest; response: void };
     [IpcChannel.RunGet]: { request: RunGetRequest; response: RunSnapshot | null };
     [IpcChannel.RunList]: { request: RunListRequest; response: RunSnapshot[] };
+    [IpcChannel.RunResult]: { request: RunResultRequest; response: unknown | null };
     [IpcChannel.RunResumeInterrupted]: {
         request: RunResumeInterruptedRequest;
         response: RunSnapshot;

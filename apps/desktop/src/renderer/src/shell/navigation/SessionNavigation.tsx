@@ -10,6 +10,7 @@ import {
 import {
     ChevronRight,
     Folder,
+    FolderCheck,
     FolderPlus,
     MessageSquare,
     PenLine,
@@ -112,6 +113,7 @@ export function SessionNavigation({
     activeSessionId,
     busy,
     width,
+    sessionRevision,
     onResize,
     onCollapse,
     onModeChange,
@@ -156,7 +158,7 @@ export function SessionNavigation({
         return () => {
             cancelled = true;
         };
-    }, [workspace.id, reloadToken]);
+    }, [workspace.id, reloadToken, sessionRevision]);
 
     const refresh = useCallback(() => {
         setReloadToken((current) => current + 1);
@@ -210,6 +212,15 @@ export function SessionNavigation({
             }),
         );
         if (created !== null) onOpenSession(created);
+    };
+
+    const setDraftFolder = async (folderId: string): Promise<void> => {
+        await runAction(() =>
+            window.flowharness.setDraftSessionFolder({
+                workspaceId: workspace.id,
+                folderId,
+            }),
+        );
     };
 
     const submitFolder = async (): Promise<void> => {
@@ -315,6 +326,12 @@ export function SessionNavigation({
                 <Plus size={15} aria-hidden="true" />
                 新建会话
             </ContextMenuItem>
+            {tree?.draftFolderId === folder.id ? null : (
+                <ContextMenuItem onSelect={() => void setDraftFolder(folder.id)}>
+                    <FolderCheck size={15} aria-hidden="true" />
+                    设为草稿目录
+                </ContextMenuItem>
+            )}
             <ContextMenuSeparator />
             <ContextMenuItem
                 onSelect={() => {

@@ -27,6 +27,7 @@ import {
     type RunGetRequest,
     type RunListRequest,
     type RunPauseRequest,
+    type RunResultRequest,
     type RunResumeInterruptedRequest,
     type RunResumeRequest,
     type RunStartRequest,
@@ -42,6 +43,8 @@ import {
     type SessionReadRequest,
     type SessionRenameRequest,
     type SessionSaveRequest,
+    type SessionSaveRunRequest,
+    type SessionSetDraftFolderRequest,
     type SessionTreeRequest,
     type SecretsDeleteRequest,
     type SecretsHasRequest,
@@ -65,6 +68,7 @@ import {
 // Wireclaw 以普通包依赖方式引入；这里做启动自检并复用其类型。
 import {
     Graph,
+    RunResultSerializer,
     type ToolApprovalDecision,
     type ToolRegistry,
     type UserInputResult,
@@ -678,6 +682,36 @@ function registerIpcHandlers(): void {
     );
 
     registerHandler(
+        IpcChannel.SessionSaveRun,
+        async ({
+            workspaceId,
+            runId,
+            title,
+            folderId,
+        }: SessionSaveRunRequest) => {
+            const raw = await runStoreFor(workspaceId).loadResult(runId);
+            if (raw === undefined) {
+                throw new FhError(
+                    "E_NOT_FOUND",
+                    `run result not found: ${runId}`,
+                );
+            }
+
+            return requireSessionStore(workspaceId).createRunSession({
+                result: RunResultSerializer.deserialize(raw),
+                ...(title === undefined ? {} : { title }),
+                ...(folderId === undefined ? {} : { folderId }),
+            });
+        },
+    );
+
+    registerHandler(
+        IpcChannel.SessionSetDraftFolder,
+        ({ workspaceId, folderId }: SessionSetDraftFolderRequest) =>
+            requireSessionStore(workspaceId).setDraftFolder(folderId),
+    );
+
+    registerHandler(
         IpcChannel.SessionOpen,
         ({ workspaceId, sessionId }: SessionReadRequest) =>
             requireSessionStore(workspaceId).read(sessionId),
@@ -843,6 +877,12 @@ function registerIpcHandlers(): void {
         const snapshot = runtime.get(runId);
         return snapshot;
     });
+
+    registerHandler(
+        IpcChannel.RunResult,
+        ({ runId, workspaceId }: RunResultRequest) =>
+            runtime.getResult(runId, workspaceId),
+    );
 
     registerHandler(
         IpcChannel.RunList,

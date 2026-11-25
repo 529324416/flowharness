@@ -1,7 +1,9 @@
 import { randomBytes } from "node:crypto";
 import {
     createBuiltinNodeRegistry,
+    createRunResult,
     deserializeGraph,
+    RunResultSerializer,
     type AttachmentFileManager,
     type Graph,
     type GraphCheckpoint,
@@ -9,9 +11,11 @@ import {
     type GraphHost,
     type GraphProviderResolver,
     type GraphRun,
+    type GraphRunInput,
     type GraphRunOptions,
     type GraphRunResult,
     type NodeTypeRegistry,
+    type RunResult,
     type ToolRegistry,
     type ToolApprovalDecision,
     type ToolApprovalRequest,
@@ -64,6 +68,15 @@ type ActiveRun = {
     store?: RunStorePort;
     buffer: RunEventDto[];
     flushTimer?: NodeJS.Timeout;
+    /** 启动请求的 input，用于生成 RunResult。 */
+    input?: GraphRunInput;
+    /** 运行结束后聚合的版本化结果。 */
+    result?: RunResult;
+};
+
+type FinishedRun = {
+    snapshot: RunSnapshot;
+    result?: RunResult;
 };
 
 const MAX_FINISHED_RUNS = 100;
@@ -75,7 +88,7 @@ const MAX_FINISHED_RUNS = 100;
 export class RuntimeHost {
     private readonly registry: NodeTypeRegistry;
     private readonly active = new Map<string, ActiveRun>();
-    private readonly finished = new Map<string, RunSnapshot>();
+    private readonly finished = new Map<string, FinishedRun>();
     private readonly now: () => number;
     private readonly flushIntervalMs: number;
 
@@ -112,6 +125,9 @@ export class RuntimeHost {
             controller,
             store,
             buffer: [],
+            ...(request.input === undefined
+                ? {}
+                : { input: request.input as GraphRunInput }),
         };
 
         const pending: GraphEvent[] = [];
@@ -258,13 +274,41 @@ export class RuntimeHost {
         const active = this.active.get(runId);
         if (active) return { ...active.snapshot };
         const finished = this.finished.get(runId);
-        return finished ? { ...finished } : null;
+        return finished ? { ...finished.snapshot } : null;
+    }
+
+    /**
+     * 读取一次运行的 RunResult。
+     *
+     * 当前进程内完成的 run 直接命中内存；提供 workspaceId 时可从 RunStore
+     * 跨重启读取。结果始终经过 wireclaw 的序列化校验。
+     */
+    async getResult(
+        runId: string,
+        workspaceId?: string,
+    ): Promise<RunResult | null> {
+        const finished = this.finished.get(runId);
+        if (finished?.result !== undefined) return finished.result;
+
+        if (workspaceId !== undefined) {
+            const store = this.options.storeFor?.(workspaceId);
+            const raw = await store?.loadResult?.(runId);
+            if (raw !== undefined) {
+                try {
+                    return RunResultSerializer.deserialize(raw);
+                } catch {
+                    return null;
+                }
+            }
+        }
+
+        return null;
     }
 
     list(workspaceId?: string): RunSnapshot[] {
         const snapshots = [
             ...this.active.values(),
-            ...[...this.finished.values()].map((snapshot) => ({ snapshot })),
+            ...this.finished.values(),
         ]
             .map((entry) => ({ ...entry.snapshot }))
             .filter(
@@ -365,6 +409,14 @@ export class RuntimeHost {
             active.snapshot.error = errorMessage(result.error);
         }
 
+        // wireclaw 结果里的 runId 是引擎内部 id；FH 以自身 runId 持久化与展示，
+        // 因此落盘前统一改写为稳定 runId（graphId 与快照一致）。
+        active.result = {
+            ...createRunResult(result, active.input),
+            runId: active.snapshot.runId,
+            graphId: active.snapshot.graphId,
+        };
+        this.persistResult(active);
         this.flush(active);
         this.retire(active);
     }
@@ -374,8 +426,30 @@ export class RuntimeHost {
         active.snapshot.endedAt = this.now();
         active.snapshot.error = errorMessage(error);
 
+        active.result = createRunResult({
+            runId: active.snapshot.runId,
+            graphId: active.graph.id,
+            status: "failed",
+            outputs: {},
+            records: [],
+            entries: [],
+            startedAt: active.snapshot.startedAt,
+            endedAt: active.snapshot.endedAt,
+            error,
+        }, active.input);
+        this.persistResult(active);
         this.flush(active);
         this.retire(active);
+    }
+
+    private persistResult(active: ActiveRun): void {
+        if (active.result === undefined || active.store?.saveResult === undefined) {
+            return;
+        }
+
+        void active.store
+            .saveResult(active.snapshot.runId, active.result)
+            .catch(() => undefined);
     }
 
     private retire(active: ActiveRun): void {
@@ -388,7 +462,10 @@ export class RuntimeHost {
 
         this.flush(active);
         this.active.delete(runId);
-        this.finished.set(runId, { ...active.snapshot });
+        this.finished.set(runId, {
+            snapshot: { ...active.snapshot },
+            ...(active.result === undefined ? {} : { result: active.result }),
+        });
 
         if (active.store) {
             void active.store

@@ -10,6 +10,8 @@ export interface RunStorePort {
     start(meta: RunSnapshot, graph: unknown): Promise<void>;
     appendEvents(runId: string, events: readonly RunEventDto[]): Promise<void>;
     finish(runId: string, status: RunStatus, endedAt: number, error?: string): Promise<void>;
+    /** 非终态状态切换（paused / running）；不写 endedAt。 */
+    updateStatus?(runId: string, status: RunStatus): Promise<void>;
     saveCheckpoint(runId: string, checkpoint: unknown): Promise<void>;
     loadMeta(runId: string): Promise<RunSnapshot | undefined>;
     loadGraph(runId: string): Promise<unknown | undefined>;
@@ -69,6 +71,17 @@ export class RunStore implements RunStorePort {
                 status,
                 endedAt,
                 ...(error === undefined ? {} : { error }),
+            });
+        });
+    }
+
+    async updateStatus(runId: string, status: RunStatus): Promise<void> {
+        await this.safeWrite(async () => {
+            const meta = await this.loadMeta(runId);
+            if (!meta) return;
+            await writeJsonFile(join(this.runDir(runId), "meta.json"), {
+                ...meta,
+                status,
             });
         });
     }

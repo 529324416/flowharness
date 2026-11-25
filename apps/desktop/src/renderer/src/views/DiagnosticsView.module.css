@@ -44,3 +44,36 @@
 .alert {
   margin-top: var(--fh-space-3);
 }
+
+.muted {
+  margin: 0;
+  color: var(--fh-text-subtle);
+  font-size: var(--fh-text-sm);
+}
+
+.recoveryList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fh-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recoveryItem {
+  display: flex;
+  align-items: center;
+  gap: var(--fh-space-2);
+  padding: var(--fh-space-2);
+  border: 1px solid var(--fh-border);
+  border-radius: var(--fh-radius-sm);
+}
+
+.recoveryId {
+  flex: 1;
+  overflow: hidden;
+  font-family: var(--fh-font-mono);
+  font-size: var(--fh-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

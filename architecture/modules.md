@@ -10,12 +10,13 @@
 | L1 | Logging | 主进程日志与运行诊断 | ⬜ 未实现（当前用 `console.*`） |
 | L2 | AppConfig | 应用级配置（工作区位置、偏好） | ✅ |
 | L2 | Secrets | Provider 密钥，主进程独占 | ✅ |
+| L2 | ProviderRegistry | 配置 + 密钥 → AIProvider 实例，供 RuntimeHost 解析 | ✅ M6.1 |
 | L2 | BlobStore | 内容寻址的二进制存储 | ✅ |
 | L2 | WorkspaceStore | 工作区文档、索引、迁移、导入导出 | ✅（无 `applyCommands`、无迁移） |
 | L2 | WorkspaceFileHost | wireclaw `IFileHost` 的 FH 实现 | ✅ |
 | L2 | SessionService | Session 生命周期与附件管理器装配 | 🚧 仅按工作区装配附件管理器 |
 | L2 | RunStore | run 记录、事件日志、checkpoint | ✅ |
-| L2 | RuntimeHost | Graph 执行、事件流、暂停/恢复/取消 | ✅（`resolveProvider` 未接） |
+| L2 | RuntimeHost | Graph 执行、事件流、暂停/恢复/取消 | ✅（Provider 已接） |
 | L0 | Contracts | IPC 契约、DTO、错误码 | ✅ |
 | L3 | App Shell | 应用外壳、主题 provider、模块宿主 | 🚧 外壳与主题已实现，模块注册表未开始 |
 | L4 | Canvas | 无框架画布核心 + React 视图 | ✅（core 仅几何/边 key/类型） |
@@ -78,7 +79,8 @@ type AppConfig = {
 
 - 使用 Electron `safeStorage` 加密后落盘（`secrets.bin`），不可用时明确报错而不是明文降级；
 - 对外只暴露 `has / set / delete`；**没有** `get` 到 renderer 的通道；
-- 运行期由 main 组装 `AIProvider`，密钥不进入事件、日志、错误信息。
+- 运行期由 `ProviderRegistry` 组装 `AIProvider`，密钥不进入事件、日志、错误信息；
+- renderer 的 Provider 设置页通过 `secrets:set / delete` 写入，只能看到 `hasKey` 布尔值。
 
 ## 4. Theme
 
@@ -193,13 +195,13 @@ interface RuntimeHost {
 }
 ```
 
-- 输入是 `GraphDocument` + 输入值 + 可选 checkpoint，内部 `deserializeGraph` 后调用 `graph.run(...)`；暂停/恢复走 `GraphRun.pause()/resume()`，**不使用** `Graph.resume(checkpoint)`；
-- 实现 wireclaw `GraphHost`：`resolveProvider`（Secrets + Provider 配置）、`tools`、`attachments`、`onToolApproval`、`onUserInput`、`parameters`、`log`；当前 `tools` 是空 `ToolRegistry`，`resolveProvider` 返回 `undefined`；
+- 输入是 `GraphDocument` + 输入值 + 可选 checkpoint，内部 `deserializeGraph` 后调用 `graph.run(...)`；暂停/恢复走 `GraphRun.pause()/resume()`，跨重启用 `resumeInterrupted()` 装载 RunStore 的 graph + checkpoint 后重新 start；
+- 实现 wireclaw `GraphHost`：`resolveProvider`（ProviderRegistry）、`tools`、`attachments`、`onToolApproval`、`onUserInput`、`parameters`、`log`；当前 `tools` 是空 `ToolRegistry`；
 - 事件：`GraphRun.onEvent` → RunStore + 节流广播；
 - 并发（目标，未实现）：每个工作台默认 1 个活动 run，可配置；
 - 详见 [runtime.md](./runtime.md)。
 
-> 当前实现：`start / pause / resume / cancel / get / list` 都已在 main 注册；`resolveProvider` 返回 `undefined`（Provider 工厂未接）；pause/resume 只是进程内恢复；并发限制与跨重启 resume 未实现。
+> 当前实现：`start / pause / resume / cancel / get / list / resume-interrupted` 都已在 main 注册；`resolveProvider` 由 ProviderRegistry 提供；pause/resume 进程内恢复，Diagnostics 可跨重启恢复；并发限制仍未实现。
 
 ## 11. Contracts（L0）
 
@@ -209,7 +211,7 @@ interface RuntimeHost {
 - `FhError` 错误码与结构；
 - 领域标识（workspaceId / graphId / workbenchId / runId / sessionId）。
 
-> 目标：模块接口（`FhModule`、`WorkbenchDefinition` 的无框架部分）也放这里；**当前 contracts 没有这些类型**（只有 `ids / errors / domain / run / ipc`），随 M5 增加。
+> 当前 contracts 已包含 `ids / errors / domain / run / workbench / provider / ipc`；模块接口的框架部分仍在 renderer。
 
 **不做**：不 import React / Electron / Node；不放类实例；不做运行时逻辑（校验函数除外）。
 

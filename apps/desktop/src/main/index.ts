@@ -27,8 +27,10 @@ import {
     type RunGetRequest,
     type RunListRequest,
     type RunPauseRequest,
+    type RunResumeInterruptedRequest,
     type RunResumeRequest,
     type RunStartRequest,
+    type ProvidersTestRequest,
     type SecretsDeleteRequest,
     type SecretsHasRequest,
     type SecretsSetRequest,
@@ -54,6 +56,7 @@ import { registerAssetProtocol, registerAssetScheme } from "./platform/asset-pro
 import { registerHandler } from "./platform/ipc";
 import { RequestBroker } from "./platform/request-broker";
 import { AppConfigStore, createDefaultAppConfig } from "./services/app-config";
+import { ProviderRegistry } from "./services/provider-registry";
 import { RunStore } from "./services/run-store";
 import { RuntimeHost } from "./services/runtime-host";
 import { SecretsStore, type SecretCipher } from "./services/secrets";
@@ -123,6 +126,7 @@ let appConfig: AppConfigStore;
 let windowState: WindowStateStore | null = null;
 let savedWindowState: SavedWindowState | null = null;
 let secrets: SecretsStore;
+let providers: ProviderRegistry;
 let workspaces: WorkspaceStore;
 let sessionService: SessionService;
 let runtime: RuntimeHost;
@@ -345,6 +349,8 @@ async function initialize(): Promise<void> {
     await workspaces.init();
 
     secrets = new SecretsStore(join(userData, "secrets.bin"), createSafeStorageCipher());
+    providers = new ProviderRegistry(secrets);
+    await providers.reload(config.providers);
 
     sessionService = new SessionService((workspaceId) =>
         workspaces.getBlobStore(workspaceId),
@@ -401,6 +407,7 @@ async function initialize(): Promise<void> {
                 return inputBroker.wait(ask.requestId);
             },
         },
+        resolveProvider: (providerId) => providers.get(providerId),
         attachmentsFor: (workspaceId) => sessionService.attachmentsFor(workspaceId),
         storeFor: (workspaceId) => runStoreFor(workspaceId),
     });
@@ -503,12 +510,17 @@ function registerIpcHandlers(): void {
             runStores.clear();
         }
 
+        if (JSON.stringify(next.providers) !== JSON.stringify(before.providers)) {
+            await providers.reload(next.providers);
+        }
+
         return next;
     });
 
     registerHandler(IpcChannel.ConfigReset, async () => {
         const next = await appConfig.reset();
         nativeTheme.themeSource = next.theme;
+        await providers.reload(next.providers);
         return next;
     });
 
@@ -644,14 +656,24 @@ function registerIpcHandlers(): void {
         IpcChannel.SecretsSet,
         async ({ providerId, value }: SecretsSetRequest) => {
             await secrets.set(providerId, value);
+            await providers.reload((await appConfig.get()).providers);
         },
     );
 
     registerHandler(
         IpcChannel.SecretsDelete,
-        async ({ providerId }: SecretsDeleteRequest) => ({
-            deleted: await secrets.delete(providerId),
-        }),
+        async ({ providerId }: SecretsDeleteRequest) => {
+            const deleted = await secrets.delete(providerId);
+            await providers.reload((await appConfig.get()).providers);
+            return { deleted };
+        },
+    );
+
+    registerHandler(IpcChannel.ProvidersList, () => providers.list());
+
+    registerHandler(
+        IpcChannel.ProvidersTest,
+        ({ providerId }: ProvidersTestRequest) => providers.test(providerId),
     );
 
     registerHandler(IpcChannel.RunStart, (request: RunStartRequest) =>
@@ -675,8 +697,25 @@ function registerIpcHandlers(): void {
         return snapshot;
     });
 
-    registerHandler(IpcChannel.RunList, ({ workspaceId }: RunListRequest) =>
-        runtime.list(workspaceId),
+    registerHandler(
+        IpcChannel.RunList,
+        async ({ workspaceId }: RunListRequest) => {
+            const live = runtime.list(workspaceId);
+            if (workspaceId === undefined) return live;
+
+            const persisted = await runStoreFor(workspaceId).list(workspaceId);
+            const seen = new Set(live.map((snapshot) => snapshot.runId));
+            return [
+                ...live,
+                ...persisted.filter((snapshot) => !seen.has(snapshot.runId)),
+            ].sort((a, b) => b.startedAt - a.startedAt);
+        },
+    );
+
+    registerHandler(
+        IpcChannel.RunResumeInterrupted,
+        ({ workspaceId, runId }: RunResumeInterruptedRequest) =>
+            runtime.resumeInterrupted(workspaceId, runId),
     );
 
     registerHandler(

@@ -62,6 +62,13 @@ export type RunStartRequest = {
     input?: unknown;
     parameters?: Readonly<Record<string, unknown>>;
     maxConcurrency?: number;
+    /** 从 wireclaw GraphCheckpoint 恢复；存在时 input 以 checkpoint 为准。 */
+    checkpoint?: unknown;
+};
+
+export type RunResumeInterruptedRequest = {
+    workspaceId: string;
+    runId: string;
 };
 
 export type RunPauseRequest = { runId: string };

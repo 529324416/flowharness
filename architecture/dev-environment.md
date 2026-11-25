@@ -32,8 +32,9 @@ apps/desktop/
   tsconfig.json             # 编辑器默认入口
   src/main/index.ts         # 主进程入口：窗口、服务装配、IPC
   src/main/platform/        # IPC 路由、fh-asset 协议
-  src/main/services/        # AppConfig / Secrets / BlobStore / WorkspaceStore / FileHost /
-                            # SessionService / RunStore / RuntimeHost
+  src/main/services/        # AppConfig / Secrets / ProviderRegistry / BlobStore /
+                            # WorkspaceStore / FileHost / SessionService /
+                            # RunStore / RuntimeHost
   src/preload/index.ts      # contextBridge 桥
   src/renderer/
     index.html
@@ -104,7 +105,7 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 | `FLOWHARNESS_SMOKE=1` | 隐藏窗口；渲染进程上报 data + run 后主进程退出，供 `pnpm smoke` 使用 |
 | `FLOWHARNESS_WINDOW_MODE` | `transparent`（默认）/ `frameless` / `standard` / `overlay` / `mica` / `acrylic` |
 | `FLOWHARNESS_WORKSPACE_ROOT` | 覆盖工作区根目录（受限终端 / CI 截图用）；不写入 AppConfig |
-| `FH_CAPTURE_SCENARIO` | `pnpm capture:ui` 的场景名（`designer` / `designer-run` / `designer-problems` / `designer-documents` / `designer-doc-flow` / `designer-workbenches` / `designer-workbench-flow` / `designer-workbench-manage` / `designer-plan-runner` / `designer-slot-connect` / `designer-inline` / `designer-import` / `designer-history` / `designer-edit` / `designer-drag` / `designer-config` / `designer-form` / `designer-form-edit` / `designer-schema` / `designer-preset` / `designer-library` / `designer-recent` / `designer-panels` / `designer-select` / `designer-toggle` / `designer-menu` / `canvas` / `canvas-selection` / `canvas-pan` / `canvas-zoom` / `styleguide` / `styleguide-nodes` / `styleguide-form` / `input-focus`） |
+| `FH_CAPTURE_SCENARIO` | `pnpm capture:ui` 的场景名（`designer` / `designer-run` / `designer-problems` / `designer-documents` / `designer-doc-flow` / `designer-workbenches` / `designer-workbench-flow` / `designer-workbench-manage` / `designer-plan-runner` / `designer-slot-connect` / `designer-inline` / `designer-import` / `designer-history` / `designer-edit` / `provider-settings` / `diagnostics` / `designer-drag` / `designer-config` / `designer-form` / `designer-form-edit` / `designer-schema` / `designer-preset` / `designer-library` / `designer-recent` / `designer-panels` / `designer-select` / `designer-toggle` / `designer-menu` / `canvas` / `canvas-selection` / `canvas-pan` / `canvas-zoom` / `styleguide` / `styleguide-nodes` / `styleguide-form` / `input-focus`） |
 | `ELECTRON_MIRROR` | `pnpm ensure:electron` 使用的下载镜像，默认 npmmirror |
 
 开发模式下如果 AppConfig 的工作区根目录不可写（例如受限会话中的 `Documents`），主进程会依次尝试 `%TEMP%/FlowHarness/workspaces` 与仓库内 `.flowharness-workspaces/`，并在日志中打印 `[workspace] ... dev fallback`。打包版本不做目录回退：仍使用配置的根目录，`WorkspaceStore.init` 失败时只告警，工作区列表可能为空。
@@ -113,7 +114,7 @@ pnpm watch:wireclaw          # 另开终端，增量重建 JS + 类型
 
 ```bash
 pnpm typecheck   # contracts（tsc）+ desktop（node + web 两个 project）
-pnpm test        # vitest：main 服务 + canvas core + designer core/state + workbench（30 文件 / 143 项：config / secrets / blob / workspace / session-service / filehost / run-store / runtime / broker / window-state / geometry / selection / designer adapter / document / commands / edges / layout / layout-metrics / validate / problems / run-events / save-coordinator / catalog / config-path / presets / recent-nodes / recent-documents / harness-json / workbench-instance / workbench-plan）
+pnpm test        # vitest：main 服务 + canvas core + designer core/state + workbench（31 文件 / 149 项：config / secrets / provider-registry / blob / workspace / session-service / filehost / run-store / runtime / broker / window-state / geometry / selection / designer adapter / document / commands / edges / layout / layout-metrics / validate / problems / run-events / save-coordinator / catalog / config-path / presets / recent-nodes / recent-documents / harness-json / workbench-instance / workbench-plan）
 pnpm build       # wireclaw + desktop 全量构建
 pnpm smoke       # 无头启动 Electron，校验 wireclaw + config/workspace IPC
 pnpm capture:ui  # Windows：CDP 截取 renderer（加 -NativeWindow 可抓原生窗口）

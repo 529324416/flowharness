@@ -259,19 +259,26 @@ CanvasCommand → GraphDocument
 - 投影时用 `findInvalidEdges` 检查节点/端口是否存在（端口随 config 投影）；存在失效连线时画布顶部提示，能渲染的边标记为 error；
 - 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌 Subgraph / Loop / ForEach 递归校验，问题回填容器节点与 `graphPath`；
 - 设计器内 Alert 横幅展示首要问题；运行日志面板的「问题」页签汇总校验、失效连线与运行错误，点击可选中并聚焦节点（M3）；
-- 有 issue 时禁止运行；当前**没有**「仍然运行」的确认路径；`requirements` catalog 尚未接 Provider / Secrets（M6）。
+- 有 issue 时禁止运行；当前**没有**「仍然运行」的确认路径；`requirements` catalog 尚未从 ProviderRegistry / Secrets 注入（运行时已由 ProviderRegistry 解析）。
 
 ### 6.4 运行与导入导出
 
 - 运行时把 `GraphDocument` 交给 RuntimeHost（main 反序列化并执行）；
-- 目标：导入/导出就是 `GraphDocument` JSON，不做私有封装 —— **尚未实现**（当前只有 `.fhws` 整工作区导入导出）；
-- 目标：导出时可选「包含布局」；当前 `.fhws` 导出总是包含 `documents/**`（含 `ui`）。
+- 导入/导出就是 `GraphDocument` JSON：文档菜单支持新建文档导入、导出时可选剥离 `ui`（M4 已实现）；
+- `.fhws` 整工作区导入导出仍只有 main 通道；导出总是包含 `documents/**`（含 `ui`）。
 
 ### 6.5 NodeContent
 
 - 一期（M2 已完成）：`inspector/NodeConfigForm.tsx` 根据 `configSchema` 生成通用表单（wireclaw 的 JSON Schema 子集：object / string / number / integer / boolean / array / enum / required / minimum / maximum…）；无法表达的字段用 JSON 文本域兜底，整份 config 仍可在「JSON」页签编辑；
 - 二期（M5 已完成）：节点 Body 内联编辑 Constant / Model Call / Log / Value / Agent / Loop / ForEach；节点 Body 显示输入端口槽，连线可直接拖到槽上（同时保留左侧 Handle）；复杂字段仍走检查器表单 / JSON；
 - 节点内容组件通过 `canvas/view/node-registry.ts` 的 registry 注册，Canvas 不感知；当前所有类型都回落到 `SciFiNode`。
+
+### 6.6 Provider 设置与运行交互
+
+- Ribbon 设置菜单打开 `shell/ProviderSettingsDialog.tsx`：启用/禁用 Provider，编辑显示名、Base URL、默认模型；云 Provider 可写入 / 清除 API Key；
+- 密钥通过 `secrets:set / delete` 进入 main，renderer 只能看到 `hasKey`；`providers:list` 返回可用状态，`providers:test` 拉取模型目录；
+- run 期间：审批走 `shell/InteractionDialogs.tsx` 的 ApprovalDialog，用户输入走 UserInputDialog；main 发 `approval` / `input` topic，renderer 回 `approval:respond` / `input:respond`；
+- Diagnostics 提供「运行恢复」面板：列出 paused / interrupted run，使用 `run:resume-interrupted` 从 checkpoint + graph 快照恢复。
 
 ## 7. 其他工作台
 

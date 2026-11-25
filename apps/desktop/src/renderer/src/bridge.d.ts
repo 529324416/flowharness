@@ -1,14 +1,19 @@
 import type {
     AppConfig,
     AppConfigUpdate,
+    ApprovalResponseRequest,
     DocumentRef,
     DocumentSaveResult,
     DocumentSnapshot,
     HarnessDocumentSummary,
     IpcEventEnvelope,
     IpcResult,
+    ProviderStatus,
+    ProviderTestResult,
     RunSnapshot,
     RunStartRequest,
+    RunResumeInterruptedRequest,
+    UserInputResponseRequest,
     WindowStatePayload,
     WorkspaceCreateInput,
     WorkbenchSummary,
@@ -42,6 +47,15 @@ interface FlowHarnessBridge {
 
     readonly getConfig: () => Promise<IpcResult<AppConfig>>;
     readonly updateConfig: (patch: AppConfigUpdate) => Promise<IpcResult<AppConfig>>;
+    readonly secretsHas: (providerId: string) => Promise<IpcResult<{ has: boolean }>>;
+    readonly secretsSet: (providerId: string, value: string) => Promise<IpcResult<void>>;
+    readonly secretsDelete: (
+        providerId: string,
+    ) => Promise<IpcResult<{ deleted: boolean }>>;
+    readonly listProviders: () => Promise<IpcResult<ProviderStatus[]>>;
+    readonly testProvider: (
+        providerId: string,
+    ) => Promise<IpcResult<ProviderTestResult>>;
     readonly listWorkspaces: () => Promise<IpcResult<WorkspaceSummary[]>>;
     readonly createWorkspace: (
         input: WorkspaceCreateInput,
@@ -74,6 +88,16 @@ interface FlowHarnessBridge {
     readonly resumeRun: (runId: string) => Promise<IpcResult<RunSnapshot>>;
     readonly cancelRun: (runId: string) => Promise<IpcResult<void>>;
     readonly getRun: (runId: string) => Promise<IpcResult<RunSnapshot | null>>;
+    readonly listRuns: (workspaceId?: string) => Promise<IpcResult<RunSnapshot[]>>;
+    readonly resumeInterrupted: (
+        request: RunResumeInterruptedRequest,
+    ) => Promise<IpcResult<RunSnapshot>>;
+    readonly respondApproval: (
+        request: ApprovalResponseRequest,
+    ) => Promise<IpcResult<{ accepted: boolean }>>;
+    readonly respondUserInput: (
+        request: UserInputResponseRequest,
+    ) => Promise<IpcResult<{ accepted: boolean }>>;
 }
 
 declare global {

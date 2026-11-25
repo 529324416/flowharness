@@ -1,4 +1,5 @@
 import type { ContentHash, SessionId, WorkspaceId } from "./ids";
+import type { ProviderConfig } from "./provider";
 
 /** 主题模式；`system` 跟随操作系统。 */
 export type ThemeMode = "light" | "dark" | "system";
@@ -32,11 +33,15 @@ export type AppConfig = {
     recentWorkspaces: RecentWorkspace[];
     language: "zh-CN" | "en-US";
     devtools: boolean;
+    providers: ProviderConfig[];
 };
 
 /** `config:update` 的增量；schemaVersion 只能由主进程维护。 */
 export type AppConfigUpdate = Partial<
-    Pick<AppConfig, "theme" | "workspaceRoot" | "language" | "devtools">
+    Pick<
+        AppConfig,
+        "theme" | "workspaceRoot" | "language" | "devtools" | "providers"
+    >
 >;
 
 export type WorkspaceSummary = {

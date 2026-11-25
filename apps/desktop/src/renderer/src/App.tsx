@@ -10,10 +10,13 @@ import {
 import { Graph, type GraphDocument } from "wireclaw";
 import type {
     AppConfig,
+    ApprovalRequestPayload,
     HarnessDocumentSummary,
     RunEventBatch,
     RunEventDto,
     RunSnapshot,
+    UserInputAnswerDto,
+    UserInputRequestPayload,
     WorkbenchInstanceDocument,
     WorkbenchSummary,
     WorkspaceSummary,
@@ -27,7 +30,12 @@ import { AppShell } from "./shell/AppShell";
 import { DocumentMenu } from "./shell/DocumentMenu";
 import { WorkbenchMenu } from "./shell/WorkbenchMenu";
 import { TitleBar } from "./shell/TitleBar";
+import { ProviderSettingsDialog } from "./shell/ProviderSettingsDialog";
 import { RibbonBar } from "./shell/RibbonBar";
+import {
+    ApprovalDialog,
+    UserInputDialog,
+} from "./shell/InteractionDialogs";
 import { SessionSidebar } from "./shell/SessionSidebar";
 import {
     SIDEBAR_DEFAULT_WIDTH,
@@ -133,6 +141,7 @@ export function App(): ReactElement {
     const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
     const [config, setConfig] = useState<AppConfig | null>(null);
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
     const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceSummary | null>(
         null,
@@ -142,6 +151,12 @@ export function App(): ReactElement {
 
     const [runSnapshot, setRunSnapshot] = useState<RunSnapshot | null>(null);
     const [runEvents, setRunEvents] = useState<RunEventDto[]>([]);
+    const [approvalRequests, setApprovalRequests] = useState<
+        ApprovalRequestPayload[]
+    >([]);
+    const [inputRequests, setInputRequests] = useState<
+        UserInputRequestPayload[]
+    >([]);
     const [designerRunControls, setDesignerRunControls] =
         useState<RunControls | null>(null);
     const [designerSaveStatus, setDesignerSaveStatus] =
@@ -206,10 +221,37 @@ export function App(): ReactElement {
     useEffect(
         () =>
             bridge.onEvent((envelope) => {
-                if (envelope.topic !== "run") return;
-                const batch = envelope.payload as RunEventBatch;
-                setRunSnapshot(batch.snapshot);
-                setRunEvents((current) => [...current, ...batch.events].slice(-300));
+                if (envelope.topic === "run") {
+                    const batch = envelope.payload as RunEventBatch;
+                    setRunSnapshot(batch.snapshot);
+                    setRunEvents((current) =>
+                        [...current, ...batch.events].slice(-300),
+                    );
+                    return;
+                }
+
+                if (envelope.topic === "approval") {
+                    const request = envelope.payload as ApprovalRequestPayload;
+                    setApprovalRequests((current) =>
+                        current.some(
+                            (item) => item.requestId === request.requestId,
+                        )
+                            ? current
+                            : [...current, request],
+                    );
+                    return;
+                }
+
+                if (envelope.topic === "input") {
+                    const request = envelope.payload as UserInputRequestPayload;
+                    setInputRequests((current) =>
+                        current.some(
+                            (item) => item.requestId === request.requestId,
+                        )
+                            ? current
+                            : [...current, request],
+                    );
+                }
             }),
         [bridge],
     );
@@ -1285,6 +1327,40 @@ export function App(): ReactElement {
         togglePanel,
     ]);
 
+    const decideApproval = useCallback(
+        async (
+            request: ApprovalRequestPayload,
+            decision: "approve" | "deny",
+        ): Promise<void> => {
+            setApprovalRequests((current) =>
+                current.filter((item) => item.requestId !== request.requestId),
+            );
+            await bridge.respondApproval({
+                requestId: request.requestId,
+                decision,
+            });
+        },
+        [bridge],
+    );
+
+    const answerUserInput = useCallback(
+        async (
+            request: UserInputRequestPayload,
+            answers: UserInputAnswerDto[],
+            cancelled = false,
+        ): Promise<void> => {
+            setInputRequests((current) =>
+                current.filter((item) => item.requestId !== request.requestId),
+            );
+            await bridge.respondUserInput({
+                requestId: request.requestId,
+                answers,
+                ...(cancelled ? { cancelled: true } : {}),
+            });
+        },
+        [bridge],
+    );
+
     const main =
         view === "designer" ? (
             <div className={styles.stage}>
@@ -1347,6 +1423,7 @@ export function App(): ReactElement {
                     loaded: typeof Graph === "function",
                     graphId: bootGraph.id,
                 }}
+                workspaceId={activeWorkspace?.id}
                 onRefresh={() => void loadData()}
                 onCreateWorkspace={() => void createDemoWorkspace()}
                 onRunFinished={handleRunFinished}
@@ -1435,6 +1512,7 @@ export function App(): ReactElement {
                         onToggleSidebar={handleToggleSidebar}
                         onSelectView={setView}
                         onToggleTheme={toggleTheme}
+                        onOpenSettings={() => setSettingsOpen(true)}
                     />
                 }
                 sidebar={
@@ -1464,6 +1542,37 @@ export function App(): ReactElement {
                     />
                 }
             />
+
+            <ProviderSettingsDialog
+                open={settingsOpen}
+                providers={config?.providers ?? []}
+                onOpenChange={setSettingsOpen}
+                onSaved={setConfig}
+            />
+
+            {approvalRequests[0] === undefined ? null : (
+                <ApprovalDialog
+                    key={approvalRequests[0].requestId}
+                    request={approvalRequests[0]}
+                    onDecide={(decision) =>
+                        void decideApproval(approvalRequests[0]!, decision)
+                    }
+                />
+            )}
+
+            {inputRequests[0] === undefined ? null : (
+                <UserInputDialog
+                    key={inputRequests[0].requestId}
+                    request={inputRequests[0]}
+                    onSubmit={(answers, cancelled) =>
+                        void answerUserInput(
+                            inputRequests[0]!,
+                            answers,
+                            cancelled,
+                        )
+                    }
+                />
+            )}
         </TooltipProvider>
     );
 }

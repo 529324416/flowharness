@@ -121,6 +121,9 @@ export class RuntimeHost {
             input: request.input as GraphRunOptions["input"],
             signal: controller.signal,
             maxConcurrency: request.maxConcurrency,
+            ...(request.checkpoint === undefined
+                ? {}
+                : { checkpoint: request.checkpoint as GraphCheckpoint }),
             listener: (event) => {
                 if (live) this.handleEvent(active, event);
                 else pending.push(event);
@@ -146,6 +149,59 @@ export class RuntimeHost {
         return { ...snapshot };
     }
 
+    /**
+     * 从 RunStore 恢复暂停/中断的 run。
+     *
+     * graph 与 checkpoint 都来自持久化记录；恢复会创建新的 runId，
+     * 旧 run 保留在历史中。
+     */
+    async resumeInterrupted(
+        workspaceId: string,
+        runId: string,
+    ): Promise<RunSnapshot> {
+        const store = this.options.storeFor?.(workspaceId);
+        if (store === undefined) {
+            throw new FhError("E_INVALID_ARGUMENT", "workspace has no run store");
+        }
+
+        const meta = await store.loadMeta(runId);
+        if (meta === undefined) {
+            throw new FhError("E_NOT_FOUND", `run not found: ${runId}`);
+        }
+        // running 也可能来自异常退出（meta 尚未 markInterrupted），只要有 checkpoint 就允许恢复。
+        if (
+            meta.status !== "paused" &&
+            meta.status !== "interrupted" &&
+            meta.status !== "running"
+        ) {
+            throw new FhError(
+                "E_CONFLICT",
+                `run cannot be resumed from status ${meta.status}`,
+            );
+        }
+
+        const graph = await store.loadGraph(runId);
+        if (graph === undefined) {
+            throw new FhError("E_NOT_FOUND", `graph snapshot not found: ${runId}`);
+        }
+        const checkpoint = await store.loadCheckpoint(runId);
+        if (checkpoint === undefined) {
+            throw new FhError(
+                "E_NOT_FOUND",
+                `checkpoint not found: ${runId}`,
+            );
+        }
+
+        return this.start({
+            workspaceId,
+            graph,
+            checkpoint,
+            ...(meta.workbenchId === undefined
+                ? {}
+                : { workbenchId: meta.workbenchId }),
+        });
+    }
+
     async pause(runId: string): Promise<RunSnapshot> {
         const active = this.requireActive(runId);
 
@@ -165,7 +221,10 @@ export class RuntimeHost {
         this.flush(active);
 
         if (active.store) {
-            void active.store.saveCheckpoint(runId, checkpoint).catch(() => undefined);
+            void active.store
+                .saveCheckpoint(runId, checkpoint)
+                .then(() => active.store?.updateStatus?.(runId, "paused"))
+                .catch(() => undefined);
         }
 
         return { ...active.snapshot };
@@ -183,6 +242,7 @@ export class RuntimeHost {
         }
 
         active.snapshot.status = "running";
+        void active.store?.updateStatus?.(runId, "running").catch(() => undefined);
         this.flush(active);
         return { ...active.snapshot };
     }

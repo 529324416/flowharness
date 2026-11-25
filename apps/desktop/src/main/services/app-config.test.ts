@@ -32,6 +32,7 @@ describe("AppConfigStore", () => {
         expect(config.schemaVersion).toBe(1);
         expect(config.theme).toBe("dark");
         expect(config.workspaceRoot).toBe(join(dir, "workspaces"));
+        expect(config.providers.map((provider) => provider.id)).toContain("ollama");
 
         const persisted = JSON.parse(await readFile(join(dir, "config.json"), "utf8"));
         expect(persisted.theme).toBe("dark");
@@ -58,6 +59,48 @@ describe("AppConfigStore", () => {
         await expect(store.update({ workspaceRoot: "" })).rejects.toMatchObject({
             code: "E_INVALID_ARGUMENT",
         });
+        await expect(
+            store.update({
+                providers: [
+                    {
+                        id: "bad id",
+                        kind: "deepseek",
+                        label: "bad",
+                        enabled: true,
+                    },
+                ],
+            }),
+        ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
+    });
+
+    it("persists provider configuration", async () => {
+        const dir = await makeDir();
+        const store = makeStore(dir);
+
+        await store.update({
+            providers: [
+                {
+                    id: "deepseek",
+                    kind: "deepseek",
+                    label: "DeepSeek 备用",
+                    enabled: true,
+                    baseUrl: "https://example.test/v1",
+                    model: "deepseek-chat",
+                },
+            ],
+        });
+
+        const reloaded = await makeStore(dir).get();
+        expect(reloaded.providers).toEqual([
+            {
+                id: "deepseek",
+                kind: "deepseek",
+                label: "DeepSeek 备用",
+                enabled: true,
+                baseUrl: "https://example.test/v1",
+                model: "deepseek-chat",
+            },
+        ]);
     });
 
     it("backs up and rebuilds a corrupt config file", async () => {

@@ -71,6 +71,7 @@ pnpm capture:ui   # 启动应用并通过 CDP 截取 renderer（默认 devlog/as
 # designer-problems / designer-documents / designer-doc-flow / designer-workbenches /
 # designer-workbench-flow / designer-workbench-manage / designer-plan-runner /
 # designer-slot-connect / designer-inline / designer-import /
+# provider-settings / diagnostics /
 # designer-history / designer-config / designer-form / designer-form-edit /
 # designer-schema / designer-preset / designer-library / designer-recent /
 # designer-panels / designer-select / designer-toggle / designer-menu /

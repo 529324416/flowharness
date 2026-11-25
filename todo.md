@@ -121,13 +121,15 @@
 - [x] 高频节点内联编辑：Constant / Model Call / Log / Value / Agent / Loop / ForEach
 - [x] 拖拽传入：输出端口可落在 Body 输入端口槽，或使用左侧 Handle
 
-### M6 — Session / Provider 闭环（原 Phase 5）
+### M6 — Session / Provider 闭环（M6.1 已完成）
 
-- [ ] Provider 工厂 + Secrets（DeepSeek / Ollama / MiniMax / Qwen）
-- [ ] 模型 / Agent 节点真正可运行
+> M6.1：Provider 工厂 + Secrets + 设置页；`resolveProvider` 接入 RuntimeHost；模型 / Agent 节点通过真实 Provider 解析（Agent 工具注册表仍为空）；审批 / 用户输入对话框；暂停 run 的 checkpoint 持久化与跨重启恢复（Diagnostics 提供恢复入口）。剩余：Session 生命周期 / 历史 / 附件回放；wireclaw checkpoint 的 graph hash / node type version。
+
+- [x] Provider 工厂 + Secrets（DeepSeek / Ollama / MiniMax / Qwen）
+- [x] 模型 / Agent 节点真正可运行（Provider 闭环；工具注册表仍为空）
 - [ ] Session 生命周期、历史、附件回放
-- [ ] 审批 / 用户输入 UI
-- [ ] 跨重启 resume（checkpoint + graph 装载）
+- [x] 审批 / 用户输入 UI
+- [x] 跨重启 resume（checkpoint + graph 装载）
 - [ ] wireclaw：checkpoint 的 graph hash / node type version
 
 ### M7 — 模板、导入导出与多工作台（原 Phase 6）
@@ -270,6 +272,7 @@
 - [x] 27 个测试文件 / 136 个测试通过（M5.1）
 - [x] 28 个测试文件 / 138 个测试通过（M5.1 修复）
 - [x] 30 个测试文件 / 143 个测试通过（M5.2）
+- [x] 31 个测试文件 / 149 个测试通过（M6.1）
 - [x] wireclaw：66 项离线测试通过（新增 `harness-nested-validation`）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步

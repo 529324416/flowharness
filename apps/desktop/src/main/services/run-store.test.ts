@@ -54,7 +54,9 @@ describe("RunStore", () => {
         await store.start(snapshot("run_1", "running"), {});
 
         await store.saveCheckpoint("run_1", { version: 1, runId: "run_1" });
+        await store.updateStatus("run_1", "paused");
 
+        expect((await store.loadMeta("run_1"))?.status).toBe("paused");
         expect(await store.loadCheckpoint("run_1")).toEqual({
             version: 1,
             runId: "run_1",

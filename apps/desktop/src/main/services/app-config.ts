@@ -2,6 +2,8 @@ import {
     FhError,
     type AppConfig,
     type AppConfigUpdate,
+    type ProviderConfig,
+    type ProviderKind,
     type RecentWorkspace,
     type ThemeMode,
 } from "@flowharness/contracts";
@@ -11,6 +13,42 @@ export const APP_CONFIG_SCHEMA_VERSION = 1;
 
 const THEME_MODES: readonly ThemeMode[] = ["light", "dark", "system"];
 const LANGUAGES: readonly AppConfig["language"][] = ["zh-CN", "en-US"];
+const PROVIDER_KINDS: readonly ProviderKind[] = [
+    "deepseek",
+    "ollama",
+    "minimax",
+    "qwen",
+];
+
+function defaultProviders(): ProviderConfig[] {
+    return [
+        {
+            id: "ollama",
+            kind: "ollama",
+            label: "Ollama",
+            enabled: true,
+            baseUrl: "http://127.0.0.1:11434",
+        },
+        {
+            id: "deepseek",
+            kind: "deepseek",
+            label: "DeepSeek",
+            enabled: false,
+        },
+        {
+            id: "minimax",
+            kind: "minimax",
+            label: "MiniMax",
+            enabled: false,
+        },
+        {
+            id: "qwen",
+            kind: "qwen",
+            label: "Qwen",
+            enabled: false,
+        },
+    ];
+}
 
 export function createDefaultAppConfig(workspaceRoot: string): AppConfig {
     return {
@@ -20,6 +58,7 @@ export function createDefaultAppConfig(workspaceRoot: string): AppConfig {
         recentWorkspaces: [],
         language: "zh-CN",
         devtools: true,
+        providers: defaultProviders(),
     };
 }
 
@@ -172,6 +211,9 @@ function coerceConfig(raw: unknown, defaults: AppConfig): AppConfig {
             typeof candidate.devtools === "boolean"
                 ? candidate.devtools
                 : defaults.devtools,
+        providers: Array.isArray(candidate.providers)
+            ? candidate.providers.filter(isProviderConfig).map(normalizeProvider)
+            : defaults.providers,
     };
 }
 
@@ -200,13 +242,74 @@ function applyPatch(current: AppConfig, patch: AppConfigUpdate): AppConfig {
         throw new FhError("E_INVALID_ARGUMENT", "devtools must be a boolean");
     }
 
+    let providers = current.providers;
+    if (patch.providers !== undefined) {
+        if (!Array.isArray(patch.providers)) {
+            throw new FhError("E_INVALID_ARGUMENT", "providers must be an array");
+        }
+        providers = validateProviders(patch.providers);
+    }
+
     return {
         ...current,
         theme: patch.theme ?? current.theme,
         workspaceRoot: patch.workspaceRoot ?? current.workspaceRoot,
         language: patch.language ?? current.language,
         devtools: patch.devtools ?? current.devtools,
+        providers,
     };
+}
+
+const PROVIDER_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+function isProviderConfig(value: unknown): value is ProviderConfig {
+    if (typeof value !== "object" || value === null) return false;
+    const record = value as Partial<ProviderConfig>;
+    return (
+        typeof record.id === "string" &&
+        PROVIDER_ID_PATTERN.test(record.id) &&
+        typeof record.kind === "string" &&
+        PROVIDER_KINDS.includes(record.kind as ProviderKind) &&
+        typeof record.label === "string" &&
+        typeof record.enabled === "boolean" &&
+        (record.baseUrl === undefined || typeof record.baseUrl === "string") &&
+        (record.model === undefined || typeof record.model === "string")
+    );
+}
+
+function normalizeProvider(provider: ProviderConfig): ProviderConfig {
+    return {
+        id: provider.id,
+        kind: provider.kind,
+        label: provider.label.trim() || provider.kind,
+        enabled: provider.enabled,
+        ...(provider.baseUrl === undefined || provider.baseUrl.trim() === ""
+            ? {}
+            : { baseUrl: provider.baseUrl.trim() }),
+        ...(provider.model === undefined || provider.model.trim() === ""
+            ? {}
+            : { model: provider.model.trim() }),
+    };
+}
+
+function validateProviders(value: unknown[]): ProviderConfig[] {
+    const seen = new Set<string>();
+    return value.map((item, index) => {
+        if (!isProviderConfig(item)) {
+            throw new FhError(
+                "E_INVALID_ARGUMENT",
+                `providers[${String(index)}] is invalid`,
+            );
+        }
+        if (seen.has(item.id)) {
+            throw new FhError(
+                "E_INVALID_ARGUMENT",
+                `duplicate provider id: ${item.id}`,
+            );
+        }
+        seen.add(item.id);
+        return normalizeProvider(item);
+    });
 }
 
 function isRecentWorkspace(value: unknown): value is RecentWorkspace {

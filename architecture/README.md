@@ -2,7 +2,7 @@
 
 > 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化、M4 文档生命周期与编辑体验，以及 M5 Workbench Framework；进度见文末。
 >
-> 当前阶段：**M5 已完成；M6 Session / Provider 闭环是下一步**。
+> 当前阶段：**M6 进行中（M6.1 Provider / 审批 / 跨重启恢复已完成；Session 生命周期与 wireclaw checkpoint 校验待做）**。
 > 术语：FH = FlowHarness。
 
 ## 阅读顺序
@@ -59,6 +59,10 @@
 | M5 WorkbenchPlan（独立多 run 顺序执行） | ✅ 已实现（M5.2；renderer 编排） |
 | M5 节点内联编辑 / Body 输入端口槽拖拽 | ✅ 已实现（M5） |
 | M5 plan.bindings / layout.overrides | ⬜ 未接线 |
+| M6.1 Provider 工厂 / Secrets / 设置页 / RuntimeHost resolveProvider | ✅ 已实现（M6.1） |
+| M6.1 审批 / 用户输入对话框；跨重启 checkpoint 恢复 | ✅ 已实现（M6.1） |
+| M6.1 Session 生命周期 / 历史 / 附件回放 | ⬜ 未开始 |
+| M6.1 wireclaw checkpoint graph hash / node version | ⬜ 未开始 |
 | SessionService（AttachmentFileManager 装配） | ✅ 已实现（Phase 2，仅附件管理） |
 | UI 基础：tokens / 组件原语 / 画布样张 / Styleguide | ✅ 已实现（Phase 2.5） |
 | Shell v2：无边框标题栏 / Ribbon / 会话侧栏 / StatusBar（HeroView 未接入） | ✅ 已实现（Phase 2.6） |
@@ -66,7 +70,7 @@
 | UI 打磨：去饱和色板 / 125% 字号 / 节点双层 / Session+Canvas 面板化 | ✅ 已实现（2026-11-25） |
 | 内部浮动 Panel（运行日志 / 属性检查） | ✅ 已实现（Phase 2.6 step 2） |
 | 窗口 bounds 持久化（多显示器/DPI） | ✅ 已实现（step 2） |
-| 完整 Session 生命周期（历史 / 回放 / Provider） | ⬜ 未开始 |
+| Session 生命周期（历史 / 回放 / 附件） | ⬜ 未开始（Provider 已就绪） |
 | Canvas core + react-flow 交互 | ✅ 已实现（Phase 3 Step 3） |
 | Canvas core 纯 TS / view 薄层（无 react-flow 类型泄漏） | ✅ 已实现（M1.1） |
 | 商务扁平节点 / 网格线 / 去辉光 | ✅ 已实现（Step 4C） |

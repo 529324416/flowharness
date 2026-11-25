@@ -138,6 +138,7 @@ try {
         scenario === "designer-workbench-return" ||
         scenario === "designer-plan-runner" ||
         scenario === "designer-workbench-manage" ||
+        scenario === "provider-settings" ||
         scenario === "designer-inline" ||
         scenario === "designer-inline-type" ||
         scenario === "designer-slot-connect" ||
@@ -402,6 +403,47 @@ try {
         if (scenario === "designer-documents") {
             await clickElement(`document.querySelector('button[aria-label="切换或管理文档"]')`);
             await settle(500);
+        }
+
+        if (scenario === "provider-settings") {
+            await clickElement(`document.querySelector('button[aria-label="设置"]')`);
+            await settle(250);
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('Provider 设置'))`,
+            );
+            await settle(800);
+
+            const providers = await evaluateAsync(`(async () => {
+                const result = await window.flowharness.listProviders();
+                return result.ok ? result.data.map((item) => ({
+                    id: item.id,
+                    kind: item.kind,
+                    enabled: item.enabled,
+                    hasKey: item.hasKey,
+                    available: item.available,
+                    error: item.error ?? null,
+                })) : null;
+            })()`);
+            const dialog = await evaluateAsync(
+                `document.querySelector('[role="dialog"]')?.textContent?.slice(0, 240)`,
+            );
+            console.log(`providers: ${JSON.stringify(providers.result?.value)}`);
+            console.log(`provider dialog: ${JSON.stringify(dialog.result?.value)}`);
+
+            // 保存一次配置，验证 UI → config:update → providers:list 的闭环。
+            await evaluate(
+                `(() => { const cards = [...document.querySelectorAll('[role="dialog"] section')]; const card = cards.find((item) => item.textContent?.includes('deepseek')); const input = card?.querySelector('input[type="checkbox"]'); if (input && !input.checked) input.click(); })()`,
+            );
+            await settle(150);
+            await clickElement(
+                `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '保存配置')`,
+            );
+            await settle(800);
+            const saved = await evaluateAsync(`(async () => {
+                const result = await window.flowharness.getConfig();
+                return result.ok ? result.data.providers.map((item) => ({ id: item.id, enabled: item.enabled })) : null;
+            })()`);
+            console.log(`providers saved: ${JSON.stringify(saved.result?.value)}`);
         }
 
         if (scenario === "designer-workbench-manage") {
@@ -1206,6 +1248,11 @@ try {
             }
             await settle(900);
         }
+    } else if (scenario === "diagnostics") {
+        await evaluate(
+            `document.querySelector('button[aria-label="诊断"]')?.click()`,
+        );
+        await settle(800);
     } else if (scenario === "styleguide") {
         await evaluate(`document.querySelector('button[aria-label="样式指南"]')?.click()`);
         await settle(400);

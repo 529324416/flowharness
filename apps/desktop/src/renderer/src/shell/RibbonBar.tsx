@@ -19,6 +19,7 @@ export type RibbonBarProps = {
     onToggleSidebar: () => void;
     onSelectView: (view: ViewId) => void;
     onToggleTheme: () => void;
+    onOpenSettings: () => void;
 };
 
 const VIEW_ITEMS: ReadonlyArray<{
@@ -37,6 +38,7 @@ export function RibbonBar({
     onToggleSidebar,
     onSelectView,
     onToggleTheme,
+    onOpenSettings,
 }: RibbonBarProps): ReactElement {
     return (
         <nav className={styles.ribbon} aria-label="工作台切换">
@@ -84,7 +86,9 @@ export function RibbonBar({
                         <MenuItem onSelect={onToggleTheme}>切换主题</MenuItem>
                         <MenuItem onSelect={() => onSelectView("styleguide")}>样式指南</MenuItem>
                         <MenuSeparator />
-                        <MenuItem disabled>偏好设置…（后续）</MenuItem>
+                        <MenuItem onSelect={onOpenSettings}>
+                            Provider 设置…
+                        </MenuItem>
                     </MenuContent>
                 </Menu>
             </div>

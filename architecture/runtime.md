@@ -23,7 +23,7 @@ RuntimeHost（main）
   └─ SessionService            每个已打开工作区一个 AttachmentFileManager
 ```
 
-> `RunRegistry` / `EventPipeline` / `ProviderFactory` 是目标角色名，当前**没有**对应类：运行表与节流内联在 `RuntimeHost`，Provider 由 `RuntimeHost.resolveProvider` 注入（`main/index.ts` 尚未提供工厂，默认返回 `undefined`）。
+> `RunRegistry` / `EventPipeline` 是目标角色名，当前运行表与节流内联在 `RuntimeHost`。Provider 由 `ProviderRegistry`（`main/services/provider-registry.ts`）从 AppConfig + SecretsStore 构造并缓存，`RuntimeHost.resolveProvider` 直接查询它；配置或密钥变化后 reload。
 
 ## 3. 运行生命周期
 
@@ -40,7 +40,7 @@ start → running → completed
 ```
 
 - FH 层的 `runId` 是稳定标识；wireclaw 引擎另有自己的 run id，两者不互通，FH 只持久化自身 `runId`（`RunSnapshot` 没有 `engineRunIds` 字段）；
-- `pause()` 返回 `GraphCheckpoint` 并落 `checkpoint.json`；当前恢复是**进程内** `GraphRun.resume()`，跨重启恢复尚未接入（见 §13）；
+- `pause()` 返回 `GraphCheckpoint` 并落 `checkpoint.json`；进程内用 `GraphRun.resume()`，跨重启用 `run:resume-interrupted` 从 RunStore 装载 graph + checkpoint 后重新 start；
 - `cancel()` 通过 `GraphRun.cancel()` + `AbortSignal`，已完成的节点结果保留在 records 中；
 - 并发限制（每个工作台 1 个 run、超出返回 `E_CONFLICT`）**尚未实现**：`start()` 不做按工作台/工作区的并发检查，`E_CONFLICT` 目前只用于 pause/resume 状态不满足。
 
@@ -48,11 +48,11 @@ start → running → completed
 
 | wireclaw 字段 | FH 来源 | 说明 |
 | --- | --- | --- |
-| `resolveProvider(providerId)` | AppConfig + Secrets + ProviderFactory（目标） | 按 providerId 构造/复用 `AIProvider`，密钥不出 main；**当前返回 `undefined`** |
-| `tools` | ToolRegistry（wireclaw）+ 本地工具注册 | 工具定义与审批策略由 FH 决定；**当前是空 ToolRegistry** |
+| `resolveProvider(providerId)` | `ProviderRegistry`（AppConfig + SecretsStore） | 按 providerId 返回已构造的 `AIProvider`，密钥不出 main；配置/密钥变更后 reload |
+| `tools` | ToolRegistry（wireclaw）+ 本地工具注册 | 工具定义与审批策略由 FH 决定；**当前仍是空 ToolRegistry** |
 | `attachments` | SessionService → `AttachmentFileManager` → `WorkspaceFileHost` | 按 contentHash 读写 |
-| `onToolApproval(request, nodeId)` | IPC 往返到 renderer 审批 UI | 超时默认拒绝；**审批 UI 未接** |
-| `onUserInput(request, nodeId)` | IPC 往返到 renderer 表单 | 超时/取消返回取消结果；**输入 UI 未接** |
+| `onToolApproval(request, nodeId)` | IPC 往返到 renderer 审批对话框 | 超时默认拒绝；UI 已接 |
+| `onUserInput(request, nodeId)` | IPC 往返到 renderer 输入对话框 | 超时/取消返回取消结果；UI 已接 |
 | `parameters` | 工作台实例参数 + 运行入参 | 用于 `NodeRequirement(kind: "parameter")` 校验；静态校验已支持 catalog 递归下传，**宿主 catalog 来源待 M6** |
 | `log(level, message, data)` | Logging（脱敏） | 不写密钥、不写完整工具参数（当前走 `console`） |
 
@@ -129,14 +129,15 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | app | `app:getInfo` | ✅ | ❌（renderer 直接用 preload 注入的 versions/platform） |
 | window | `window:minimize` / `toggle-maximize` / `close` / `is-maximized` | ✅ | ✅ |
 | config | `config:get` / `config:update` / `config:reset` | ✅ | `get`/`update` ✅，`reset` ❌ |
-| secrets | `secrets:has` / `secrets:set` / `secrets:delete`（无 `get`） | ✅ | ❌（M6 接 Provider 时开放） |
+| secrets | `secrets:has` / `secrets:set` / `secrets:delete`（无 `get`） | ✅ | ✅ |
+| providers | `providers:list` / `providers:test` | ✅ | ✅ |
 | workspace | `workspace:list` / `create` / `open` / `close` / `readDocument` / `saveDocument` / `listDocuments` / `deleteDocument` / `exportHarness` / `listWorkbenches` / `export` / `import` | ✅ | 前十个 ✅，`export`/`import` ❌ |
 | workspace | `workspace:applyCommands` | ❌（仅契约，见 ADR-012） | ❌ |
 | blob | `blob:stat` / `blob:delete` | ✅ | ❌ |
 | session | `session:create` / `open` / `close` / `list` | ❌（仅契约） | ❌ |
-| run | `run:start` / `pause` / `resume` / `cancel` / `get` / `list` | ✅ | `start`/`pause`/`resume`/`cancel`/`get` ✅，`list` ❌ |
-| approval | `approval:respond` | ✅ | ❌ |
-| input | `input:respond` | ✅ | ❌ |
+| run | `run:start` / `pause` / `resume` / `cancel` / `get` / `list` / `resume-interrupted` | ✅ | ✅ |
+| approval | `approval:respond` | ✅ | ✅ |
+| input | `input:respond` | ✅ | ✅ |
 
 > **main 注册 ≠ renderer 可用**：preload 只暴露白名单方法，新增通道必须同步 `packages/contracts`、`preload/index.ts` 与 `bridge.d.ts`。
 
@@ -166,7 +167,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | 场景 | 行为 |
 | --- | --- |
 | renderer 重载 | run 继续；重载后订阅事件 + `run:get` 恢复视图 |
-| main 崩溃 | 打开工作区时把遗留 `running` 标记为 `interrupted`；按 checkpoint 的跨重启恢复尚未接入 |
+| main 崩溃 | 打开工作区时把遗留 `running` 标记为 `interrupted`；Diagnostics 可从 RunStore 的 graph + checkpoint 恢复 |
 | wireclaw 抛错 | 归一化为 `E_RUNTIME`，保留原始 cause 到日志，事件流写 `run:end(status=failed)` |
 | IPC 超时 | renderer 展示可重试错误，不静默重发 |
 | 工作区迁移失败 | 只读打开 + 明确错误，绝不半写 |
@@ -194,8 +195,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 
 **已知限制**
 
-- `resolveProvider` 暂返回 `undefined`：模型/Agent 节点会失败，等 Provider 工厂接入（M6）；
-- 审批 / 用户输入目前只有 IPC 管道，没有工作台 UI（M6）；
-- 跨进程重启的 resume 尚未接入：checkpoint 已落盘，但需要工作台绑定与 Graph 定义装载后才能恢复；
-- `run:list` 已在 main 注册，但 preload 未暴露；
+- Agent 节点已有 Provider / 审批 / 输入 UI，但 `ToolRegistry` 仍为空，真实工具尚未注册；
+- 运行前 requirements catalog 尚未从 ProviderRegistry 注入，校验阶段不会提前拦截缺失 Provider；
+- wireclaw checkpoint 尚未携带 graph hash / node type version，恢复时按 graphId 匹配；
 - 受限环境写盘不可用时，RunStore 退化为内存态（日志告警一次），执行本身不受影响。

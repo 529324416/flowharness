@@ -12,6 +12,7 @@ import type {
     WorkspaceSummary,
 } from "./domain";
 import type { WorkbenchSummary } from "./workbench";
+import type { ProviderStatus, ProviderTestResult } from "./provider";
 import type {
     ApprovalResponseRequest,
     RunCancelRequest,
@@ -19,6 +20,7 @@ import type {
     RunGetRequest,
     RunListRequest,
     RunPauseRequest,
+    RunResumeInterruptedRequest,
     RunResumeRequest,
     RunSnapshot,
     RunStartRequest,
@@ -45,6 +47,9 @@ export const IpcChannel = {
     SecretsHas: "secrets:has",
     SecretsSet: "secrets:set",
     SecretsDelete: "secrets:delete",
+
+    ProvidersList: "providers:list",
+    ProvidersTest: "providers:test",
 
     WorkspaceList: "workspace:list",
     WorkspaceCreate: "workspace:create",
@@ -74,6 +79,7 @@ export const IpcChannel = {
     RunCancel: "run:cancel",
     RunGet: "run:get",
     RunList: "run:list",
+    RunResumeInterrupted: "run:resume-interrupted",
 
     ApprovalRespond: "approval:respond",
     UserInputRespond: "input:respond",
@@ -148,6 +154,7 @@ export type BlobDeleteRequest = { workspaceId: string; hash: string };
 export type SecretsHasRequest = { providerId: string };
 export type SecretsSetRequest = { providerId: string; value: string };
 export type SecretsDeleteRequest = { providerId: string };
+export type ProvidersTestRequest = { providerId: string };
 
 /** 已实现 invoke 通道的类型表；每接入一个通道就往这里加一行。 */
 export type IpcInvokeContracts = {
@@ -165,6 +172,9 @@ export type IpcInvokeContracts = {
     [IpcChannel.SecretsHas]: { request: SecretsHasRequest; response: { has: boolean } };
     [IpcChannel.SecretsSet]: { request: SecretsSetRequest; response: void };
     [IpcChannel.SecretsDelete]: { request: SecretsDeleteRequest; response: { deleted: boolean } };
+
+    [IpcChannel.ProvidersList]: { request: void; response: ProviderStatus[] };
+    [IpcChannel.ProvidersTest]: { request: ProvidersTestRequest; response: ProviderTestResult };
 
     [IpcChannel.WorkspaceList]: { request: void; response: WorkspaceSummary[] };
     [IpcChannel.WorkspaceCreate]: { request: WorkspaceCreateInput; response: WorkspaceSummary };
@@ -207,6 +217,10 @@ export type IpcInvokeContracts = {
     [IpcChannel.RunCancel]: { request: RunCancelRequest; response: void };
     [IpcChannel.RunGet]: { request: RunGetRequest; response: RunSnapshot | null };
     [IpcChannel.RunList]: { request: RunListRequest; response: RunSnapshot[] };
+    [IpcChannel.RunResumeInterrupted]: {
+        request: RunResumeInterruptedRequest;
+        response: RunSnapshot;
+    };
 
     [IpcChannel.ApprovalRespond]: {
         request: ApprovalResponseRequest;

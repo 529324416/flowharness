@@ -1,5 +1,10 @@
-import type { ReactElement } from "react";
-import type { AppConfig, RunSnapshot, WorkspaceSummary } from "@flowharness/contracts";
+import { useCallback, useEffect, useState, type ReactElement } from "react";
+import type {
+    AppConfig,
+    RunSnapshot,
+    RunStatus,
+    WorkspaceSummary,
+} from "@flowharness/contracts";
 import { RunSelfTest } from "../run/RunSelfTest";
 import { MetaList } from "../components/MetaList";
 import { Alert, Button, Panel } from "../ui";
@@ -12,6 +17,7 @@ export type DiagnosticsViewProps = {
     busy: boolean;
     autoStartRun: boolean;
     wireclaw: { loaded: boolean; graphId: string };
+    workspaceId?: string | undefined;
     onRefresh: () => void;
     onCreateWorkspace: () => void;
     onRunFinished: (snapshot: RunSnapshot) => void;
@@ -24,11 +30,56 @@ export function DiagnosticsView({
     busy,
     autoStartRun,
     wireclaw,
+    workspaceId,
     onRefresh,
     onCreateWorkspace,
     onRunFinished,
 }: DiagnosticsViewProps): ReactElement {
     const bridge = window.flowharness;
+    const [runs, setRuns] = useState<RunSnapshot[]>([]);
+    const [recoveryBusy, setRecoveryBusy] = useState<string | null>(null);
+    const [recoveryError, setRecoveryError] = useState<string | null>(null);
+
+    const loadRuns = useCallback(async (): Promise<void> => {
+        if (workspaceId === undefined) {
+            setRuns([]);
+            return;
+        }
+        const result = await bridge.listRuns(workspaceId);
+        if (result.ok) {
+            setRuns(
+                result.data.filter(
+                    (run) => run.status === "paused" || run.status === "interrupted",
+                ),
+            );
+        } else {
+            setRecoveryError(result.error.message);
+        }
+    }, [bridge, workspaceId]);
+
+    useEffect(() => {
+        void loadRuns();
+    }, [loadRuns]);
+
+    const resume = async (run: RunSnapshot): Promise<void> => {
+        if (workspaceId === undefined) return;
+        setRecoveryBusy(run.runId);
+        setRecoveryError(null);
+        try {
+            const result = await bridge.resumeInterrupted({
+                workspaceId,
+                runId: run.runId,
+            });
+            if (!result.ok) {
+                setRecoveryError(result.error.message);
+                return;
+            }
+            onRunFinished(result.data);
+            await loadRuns();
+        } finally {
+            setRecoveryBusy(null);
+        }
+    };
 
     return (
         <div className={styles.root}>
@@ -98,8 +149,55 @@ export function DiagnosticsView({
                     ) : null}
                 </Panel>
 
+                <Panel title="运行恢复">
+                    {recoveryError === null ? null : (
+                        <Alert tone="danger" className={styles.alert}>
+                            {recoveryError}
+                        </Alert>
+                    )}
+                    {runs.length === 0 ? (
+                        <p className={styles.muted}>
+                            {workspaceId === undefined
+                                ? "打开工作区后可恢复暂停或中断的 run"
+                                : "没有可恢复的 run"}
+                        </p>
+                    ) : (
+                        <ul className={styles.recoveryList}>
+                            {runs.map((run) => (
+                                <li key={run.runId} className={styles.recoveryItem}>
+                                    <span className={styles.recoveryId}>{run.runId}</span>
+                                    <span className={styles.muted}>
+                                        {statusLabel(run.status)}
+                                    </span>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        disabled={recoveryBusy !== null}
+                                        onClick={() => void resume(run)}
+                                    >
+                                        {recoveryBusy === run.runId
+                                            ? "恢复中…"
+                                            : "恢复"}
+                                    </Button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </Panel>
+
                 <RunSelfTest autoStart={autoStartRun} onFinished={onRunFinished} />
             </div>
         </div>
     );
+}
+
+function statusLabel(status: RunStatus): string {
+    switch (status) {
+        case "paused":
+            return "已暂停";
+        case "interrupted":
+            return "已中断";
+        default:
+            return status;
+    }
 }

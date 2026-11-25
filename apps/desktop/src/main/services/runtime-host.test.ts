@@ -3,13 +3,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+    AssistantMessage,
     GraphNode,
     createBuiltinNodeRegistry,
+    type AIProvider,
+    type ChatResult,
+    type GraphProviderResolver,
     type InputPortSpec,
+    type Message,
     type NodeContext,
     type NodeInputValues,
     type NodeOutputValues,
     type OutputPortSpec,
+    type SessionRuntimeOptions,
 } from "wireclaw";
 import type { RunEventBatch } from "@flowharness/contracts";
 import { RunStore } from "./run-store";
@@ -83,7 +89,10 @@ const SLOW_GRAPH = {
     ],
 } as const;
 
-function createRuntime(store?: RunStore): {
+function createRuntime(
+    store?: RunStore,
+    resolveProvider?: GraphProviderResolver,
+): {
     host: RuntimeHost;
     batches: RunEventBatch[];
 } {
@@ -112,6 +121,7 @@ function createRuntime(store?: RunStore): {
         },
         flushIntervalMs: 1,
         ...(store ? { storeFor: () => store } : {}),
+        ...(resolveProvider ? { resolveProvider } : {}),
     });
 
     return { host, batches };
@@ -157,6 +167,82 @@ describe("RuntimeHost", () => {
         expect(host.list()).toHaveLength(1);
     });
 
+    it("resolves a provider and runs a Model -> Model Call graph", async () => {
+        const fakeProvider = {
+            title: "Fake",
+            modelProvider: null,
+            async chat(
+                _messages: readonly Message[],
+                _options: SessionRuntimeOptions,
+            ): Promise<ChatResult> {
+                return { message: new AssistantMessage("hello from fake") };
+            },
+        } as unknown as AIProvider;
+
+        const { host, batches } = createRuntime(undefined, (providerId) =>
+            providerId === "fake" ? fakeProvider : undefined,
+        );
+
+        const graph = {
+            version: 1,
+            id: "provider-graph",
+            nodes: [
+                {
+                    id: "model",
+                    type: "core.model",
+                    typeVersion: 1,
+                    config: { providerId: "fake", modelId: "fake-model" },
+                },
+                {
+                    id: "prompt",
+                    type: "core.constant",
+                    typeVersion: 1,
+                    config: { value: { type: "text", text: "hi" } },
+                },
+                {
+                    id: "call",
+                    type: "core.model.call",
+                    typeVersion: 1,
+                    config: { mode: "chat" },
+                },
+                { id: "output", type: "core.output", typeVersion: 1 },
+            ],
+            edges: [
+                {
+                    from: { nodeId: "model", port: "model" },
+                    to: { nodeId: "call", port: "model" },
+                },
+                {
+                    from: { nodeId: "prompt", port: "value" },
+                    to: { nodeId: "call", port: "prompt" },
+                },
+                {
+                    from: { nodeId: "call", port: "text" },
+                    to: { nodeId: "output", port: "text" },
+                },
+            ],
+        };
+
+        const snapshot = await host.start({ graph });
+        await waitFor(() => host.get(snapshot.runId)?.status === "completed");
+
+        const events = batches.flatMap((batch) => batch.events);
+        expect(events.find((event) => event.type === "run:end")).toMatchObject({
+            status: "completed",
+        });
+        expect(
+            events.find(
+                (event) =>
+                    event.type === "node:end" && event.nodeId === "output",
+            ),
+        ).toMatchObject({
+            type: "node:end",
+            outputs: {
+                text: { type: "text", text: "hello from fake" },
+            },
+        });
+    });
+
     it("rejects an invalid graph document", async () => {
         const { host } = createRuntime();
 
@@ -196,6 +282,39 @@ describe("RuntimeHost", () => {
         );
 
         expect((await store.list("ws_test"))[0]?.runId).toBe(snapshot.runId);
+    });
+
+    it("resumes an interrupted run from persisted graph + checkpoint", async () => {
+        const dir = await mkdtemp(join(tmpdir(), "fh-runtime-"));
+        dirs.push(dir);
+        const store = new RunStore(join(dir, "runs"));
+        const first = createRuntime(store);
+
+        const paused = await first.host.start({
+            graph: SLOW_GRAPH,
+            workspaceId: "ws_test",
+        });
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        await first.host.pause(paused.runId);
+        await waitForAsync(
+            async () => (await store.loadCheckpoint(paused.runId)) !== undefined,
+        );
+
+        const second = createRuntime(store);
+        const resumed = await second.host.resumeInterrupted(
+            "ws_test",
+            paused.runId,
+        );
+
+        expect(resumed.runId).not.toBe(paused.runId);
+        await waitFor(
+            () => second.host.get(resumed.runId)?.status === "completed",
+        );
+        await waitForAsync(
+            async () =>
+                (await store.loadMeta(resumed.runId))?.status === "completed",
+        );
+        await new Promise((resolve) => setTimeout(resolve, 30));
     });
 
     it("persists a checkpoint when the run is paused", async () => {

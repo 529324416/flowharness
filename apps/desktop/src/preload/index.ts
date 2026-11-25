@@ -5,14 +5,19 @@ import {
     IpcSendChannel,
     type AppConfig,
     type AppConfigUpdate,
+    type ApprovalResponseRequest,
     type DocumentRef,
     type DocumentSaveResult,
     type DocumentSnapshot,
     type HarnessDocumentSummary,
     type IpcEventEnvelope,
     type IpcResult,
+    type ProviderStatus,
+    type ProviderTestResult,
     type RunSnapshot,
     type RunStartRequest,
+    type RunResumeInterruptedRequest,
+    type UserInputResponseRequest,
     type WindowStatePayload,
     type WorkspaceCreateInput,
     type WorkbenchSummary,
@@ -60,6 +65,20 @@ const bridge = {
     getConfig: (): Promise<IpcResult<AppConfig>> => invoke(IpcChannel.ConfigGet),
     updateConfig: (patch: AppConfigUpdate): Promise<IpcResult<AppConfig>> =>
         invoke(IpcChannel.ConfigUpdate, patch),
+    secretsHas: (providerId: string): Promise<IpcResult<{ has: boolean }>> =>
+        invoke(IpcChannel.SecretsHas, { providerId }),
+    secretsSet: (providerId: string, value: string): Promise<IpcResult<void>> =>
+        invoke(IpcChannel.SecretsSet, { providerId, value }),
+    secretsDelete: (
+        providerId: string,
+    ): Promise<IpcResult<{ deleted: boolean }>> =>
+        invoke(IpcChannel.SecretsDelete, { providerId }),
+    listProviders: (): Promise<IpcResult<ProviderStatus[]>> =>
+        invoke(IpcChannel.ProvidersList),
+    testProvider: (
+        providerId: string,
+    ): Promise<IpcResult<ProviderTestResult>> =>
+        invoke(IpcChannel.ProvidersTest, { providerId }),
     listWorkspaces: (): Promise<IpcResult<WorkspaceSummary[]>> =>
         invoke(IpcChannel.WorkspaceList),
     createWorkspace: (input: WorkspaceCreateInput): Promise<IpcResult<WorkspaceSummary>> =>
@@ -104,6 +123,20 @@ const bridge = {
         invoke(IpcChannel.RunCancel, { runId }),
     getRun: (runId: string): Promise<IpcResult<RunSnapshot | null>> =>
         invoke(IpcChannel.RunGet, { runId }),
+    listRuns: (workspaceId?: string): Promise<IpcResult<RunSnapshot[]>> =>
+        invoke(IpcChannel.RunList, { workspaceId }),
+    resumeInterrupted: (
+        request: RunResumeInterruptedRequest,
+    ): Promise<IpcResult<RunSnapshot>> =>
+        invoke(IpcChannel.RunResumeInterrupted, request),
+    respondApproval: (
+        request: ApprovalResponseRequest,
+    ): Promise<IpcResult<{ accepted: boolean }>> =>
+        invoke(IpcChannel.ApprovalRespond, request),
+    respondUserInput: (
+        request: UserInputResponseRequest,
+    ): Promise<IpcResult<{ accepted: boolean }>> =>
+        invoke(IpcChannel.UserInputRespond, request),
 };
 
 contextBridge.exposeInMainWorld("flowharness", bridge);

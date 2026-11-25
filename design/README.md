@@ -35,7 +35,7 @@ apps/desktop/src/renderer/src/
   styles/global.css      # reset 与基础排版
   ui/                    # 组件原语（Button / Menu / Dialog / …）
   shell/                 # TitleBar / Ribbon / navigation / panels
-  views/                 # Designer / Diagnostics / Styleguide（HeroView 仍在仓库但未接入）
+  views/                 # Designer / SessionHistory / RunResult / Diagnostics / Styleguide（HeroView 仍在仓库但未接入）
   canvas/core/           # 几何 / 边 key / 类型
   canvas/view/           # React Flow 画布、SciFi 节点/边
   designer/              # GraphDocument adapter / 命令 / 文档与运行状态
@@ -57,9 +57,9 @@ apps/desktop/src/renderer/src/
 
 ## 本阶段不做
 
-- 每个未来工作台的最终页面；
+- 每个未来工作台的最终页面（`flow-runner` 是运行页参考，不是最终模板）；
 - 品牌 logo、插画、空状态插画；
-- 复杂动画编排、主题自定义面板、响应式与移动端。
+- 复杂动画编排；运行页只保留状态脉冲 / 边流动 / 视口焦点；主题自定义面板、响应式与移动端。
 
 ## 评审方式（Windows）
 
@@ -67,11 +67,12 @@ apps/desktop/src/renderer/src/
 pnpm build        # 先产出 out/
 pnpm capture:ui   # 启动应用并通过 CDP 截取 renderer（默认 devlog/assets/ui-current.png）
 
-# 选择场景：designer（默认）/ designer-run / designer-edit / designer-drag /
-# designer-problems / designer-documents / designer-doc-flow / designer-workbenches /
-# designer-workbench-flow / designer-workbench-manage / designer-plan-runner /
-# designer-slot-connect / designer-inline / designer-import /
-# provider-settings / session-new / diagnostics /
+# 选择场景：designer（默认）/ designer-split-nav / designer-run-mode /
+# designer-flow-runner / designer-run / designer-run-result / designer-run-session /
+# designer-edit / designer-drag / designer-problems / designer-documents /
+# designer-doc-flow / designer-workbenches / designer-workbench-flow /
+# designer-workbench-manage / designer-plan-runner / designer-slot-connect /
+# designer-inline / designer-import / provider-settings / diagnostics /
 # designer-history / designer-config / designer-form / designer-form-edit /
 # designer-schema / designer-preset / designer-library / designer-recent /
 # designer-panels / designer-select / designer-toggle / designer-menu /

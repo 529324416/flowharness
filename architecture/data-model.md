@@ -230,7 +230,7 @@ objects/**             # 默认包含；ExportOptions.includeObjects=false 可�
 - **一致性**：先写内容文件，再写索引；索引损坏时按目录重建；
 - **自动保存**：renderer 侧 debounce 400ms，卸载/切换工作区时 flush；窗口直接关闭时最后 <400ms 的编辑仍可能丢失（无 main-renderer 退出握手）。
 
-## 12. M7 目标：Session 树与 RunResult（M7.2 / M7.4 已落地）
+## 12. M7 目标：Session 树与 RunResult（已完成）
 
 > M7.2 已实现递归目录、`SessionRecord` v2、草稿目录与迁移；M7.4 已实现 RunResult 采集 / 校验 / 持久化、运行结果面板、run 会话保存与回放；草稿目录可在 Session 树文件夹右键切换。
 

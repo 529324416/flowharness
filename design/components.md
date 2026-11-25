@@ -50,7 +50,7 @@
 
 - TitleBar 是拖拽区（`-webkit-app-region: drag`），按钮/输入自动 `no-drag`；双击空白处切换最大化；
 - Ribbon 是工作台切换栏：导航栏开关 + 设计器 / 诊断 / 样式指南，底部设置；
-- **只有一个工作台导航 Panel**（M7.1 起由 `WorkbenchDefinition.navigation` 提供内容；设计器为 GraphDocument 列表，会话树在 M7.3 迁移）；可收起、可拖宽，宽度记入 localStorage；
+- **工作台导航 Panel**（M7.1 起由 `WorkbenchDefinition.navigation` 提供内容；M7.4.1 起 Harness 设计器为上下双区：上工作流 / 下会话，其他工作台按 mode 提供单一导航）；可收起、可拖宽，宽度记入 localStorage；
 - 导航与 Canvas 各自带 1px 外框和 6px 圆角，用 4px 间隙分隔，不再用共享分隔线“拼”在一起；
 - TitleBar 与 StatusBar 使用不透明表面，中间 Body 统一 95% 半透；导航与 Canvas 处于同一层，最终不透明度一致；
 - 设计器按工作区加载：无工作区时显示设计器空状态（「新建工作区」），有工作区时直接进入画布；左栏切换 GraphDocument 会同步工作台主图绑定；

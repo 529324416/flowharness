@@ -519,7 +519,10 @@ export function App(): ReactElement {
                     list = await refreshWorkbenches(workspaceId);
                 }
 
-                const first = list[0];
+                // 打开工作区时优先回到 Harness Designer；没有时再使用最近的工作台。
+                const first =
+                    list.find((workbench) => workbench.type === "harness-designer") ??
+                    list[0];
                 if (first === undefined) return;
 
                 const loaded = await loadWorkbench(workspaceId, first.id);

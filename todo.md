@@ -1,18 +1,18 @@
 # TODO
 
-> 当前主线：**M7 工作台导航、Session 树与运行页**（M6 已完成）。
+> 当前主线：**M8 — 模板、导入导出与多工作台**（M7 已完成）。
 > 原则：垂直切片；契约先行；工作台即视图；信息架构调整优先于新功能。
 
 ## 设计约束（M7 起）
 
 - **工作台 = 视图 + 绑定 + 导航**：GraphDocument / Session / Blob / Run 都归 workspace；工作台实例只保存 type、graphs、plan、parameters、layout 等展示与绑定状态。
-- **导航跟随工作台 / 阶段**：左侧栏是 Panel 宿主，PanelContent 由当前 `(workbench type, mode)` 提供——设计阶段是 GraphDocument 列表，运行阶段是 Session 树；没有全局 Session 侧栏。
+- **导航跟随工作台 / 阶段**：左侧栏是 Panel 宿主，PanelContent 默认由 `(workbench type, mode)` 提供；声明 `splitNavigation` 的工作台改为上下双区（Harness 设计器：上工作流 / 下会话）；没有全局 Session 侧栏。
 - **Session 是 workspace 级递归文件夹树**：目录用稳定 id，标题放元数据；草稿目录由工作区配置，用于承接临时运行结果。
 - **运行结果可持久化为 Session**：临时 run 结果可「保存到会话」，默认落入草稿目录；run session 与 conversation session 用 `kind` 区分，不伪造 wireclaw 消息。
 - **运行结果与会话历史是 Canvas 浮动面板**：不再有独立的会话 / 运行主视图；面板透明度 `--fh-panel-alpha` = 0.78。
 - **工作台运行阶段是带动画的固定工作流运行页**：设计 → 运行是同一工作台实例的模式切换（推荐），不是新的全局页面。
 
-## 当前里程碑：M7 — 工作台导航与 Session 树
+## 已完成里程碑：M7 — 工作台导航、Session 树与运行页（2026-11-26）
 
 > 目标：先把壳层信息架构与 Session 数据模型重构到位，再回到模板 / 发布。
 > 本阶段会改变左栏语义、Session 存储结构与工作台契约；每轮结束保持可运行。
@@ -87,11 +87,11 @@
 - [x] 最小动画原语：运行节点 pulse（CSS）、活跃边 flow（既有流动虚线）、视口 focus（CanvasView.focusNode 跟随 running 节点），遵守 `prefers-reduced-motion`
 - [x] 视觉基线：设计 → 运行 → 保存草稿会话；运行页 `designer-flow-runner`
 
-### M7.6 收口
+### M7.6 收口（2026-11-26 已完成）
 
-- [ ] `pnpm typecheck / test / build / smoke` + `capture:ui`
-- [ ] 文档同步（readme / architecture / design / devlog）
-- [ ] 旧 M7 顺延为 M8
+- [x] `pnpm typecheck / test / build / smoke` + `capture:ui`（35 files / 177 tests；默认设计器基线重拍）
+- [x] 文档同步（readme / architecture / design / devlog）
+- [x] 旧 M7 顺延为 M8（M8 / M9 / M10 编号已就位）
 
 ## 已完成里程碑（M1–M6）
 
@@ -225,7 +225,9 @@
 - [x] 跨重启 resume（checkpoint + graph 装载）
 - [x] wireclaw：checkpoint 的 graph hash / node type version（v2）
 
-### M8 — 模板、导入导出与多工作台（原 M7）
+## 后续里程碑
+
+### M8 — 模板、导入导出与多工作台
 
 - [ ] 工作台模板 / 节点预设
 - [ ] `.fhws` 导入导出 UI 与冲突策略

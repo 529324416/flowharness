@@ -312,7 +312,7 @@ interface WorkbenchController {
 - run 事件日志：`runs/<runId>/events.jsonl` 已落盘、可回放；导出诊断包未实现；
 - renderer 错误边界：**尚未实现**（没有 ErrorBoundary 组件），UI 异常会冒泡到整棵 React 树。
 
-## 18. M7 目标（M7.1–M7.4 已落地）
+## 18. M7 目标（已完成）
 
 - **M7.1 已实现**：`WorkbenchDefinition.navigation`（design 模式）；`NavigationPanel` / `DocumentNavigation` / `PlanNavigation`；App 按工作台渲染左栏；移除全局 SessionSidebar 与顶层 sessions 视图；`WorkbenchHost` 提供 `panelLayer` 槽；文档选择同步 primaryGraph；删除 graph 前检查工作台引用；`--fh-panel-alpha` 0.78。
 - **M7.2 已实现**：Session 递归文件夹树、SessionRecord v2、草稿目录、session/folder 移动与 IPC。

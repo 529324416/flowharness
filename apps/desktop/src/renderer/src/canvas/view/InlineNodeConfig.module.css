@@ -32,6 +32,15 @@
   align-items: center;
 }
 
+.check {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  color: var(--fh-text-subtle);
+  font-size: 10px;
+}
+
 .summary {
   overflow: hidden;
   color: var(--fh-text-muted);

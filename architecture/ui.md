@@ -179,8 +179,9 @@ interface WorkbenchController {
 ```
 
 - 当前 View 自持 hooks（设计器复用现有 document/run/undo），通过 `WorkbenchShell.onControllerChange` 上报 controller；框架级统一工具栏/命令栈注入待后续；
-- 已有两个工作台：`harness-designer`（画布）与 `graph-table`（节点清单，只读表格），共用实例文档与 `WorkbenchHost`；
-- 标题栏 WorkbenchMenu 切换 / 新建实例；实例存 `documents/workbenches`。
+- 已有三个工作台：`harness-designer`（画布）、`graph-table`（节点清单）、`plan-runner`（批量运行），共用实例文档与 `WorkbenchHost`；
+- `plan-runner` 以 `WorkbenchPlan` 顺序运行多个独立图；当前在 renderer 侧调用 `run:start`，尚未下沉 RuntimeHost；
+- 标题栏 WorkbenchMenu 切换 / 新建 / 重命名 / 删除实例；实例存 `documents/workbenches`。
 
 ### 5.3 多图组合：WorkbenchPlan
 
@@ -196,7 +197,7 @@ type WorkbenchPlan = {
 
 1. 能用 wireclaw 的 subgraph / composite 表达的组合，**一律用 subgraph**，不引入 plan；
 2. 只有「多个独立 run + 交叉传值/人工介入」才用 plan；
-3. plan 的编排在 RuntimeHost，工作台只声明，不自己调度。
+3. 目标：plan 的编排在 RuntimeHost，工作台只声明；当前 `plan-runner` 是 renderer 侧临时实现，后续下沉。
 
 ### 5.4 运行事件 → 动画
 
@@ -269,7 +270,7 @@ CanvasCommand → GraphDocument
 ### 6.5 NodeContent
 
 - 一期（M2 已完成）：`inspector/NodeConfigForm.tsx` 根据 `configSchema` 生成通用表单（wireclaw 的 JSON Schema 子集：object / string / number / integer / boolean / array / enum / required / minimum / maximum…）；无法表达的字段用 JSON 文本域兜底，整份 config 仍可在「JSON」页签编辑；
-- 二期（M5.1 部分完成）：节点 Body 内联编辑 Constant 文本、Model Call 的 mode / temperature、Log 级别；从其他节点输出端口拖到输入端口仍通过 Handle 完成；独立「参数槽」拖拽与更多高频节点待做；
+- 二期（M5 已完成）：节点 Body 内联编辑 Constant / Model Call / Log / Value / Agent / Loop / ForEach；节点 Body 显示输入端口槽，连线可直接拖到槽上（同时保留左侧 Handle）；复杂字段仍走检查器表单 / JSON；
 - 节点内容组件通过 `canvas/view/node-registry.ts` 的 registry 注册，Canvas 不感知；当前所有类型都回落到 `SciFiNode`。
 
 ## 7. 其他工作台

@@ -26,6 +26,7 @@ import { sameNodeSelection } from "../core/selection";
 import type {
     CanvasCommand,
     CanvasDocument,
+    CanvasPortRef,
     CanvasStatus,
 } from "../core/types";
 import type { FlowNodeData } from "./flow-types";
@@ -132,6 +133,7 @@ export function CanvasView({
     const selectedIdsRef = useRef<readonly string[]>(selectedNodeIds);
     selectedIdsRef.current = selectedNodeIds;
     const lastSelectionKey = useRef(selectedNodeIds.join("|"));
+    const connectFromRef = useRef<CanvasPortRef | null>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(
         toFlowNodes(
             document,
@@ -244,6 +246,58 @@ export function CanvasView({
                 type: "connect",
                 from: { nodeId: source, port: sourceHandle },
                 to: { nodeId: target, port: targetHandle },
+            });
+        },
+        [onCommand, readOnly],
+    );
+
+    const handleConnectStart = useCallback(
+        (
+            _event: MouseEvent | TouchEvent,
+            params: {
+                nodeId: string | null;
+                handleId: string | null;
+                handleType: "source" | "target" | null;
+            },
+        ) => {
+            if (params.handleType !== "source") return;
+            if (params.nodeId === null || params.handleId === null) return;
+            connectFromRef.current = {
+                nodeId: params.nodeId,
+                port: params.handleId,
+            };
+        },
+        [],
+    );
+
+    /**
+     * 连线可以落在左侧 Handle，也可以落在节点 Body 的输入端口槽。
+     * React Flow 只在 Handle 上自动建边，这里补一层 body 落点判定。
+     */
+    const handleConnectEnd = useCallback(
+        (event: MouseEvent | TouchEvent) => {
+            const from = connectFromRef.current;
+            connectFromRef.current = null;
+            if (from === null || readOnly) return;
+
+            const point =
+                "clientX" in event ? event : event.changedTouches[0];
+            if (point === undefined) return;
+
+            const slot = window.document
+                .elementFromPoint(point.clientX, point.clientY)
+                ?.closest("[data-input-port]");
+            if (!(slot instanceof HTMLElement)) return;
+
+            const nodeElement = slot.closest("[data-node-id]");
+            const nodeId = nodeElement?.getAttribute("data-node-id");
+            const port = slot.getAttribute("data-input-port");
+            if (!nodeId || !port) return;
+
+            onCommand?.({
+                type: "connect",
+                from,
+                to: { nodeId, port },
             });
         },
         [onCommand, readOnly],
@@ -407,6 +461,8 @@ export function CanvasView({
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={readOnly ? undefined : handleConnect}
+                onConnectStart={readOnly ? undefined : handleConnectStart}
+                onConnectEnd={readOnly ? undefined : handleConnectEnd}
                 onNodesDelete={handleNodesDelete}
                 onEdgesDelete={handleEdgesDelete}
                 onNodeDragStop={handleNodeDragStop}

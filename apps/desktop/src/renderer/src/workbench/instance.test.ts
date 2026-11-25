@@ -19,6 +19,7 @@ describe("workbench instance document", () => {
         expect(instance.schemaVersion).toBe(1);
         expect(instance.type).toBe("harness-designer");
         expect(instance.title).toBe("主工作台");
+        expect(defaultWorkbenchTitle("plan-runner")).toBe("批量运行");
         expect(instance.graphs).toEqual([{ graphId: "main", role: "main" }]);
         expect(instance.plan).toBeNull();
         expect(isWorkbenchInstanceDocument(instance)).toBe(true);

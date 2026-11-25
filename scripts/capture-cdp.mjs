@@ -136,8 +136,11 @@ try {
         scenario === "designer-workbenches" ||
         scenario === "designer-workbench-flow" ||
         scenario === "designer-workbench-return" ||
+        scenario === "designer-plan-runner" ||
+        scenario === "designer-workbench-manage" ||
         scenario === "designer-inline" ||
         scenario === "designer-inline-type" ||
+        scenario === "designer-slot-connect" ||
         scenario === "designer-import" ||
         scenario === "designer-history" ||
         scenario === "canvas-selection" ||
@@ -401,6 +404,85 @@ try {
             await settle(500);
         }
 
+        if (scenario === "designer-workbench-manage") {
+            const readWorkbenches = async () => {
+                const result = await evaluateAsync(`(async () => {
+                    const list = await window.flowharness.listWorkspaces();
+                    const workspace = list.ok ? list.data[0] : undefined;
+                    if (!workspace) return null;
+                    const docs = await window.flowharness.listWorkbenches(workspace.id);
+                    return docs.ok ? docs.data.map((item) => ({ id: item.id, title: item.title, type: item.type })) : null;
+                })()`);
+                return result.result?.value;
+            };
+
+            await clickElement(`document.querySelector('button[aria-label="切换或新建工作台"]')`);
+            await settle(250);
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('重命名当前工作台'))`,
+            );
+            await settle(350);
+            await evaluate(
+                `(() => { const input = document.querySelector('[role="dialog"] input'); if (!input) return false; const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; setter.call(input, 'M5 工作台'); input.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`,
+            );
+            await settle(150);
+            await clickElement(
+                `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '保存')`,
+            );
+            await settle(1000);
+            console.log(`workbench rename: ${JSON.stringify(await readWorkbenches())}`);
+
+            await clickElement(`document.querySelector('button[aria-label="切换或新建工作台"]')`);
+            await settle(250);
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('删除当前工作台'))`,
+            );
+            await settle(350);
+            await clickElement(
+                `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '删除')`,
+            );
+            await settle(1200);
+            console.log(`workbench delete: ${JSON.stringify(await readWorkbenches())}`);
+        }
+
+        if (scenario === "designer-plan-runner") {
+            // 先建第二份图，让计划有两个步骤。
+            await clickElement(`document.querySelector('button[aria-label="切换或管理文档"]')`);
+            await settle(250);
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('新建文档'))`,
+            );
+            await settle(1200);
+
+            await clickElement(`document.querySelector('button[aria-label="切换或新建工作台"]')`);
+            await settle(250);
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('批量运行'))`,
+            );
+            await settle(1000);
+
+            // 选中全部图。
+            await evaluate(
+                `[...document.querySelectorAll('input[type="checkbox"]')].forEach((input) => { if (!input.checked) input.click(); })`,
+            );
+            await settle(200);
+            await clickElement(
+                `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '运行计划')`,
+            );
+            await settle(3000);
+
+            const steps = await send("Runtime.evaluate", {
+                expression:
+                    "[...document.querySelectorAll('ol[class*=\\\"steps\\\"] li')].map((item) => item.textContent?.trim())",
+                returnByValue: true,
+            });
+            const trigger = await evaluateAsync(
+                `document.querySelector('button[aria-label="切换或新建工作台"]')?.textContent?.trim()`,
+            );
+            console.log(`plan steps: ${JSON.stringify(steps.result?.value)}`);
+            console.log(`plan workbench: ${JSON.stringify(trigger.result?.value)}`);
+        }
+
         if (scenario === "designer-workbench-return") {
             await clickElement(`document.querySelector('button[aria-label="切换或新建工作台"]')`);
             await settle(300);
@@ -430,6 +512,68 @@ try {
             console.log(
                 `workbench return: ${JSON.stringify(trigger.result?.value)} / nodes=${String(nodes.result?.value)} / panels=${String(panels.result?.value)}`,
             );
+        }
+
+        if (scenario === "designer-slot-connect") {
+            const points = await send("Runtime.evaluate", {
+                expression: `(() => {
+                    const source = document.querySelector('.react-flow__node[data-id="constant"]');
+                    if (!source) return null;
+                    const handle = source.querySelector('.react-flow__handle.source');
+                    const slot = document.querySelector('[data-node-id="output"] [data-input-port="json"]');
+                    if (!handle || !slot) return null;
+                    const h = handle.getBoundingClientRect();
+                    const s = slot.getBoundingClientRect();
+                    return {
+                        from: { x: h.x + h.width / 2, y: h.y + h.height / 2 },
+                        to: { x: s.x + s.width / 2, y: s.y + s.height / 2 },
+                    };
+                })()`,
+                returnByValue: true,
+            });
+            const point = points.result?.value;
+            if (point) {
+                await send("Input.dispatchMouseEvent", {
+                    type: "mousePressed",
+                    x: point.from.x,
+                    y: point.from.y,
+                    button: "left",
+                    buttons: 1,
+                    clickCount: 1,
+                });
+                for (let step = 1; step <= 8; step += 1) {
+                    await send("Input.dispatchMouseEvent", {
+                        type: "mouseMoved",
+                        x: point.from.x + ((point.to.x - point.from.x) * step) / 8,
+                        y: point.from.y + ((point.to.y - point.from.y) * step) / 8,
+                        button: "left",
+                        buttons: 1,
+                    });
+                    await settle(40);
+                }
+                await send("Input.dispatchMouseEvent", {
+                    type: "mouseReleased",
+                    x: point.to.x,
+                    y: point.to.y,
+                    button: "left",
+                    buttons: 0,
+                    clickCount: 1,
+                });
+                await settle(1200);
+            } else {
+                console.log("slot connect: points not found");
+            }
+
+            const edges = await evaluateAsync(`(async () => {
+                const list = await window.flowharness.listWorkspaces();
+                const workspace = list.ok ? list.data[0] : undefined;
+                if (!workspace) return null;
+                const snapshot = await window.flowharness.readDocument(workspace.id, { kind: 'harness', id: 'main' });
+                if (!snapshot.ok || snapshot.data === null) return null;
+                const graphEdges = snapshot.data.document?.edges;
+                return Array.isArray(graphEdges) ? graphEdges : null;
+            })()`);
+            console.log(`slot connect edges: ${JSON.stringify(edges.result?.value)}`);
         }
 
         if (scenario === "designer-inline-type") {

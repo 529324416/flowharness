@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import { Box, GitBranch, LogIn, LogOut, ScrollText, Sparkles } from "lucide-react";
 import { StatusDot, type StatusTone } from "../../ui";
 import { cx } from "../../ui/cx";
-import type { CanvasStatus } from "../core/types";
+import type { CanvasPort, CanvasStatus } from "../core/types";
 import { InlineNodeConfig } from "./InlineNodeConfig";
 import styles from "./NodeVisual.module.css";
 
@@ -17,6 +17,9 @@ export type NodeVisualProps = {
     config?: unknown;
     readOnly?: boolean;
     onUpdateConfig?: (config: unknown) => void;
+    /** 输入端口槽；提供后可在节点 Body 内直接作为连线落点。 */
+    inputs?: readonly CanvasPort[];
+    showInputSlots?: boolean;
     /** 端口较多的节点需要最小高度，避免 Handle 挤在 header 里。 */
     minHeight?: number;
 };
@@ -62,6 +65,8 @@ export function NodeVisual({
     config,
     readOnly = false,
     onUpdateConfig,
+    inputs = [],
+    showInputSlots = false,
     minHeight,
 }: NodeVisualProps): ReactElement {
     const Icon = iconFor(kind);
@@ -91,6 +96,23 @@ export function NodeVisual({
                     readOnly={readOnly}
                     onChange={onUpdateConfig}
                 />
+
+                {showInputSlots && inputs.length > 0 ? (
+                    <div className={styles.slots}>
+                        {inputs.map((port) => (
+                            <div
+                                key={port.name}
+                                className={styles.slot}
+                                data-input-port={port.name}
+                                title={`拖拽连线到输入端口 ${port.name}`}
+                            >
+                                <span className={styles.slotDot} aria-hidden="true" />
+                                <span className={styles.slotName}>{port.name}</span>
+                                <span className={styles.slotType}>{port.type}</span>
+                            </div>
+                        ))}
+                    </div>
+                ) : null}
             </div>
         </article>
     );

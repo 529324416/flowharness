@@ -77,6 +77,141 @@ export function InlineNodeConfig({
         );
     }
 
+    if (kind === "core.value") {
+        const name = isRecord(config) && typeof config.name === "string"
+            ? config.name
+            : "value";
+        const required = isRecord(config) ? config.required !== false : true;
+        return (
+            <div className={styles.row}>
+                <input
+                    className={`${styles.input} nodrag nowheel`}
+                    value={name}
+                    aria-label="参数名"
+                    placeholder="参数名"
+                    onChange={(event) =>
+                        onChange({
+                            ...(isRecord(config) ? config : {}),
+                            name: event.target.value,
+                        })
+                    }
+                    onKeyDown={(event) => event.stopPropagation()}
+                />
+                <label className={styles.check}>
+                    <input
+                        type="checkbox"
+                        className="nodrag"
+                        checked={required}
+                        aria-label="必填"
+                        onChange={(event) =>
+                            onChange({
+                                ...(isRecord(config) ? config : {}),
+                                required: event.target.checked,
+                            })
+                        }
+                    />
+                    必填
+                </label>
+            </div>
+        );
+    }
+
+    if (kind === "core.agent.run") {
+        const permission =
+            isRecord(config) && typeof config.permission === "string"
+                ? config.permission
+                : "readonly";
+        const maxSteps =
+            isRecord(config) && typeof config.maxSteps === "number"
+                ? config.maxSteps
+                : 8;
+        return (
+            <div className={styles.row}>
+                <select
+                    className={`${styles.select} nodrag nowheel`}
+                    value={permission}
+                    aria-label="Agent 权限"
+                    onChange={(event) =>
+                        onChange({
+                            ...(isRecord(config) ? config : {}),
+                            permission: event.target.value,
+                        })
+                    }
+                    onKeyDown={(event) => event.stopPropagation()}
+                >
+                    <option value="readonly">readonly</option>
+                    <option value="approval">approval</option>
+                    <option value="full">full</option>
+                </select>
+                <input
+                    className={`${styles.number} nodrag nowheel`}
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={maxSteps}
+                    aria-label="最大步数"
+                    onChange={(event) => {
+                        const parsed = Number(event.target.value);
+                        if (!Number.isFinite(parsed) || parsed < 1) return;
+                        onChange({
+                            ...(isRecord(config) ? config : {}),
+                            maxSteps: Math.floor(parsed),
+                        });
+                    }}
+                    onKeyDown={(event) => event.stopPropagation()}
+                />
+            </div>
+        );
+    }
+
+    if (kind === "core.loop") {
+        const maxIterations =
+            isRecord(config) && typeof config.maxIterations === "number"
+                ? config.maxIterations
+                : 3;
+        return (
+            <input
+                className={`${styles.number} nodrag nowheel`}
+                type="number"
+                min={1}
+                step={1}
+                value={maxIterations}
+                aria-label="最大迭代"
+                onChange={(event) => {
+                    const parsed = Number(event.target.value);
+                    if (!Number.isFinite(parsed) || parsed < 1) return;
+                    onChange({
+                        ...(isRecord(config) ? config : {}),
+                        maxIterations: Math.floor(parsed),
+                    });
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+            />
+        );
+    }
+
+    if (kind === "core.foreach") {
+        const resultPort =
+            isRecord(config) && typeof config.resultPort === "string"
+                ? config.resultPort
+                : "text";
+        return (
+            <input
+                className={`${styles.input} nodrag nowheel`}
+                value={resultPort}
+                aria-label="结果端口"
+                placeholder="text"
+                onChange={(event) =>
+                    onChange({
+                        ...(isRecord(config) ? config : {}),
+                        resultPort: event.target.value,
+                    })
+                }
+                onKeyDown={(event) => event.stopPropagation()}
+            />
+        );
+    }
+
     if (kind === "core.log") {
         const level = isRecord(config) && typeof config.level === "string"
             ? config.level

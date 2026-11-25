@@ -1,4 +1,5 @@
 import type { WorkbenchInstanceDocument } from "@flowharness/contracts";
+import { isWorkbenchPlan } from "./plan";
 
 export const WORKBENCH_SCHEMA_VERSION = 1;
 
@@ -12,6 +13,8 @@ export function defaultWorkbenchTitle(type: string): string {
             return "主工作台";
         case "graph-table":
             return "节点清单";
+        case "plan-runner":
+            return "批量运行";
         default:
             return type;
     }
@@ -70,7 +73,7 @@ export function isWorkbenchInstanceDocument(
     if (typeof value.title !== "string") return false;
     if (!Array.isArray(value.graphs)) return false;
     if (!value.graphs.every(isGraphBinding)) return false;
-    if (value.plan !== null && !isRecord(value.plan)) return false;
+    if (value.plan !== null && !isWorkbenchPlan(value.plan)) return false;
     if (!isRecord(value.parameters)) return false;
     return true;
 }

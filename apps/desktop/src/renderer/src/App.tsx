@@ -1038,6 +1038,125 @@ export function App(): ReactElement {
         });
     }, []);
 
+    const handleRenameWorkbench = useCallback(
+        async (workbenchId: string, title: string): Promise<void> => {
+            const workspace = activeWorkspace;
+            const trimmed = title.trim();
+            if (workspace === null || trimmed.length === 0) return;
+
+            setWorkbenchBusy(true);
+            setDocumentError(null);
+            try {
+                let current = activeWorkbenchRef.current;
+                let revision = workbenchRevisionRef.current;
+
+                if (current === null || current.id !== workbenchId) {
+                    const snapshot = await bridge.readDocument(workspace.id, {
+                        kind: "workbench",
+                        id: workbenchId,
+                    });
+                    if (!snapshot.ok || snapshot.data === null) {
+                        setDocumentError(
+                            snapshot.ok
+                                ? "工作台不存在"
+                                : snapshot.error.message,
+                        );
+                        return;
+                    }
+                    if (!isWorkbenchInstanceDocument(snapshot.data.document)) {
+                        setDocumentError("工作台实例格式无效");
+                        return;
+                    }
+                    current = snapshot.data.document;
+                    revision = snapshot.data.revision;
+                }
+
+                const next: WorkbenchInstanceDocument = {
+                    ...current,
+                    title: trimmed,
+                    updatedAt: new Date().toISOString(),
+                };
+                const saved = await bridge.saveDocument({
+                    workspaceId: workspace.id,
+                    ref: { kind: "workbench", id: workbenchId },
+                    baseRevision: revision,
+                    document: next,
+                });
+                if (!saved.ok) {
+                    setDocumentError(saved.error.message);
+                    return;
+                }
+
+                if (workbenchId === activeWorkbenchId) {
+                    activeWorkbenchRef.current = next;
+                    workbenchRevisionRef.current = saved.data.revision;
+                    setActiveWorkbench(next);
+                }
+                await refreshWorkbenches(workspace.id);
+            } finally {
+                setWorkbenchBusy(false);
+            }
+        },
+        [
+            activeWorkbenchId,
+            activeWorkspace,
+            bridge,
+            refreshWorkbenches,
+        ],
+    );
+
+    const handleDeleteWorkbench = useCallback(
+        async (workbenchId: string): Promise<void> => {
+            const workspace = activeWorkspace;
+            if (workspace === null) return;
+
+            setWorkbenchBusy(true);
+            setDocumentError(null);
+            try {
+                if (
+                    workbenchId === activeWorkbenchId &&
+                    !(await flushCurrentDocument())
+                ) {
+                    return;
+                }
+
+                const deleted = await bridge.deleteDocument(workspace.id, {
+                    kind: "workbench",
+                    id: workbenchId,
+                });
+                if (!deleted.ok) {
+                    setDocumentError(deleted.error.message);
+                    return;
+                }
+
+                if (workbenchId === activeWorkbenchId) {
+                    setActiveWorkbench(null);
+                    setActiveWorkbenchId(null);
+                    activeWorkbenchRef.current = null;
+                    workbenchRevisionRef.current = null;
+                    await openWorkbenchesForWorkspace(
+                        workspace.id,
+                        activeDocumentId,
+                    );
+                    return;
+                }
+
+                await refreshWorkbenches(workspace.id);
+            } finally {
+                setWorkbenchBusy(false);
+            }
+        },
+        [
+            activeDocumentId,
+            activeWorkbenchId,
+            activeWorkspace,
+            bridge,
+            flushCurrentDocument,
+            openWorkbenchesForWorkspace,
+            refreshWorkbenches,
+        ],
+    );
+
     const workbenchShell = useMemo<WorkbenchShell>(
         () => ({
             onRunWillStart: handleDesignerRunWillStart,
@@ -1270,6 +1389,12 @@ export function App(): ReactElement {
                                     }
                                     onCreateWorkbench={(type) =>
                                         void handleCreateWorkbench(type)
+                                    }
+                                    onRenameWorkbench={(id, title) =>
+                                        void handleRenameWorkbench(id, title)
+                                    }
+                                    onDeleteWorkbench={(id) =>
+                                        void handleDeleteWorkbench(id)
                                     }
                                 />
                             )

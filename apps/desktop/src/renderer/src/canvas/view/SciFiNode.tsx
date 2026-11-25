@@ -29,6 +29,7 @@ function nodeMinHeight(inputCount: number, outputCount: number): number | undefi
 }
 
 export function SciFiNode({
+    id,
     data,
     selected,
     isConnectable,
@@ -40,6 +41,7 @@ export function SciFiNode({
                 styles[data.status],
                 selected && styles.selected,
             )}
+            data-node-id={id}
         >
             <NodeVisual
                 title={data.title}
@@ -50,6 +52,8 @@ export function SciFiNode({
                 config={data.config}
                 readOnly={data.readOnly}
                 onUpdateConfig={data.onUpdateConfig}
+                inputs={data.inputs}
+                showInputSlots={!data.readOnly}
                 minHeight={nodeMinHeight(data.inputs.length, data.outputs.length)}
             />
 

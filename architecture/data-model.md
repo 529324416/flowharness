@@ -121,10 +121,10 @@
 ```
 
 - `layout.overrides` 只存**实例级**偏移（例如同一 graph 在多工作台里摆放不同）；默认布局以 graph 的 `ui` 为准；
-- `plan` 为空表示单图；多图组合时填写（见 [ui.md](./ui.md)）；
+- `plan` 为空表示单图；`plan-runner` 用 `graphs` 顺序执行独立 run（bindings 暂未使用）；
 - `parameters` 是该实例的运行入参默认值。
 
-> 现状（M5.1）：`workbench/instance.ts` 负责创建 / 校验实例，`documents/workbenches/<id>.json` 通过通用文档 API 读写，`workspace:listWorkbenches` 返回摘要；每个工作区自动创建一个 `harness-designer` 实例，并记录主图绑定。`plan` 目前恒为 `null`，`layout.overrides` 尚未接线。
+> 现状（M5）：`workbench/instance.ts` 负责创建 / 校验实例，`documents/workbenches/<id>.json` 通过通用文档 API 读写，`workspace:listWorkbenches` 返回摘要；每个工作区自动创建一个 `harness-designer` 实例，并记录主图绑定。`plan-runner` 使用 `plan.graphs` 顺序执行独立 run；`plan.bindings` 与 `layout.overrides` 尚未接线。
 
 ## 6. Blob 与附件
 

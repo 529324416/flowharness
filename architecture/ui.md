@@ -68,7 +68,7 @@ Step 3 已落地 `canvas/core` 与 `canvas/view`；`canvas-preview/` 已移除�
 
 | 部分 | 内容 | 依赖 |
 | --- | --- | --- |
-| `core`（纯 TS） | 屏幕↔世界坐标、矩形包含/相交、稳定边 key、领域类型；**不含**命令与动画（命令在 `designer/core`，动画是 CSS） | 无框架依赖，可单测 |
+| `core`（纯 TS） | 屏幕↔世界坐标、矩形包含/相交、稳定边 key、选择去重、领域类型；**不含**命令与动画（命令在 `designer/core`，动画是 CSS） | 无框架依赖，可单测 |
 | `view`（React） | 视口容器、节点层、连线层、小地图、ContextMenu；用 react-flow 实现手势与渲染 | React、`@xyflow/react` |
 
 > M1 已实现：`geometry`、`edge-key`、纯 `CanvasNode/CanvasEdge/CanvasDocument` 类型、受控 view、per-port Handle、节点 registry、MiniMap、自定义右键菜单；GraphDocument adapter、语义命令与自动保存位于 `designer/`。
@@ -179,7 +179,7 @@ interface WorkbenchController {
 }
 ```
 
-- 当前 View 自持 hooks（设计器复用现有 document/run/undo），通过 `WorkbenchShell.onControllerChange` 上报 controller；框架级统一工具栏/命令栈注入待后续；
+- 当前 View 自持 hooks（设计器复用现有 document/run/undo），通过 View 收到的 `shell.onControllerChange` 上报 controller；框架级统一工具栏/命令栈注入待后续；
 - 已有三个工作台：`harness-designer`（画布）、`graph-table`（节点清单）、`plan-runner`（批量运行），共用实例文档与 `WorkbenchHost`；
 - `plan-runner` 以 `WorkbenchPlan` 顺序运行多个独立图；当前在 renderer 侧调用 `run:start`，尚未下沉 RuntimeHost；
 - 标题栏 WorkbenchMenu 切换 / 新建 / 重命名 / 删除实例；实例存 `documents/workbenches`。
@@ -260,7 +260,7 @@ CanvasCommand → GraphDocument
 - 投影时用 `findInvalidEdges` 检查节点/端口是否存在（端口随 config 投影）；存在失效连线时画布顶部提示，能渲染的边标记为 error；
 - 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌 Subgraph / Loop / ForEach 递归校验，问题回填容器节点与 `graphPath`；
 - 设计器内 Alert 横幅展示首要问题；运行日志面板的「问题」页签汇总校验、失效连线与运行错误，点击可选中并聚焦节点（M3）；
-- 有 issue 时禁止运行；当前**没有**「仍然运行」的确认路径；`requirements` catalog 尚未从 ProviderRegistry / Secrets 注入（运行时已由 ProviderRegistry 解析）。
+- 有 issue 时禁止运行；当前**没有**「仍然运行」的确认路径；M6.2 起 DesignerView 在打开工作区 / 窗口聚焦时从 `providers:list` 构造 `RequirementCatalog` 并注入校验（模型目录需先在设置页「测试连接」）。
 
 ### 6.4 运行与导入导出
 

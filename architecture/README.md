@@ -52,7 +52,7 @@
 | main 服务层（AppConfig / Secrets / BlobStore / WorkspaceStore / WorkspaceFileHost） | ✅ 已实现（Phase 1） |
 | IPC 路由、`fh-asset://` 协议、数据层单测 | ✅ 已实现（Phase 1） |
 | Runtime Host + RunStore（run 持久化 / checkpoint / interrupted） | ✅ 已实现（Phase 2） |
-| 事件投影与节流、审批 / 用户输入（main handler；renderer 未接通） | 🚧 部分实现（Phase 2） |
+| 事件投影与节流、审批 / 用户输入（main handler + renderer 对话框） | ✅ 已实现（M6.1） |
 | M3 问题面板 / 内嵌图递归校验 / 运行事件→画布 / 暂停·继续 | ✅ 已实现（2026-11-25） |
 | M4 多图文档 / 撤销复制 / 框选·右键平移 / Harness JSON 导入导出 | ✅ 已实现（2026-11-25） |
 | M5 Workbench 定义 / 实例 / registry + host / 三个工作台 | ✅ 已实现（M5） |
@@ -65,7 +65,7 @@
 | M6.2 Session 历史回放 / 附件 UI | ⬜ 未开始 |
 | M6.2 wireclaw checkpoint v2（graphHash + nodeVersions） | ✅ 已实现（M6.2） |
 | M6.2 工作区文件工具 / 运行前 requirements catalog | ✅ 已实现（M6.2） |
-| SessionService（AttachmentFileManager 装配） | ✅ 已实现（Phase 2，仅附件管理） |
+| SessionService（AttachmentFileManager / SessionStore 装配） | ✅ 已实现（Phase 2 附件；M6.2 会话） |
 | UI 基础：tokens / 组件原语 / 画布样张 / Styleguide | ✅ 已实现（Phase 2.5） |
 | Shell v2：无边框标题栏 / Ribbon / 会话侧栏 / StatusBar（HeroView 未接入） | ✅ 已实现（Phase 2.6） |
 | 中性黑配色 + 真透明窗口（桌面清晰、无 blur） | ✅ 已实现（Step 4） |
@@ -93,7 +93,7 @@
 | 保存保护（切换 / 关闭前 flush、冲突副本） | ✅ 已实现（M4；系统级关闭仍有限制） |
 | 300 节点性能基线 | ⬜ 未开始 |
 | Workbench Framework | ✅ M5（定义 / 实例 / 宿主 / 三个工作台 / Plan） |
-| Harness Designer | ✅ M3（编辑 / 运行 / 问题 / 暂停） |
+| Harness Designer | ✅ M5（编辑 / 运行 / 问题 / 多图 / 内联） |
 | 打包分发、CI | ⬜ 未开始 |
 
 图例：✅ 已实现 ｜ 🚧 进行中 ｜ ⬜ 未开始

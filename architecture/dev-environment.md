@@ -1,6 +1,6 @@
 # 开发环境
 
-> 本文描述**当前**可运行的开发环境。目标架构见 [README.md](./README.md)；实现进度见 [../todo.md](../todo.md)（M4 文档生命周期与编辑体验已完成）。
+> 本文描述**当前**可运行的开发环境。目标架构见 [README.md](./README.md)；实现进度见 [../todo.md](../todo.md)（M6.2 已完成，Session 历史回放待做）。
 
 ## 工具链
 
@@ -33,8 +33,8 @@ apps/desktop/
   src/main/index.ts         # 主进程入口：窗口、服务装配、IPC
   src/main/platform/        # IPC 路由、fh-asset 协议
   src/main/services/        # AppConfig / Secrets / ProviderRegistry / BlobStore /
-                            # WorkspaceStore / FileHost / SessionService /
-                            # RunStore / RuntimeHost
+                            # WorkspaceStore / FileHost / SessionService / SessionStore /
+                            # workspace-tools / RunStore / RuntimeHost
   src/preload/index.ts      # contextBridge 桥
   src/renderer/
     index.html
@@ -42,9 +42,11 @@ apps/desktop/
     src/App.tsx             # Shell v2 组合 + 视图切换
     src/styles/             # tokens.css（唯一视觉事实源）+ global.css
     src/ui/                 # 组件原语（Button / Menu / Dialog / Tabs / ...）
-    src/shell/              # TitleBar / Ribbon / SessionSidebar / panels / StatusBar
+    src/shell/              # TitleBar / Ribbon / SessionSidebar / panels / StatusBar / dialogs
+    src/workbench/          # Definition / Controller / registry / WorkbenchHost / Plan
+    src/workbenches/        # harness-designer / graph-table / plan-runner
     src/views/              # Designer / Diagnostics / Styleguide（HeroView 未接入）
-    src/canvas/core/        # 几何 / 边 key / 类型（命令在 designer/core）
+    src/canvas/core/        # 几何 / 边 key / 选择 / 类型（命令在 designer/core）
     src/canvas/view/        # React Flow 画布、节点/边 renderer
     src/designer/core/      # GraphDocument adapter / 命令 / validate / run-events
     src/designer/state/     # 文档加载、SaveCoordinator、运行控制

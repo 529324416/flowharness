@@ -64,6 +64,8 @@ type AppConfig = {
   recentWorkspaces: { id: string; path: string; name: string; openedAt: string }[];
   language: "zh-CN" | "en-US";
   devtools: boolean;
+  /** M6.1：非敏感 Provider 配置；密钥仍在 Secrets。 */
+  providers: ProviderConfig[];
 };
 ```
 
@@ -162,7 +164,7 @@ class WorkspaceFileHost implements IFileHost {
 
 - 持有当前打开的 session（内存），历史落 `sessions/<sessionId>/`；
 - 提供 wireclaw `GraphHost.attachments`；
-- 会话历史与附件引用持久化，支持重新打开与回放。
+- 会话历史与附件引用持久化，支持重新打开；历史回放 / 附件 UI 尚未实现（M6.2）。
 
 **当前实现（M6.2）**：每个已打开工作区装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore）与一个 `SessionStore`（`sessions/<id>/session.json`）；支持默认会话、创建 / 列表 / 读取 / 保存。消息历史当前是 opaque JSON 数组，附件回放 UI 尚未接入。
 
@@ -178,7 +180,7 @@ runs/<runId>/checkpoint.json# GraphCheckpoint（暂停时写入）
 ```
 
 - 追加写事件日志：按批次（RuntimeHost 每 16ms flush）追加，避免每事件一次 write；
-- **打开工作区时**把状态仍为 `running` 的 run 标记为 `interrupted`（启动流程里没有这一步）；
+- **打开工作区时**把状态仍为 `running` 的 run 标记为 `interrupted`（`WorkspaceOpen` handler 调用 `RunStore.markInterrupted`）；
 - 写入不可用时只告警一次并继续（内存态），不影响执行。
 
 ## 10. RuntimeHost（main）
@@ -211,7 +213,7 @@ interface RuntimeHost {
 - `FhError` 错误码与结构；
 - 领域标识（workspaceId / graphId / workbenchId / runId / sessionId）。
 
-> 当前 contracts 已包含 `ids / errors / domain / run / workbench / provider / ipc`；模块接口的框架部分仍在 renderer。
+> 当前 contracts 已包含 `ids / errors / domain / run / workbench / provider / session / ipc`；模块接口的框架部分仍在 renderer。
 
 **不做**：不 import React / Electron / Node；不放类实例；不做运行时逻辑（校验函数除外）。
 
@@ -219,7 +221,7 @@ interface RuntimeHost {
 
 **职责**：通用画布能力，**与 Harness 无关**。
 
-- core（纯 TS）：当前只有 `geometry`（屏幕↔世界坐标、矩形包含/相交）、`edge-key` 与 `CanvasNode/CanvasEdge/CanvasDocument/CanvasCommand` 类型；**命令**（`applyCanvasCommand` / `addNode` / `updateNodeConfig`）在 `designer/core/commands.ts`，**动画**是 CSS 实现（流动虚线等），没有 `CanvasAnimationApi`；
+- core（纯 TS）：当前有 `geometry`（屏幕↔世界坐标、矩形包含/相交）、`edge-key`、选择去重辅助与 `CanvasNode/CanvasEdge/CanvasDocument/CanvasCommand` 类型；**命令**（`applyCanvasCommand` / `addNode` / `updateNodeConfig`）在 `designer/core/commands.ts`，**动画**是 CSS 实现（流动虚线等），没有 `CanvasAnimationApi`；
 - view（React）：视口、节点层、连线层、小地图、ContextMenu、运行态节点/边状态与问题定位聚焦；没有 `<Controls>`（左下缩放工具栏已移除）；
 - NodeContent 由 registry 注入，画布本身不渲染任何业务节点。
 
@@ -274,7 +276,7 @@ interface WorkbenchController {
 - 节点面板数据来自 wireclaw：`createEditorCatalog(registry, { presets })` → `NodeCatalogEntry[]` + presets（M2 已接入，含默认 config / configSchema / 分类 / 关键词）；
 - `GraphDocument` → `CanvasDocument` 单向 adapter 由设计器实现（`designer/core/adapter.ts`）；
 - 布局写入 `GraphDocument.ui`（节点 `ui` 与图级 `ui`）；实例级覆盖（`layout.overrides`）尚未接线；
-- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌图递归校验与问题定位已在 M3 接入，`requirements` catalog 的宿主来源等 M6；
+- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌图递归校验与问题定位已在 M3 接入，`requirements` catalog 由 DesignerView 从 `providers:list`（ProviderRegistry）构造并注入（M6.2）；
 - 导入导出：文档菜单提供单 `GraphDocument` JSON 导入（新建文档）与导出（可选剥离 `ui`）；`.fhws` 整工作区导入导出仍只有 main 通道。
 
 ## 15. Other Workbenches（L5）

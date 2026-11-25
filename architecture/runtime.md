@@ -20,7 +20,7 @@ RuntimeHost（main）
   │                             onToolApproval / onUserInput / parameters / log
   ├─ 事件节流                    GraphRun.onEvent → RunStore → 16ms 批量 → IPC
   ├─ RunStore                  runs/<runId>/{meta,graph,events,checkpoint}
-  └─ SessionService            每个已打开工作区一个 AttachmentFileManager
+  └─ SessionService            每个已打开工作区一个 SessionStore + AttachmentFileManager
 ```
 
 > `RunRegistry` / `EventPipeline` 是目标角色名，当前运行表与节流内联在 `RuntimeHost`。Provider 由 `ProviderRegistry`（`main/services/provider-registry.ts`）从 AppConfig + SecretsStore 构造并缓存，`RuntimeHost.resolveProvider` 直接查询它；配置或密钥变化后 reload。
@@ -53,7 +53,7 @@ start → running → completed
 | `attachments` | SessionService → `AttachmentFileManager` → `WorkspaceFileHost` | 按 contentHash 读写 |
 | `onToolApproval(request, nodeId)` | IPC 往返到 renderer 审批对话框 | 超时默认拒绝；UI 已接 |
 | `onUserInput(request, nodeId)` | IPC 往返到 renderer 输入对话框 | 超时/取消返回取消结果；UI 已接 |
-| `parameters` | 工作台实例参数 + 运行入参 | 用于 `NodeRequirement(kind: "parameter")` 校验；静态校验已支持 catalog 递归下传，**宿主 catalog 来源待 M6** |
+| `parameters` | 工作台实例参数 + 运行入参 | 用于 `NodeRequirement(kind: "parameter")` 校验；静态校验支持 catalog 递归下传，M6.2 起由 DesignerView 从 `providers:list` 构造 catalog |
 | `log(level, message, data)` | Logging（脱敏） | 不写密钥、不写完整工具参数（当前走 `console`） |
 
 ## 5. 事件管道
@@ -78,7 +78,7 @@ renderer 侧：
 - 订阅 `fh:event`，只消费当前 `runId` 的批次；启动响应前到达的事件先缓冲（`useDesignerRun`）；
 - 事件投影同时更新节点与边：`node:start` 点亮入边、`node:end` 点亮出边、`node:error` 标记相连边、`run:end` 清理 active 边（`designer/core/run-events.ts`）；
 - 暂停 / 继续由 `run:pause` / `run:resume` 触发，即使引擎未补发事件，renderer 也会同步节点状态；
-- 迟到挂载补齐（`run:get` + `run:list`）**尚未接入**：preload 暴露 `startRun / pauseRun / resumeRun / cancelRun / getRun`，设计器使用前五个与 `onEvent`；
+- 迟到挂载补齐（`run:get` + `run:list`）**设计器尚未接入**：preload 暴露 `startRun / pauseRun / resumeRun / cancelRun / getRun / listRuns / resumeInterrupted`，设计器只用启动/暂停/继续/取消与 `onEvent`；Diagnostics 使用 `run:list` 与 `run:resume-interrupted`；
 - `custom` 事件作为工作台动画的领域钩子。
 
 ## 6. 暂停、恢复与检查点
@@ -105,7 +105,7 @@ main: resolve Promise
 
 ## 8. Session 与附件
 
-- 当前每个**已打开的工作区**装配一个 `AttachmentFileManager`（还没有 Session 维度），host 以 contentHash 访问；
+- 附件管理器仍是**工作区维度**（还没有 Session 维度）；`SessionStore` 已按会话持久化（M6.2），host 以 contentHash 访问；
 - `IFileHost` 的读写由 `WorkspaceFileHost` 落到当前工作区的 BlobStore；
 - Session 关闭后保留历史与 refs；GC 由 WorkspaceStore 汇总 roots 后触发；
 - 多工作台共享同一 Session 时，引用计数由 refs 管理，不做隐式拷贝。
@@ -192,7 +192,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | 持久化 | `runs/<runId>/{meta,graph,events,checkpoint}`；打开工作区时把遗留 `running` 标为 `interrupted` |
 | 审批 | main 发 `approval` 事件 → renderer `approval:respond`；5 分钟超时默认 `deny` |
 | 用户输入 | 同上，超时默认 `cancelled: true` |
-| 附件 | `SessionService` 为每个工作区装配 `AttachmentFileManager`，host 以 contentHash 访问 |
+| 附件 / 会话 | `SessionService` 为每个工作区装配 `SessionStore` 与 `AttachmentFileManager`，host 以 contentHash 访问 |
 
 **已知限制**
 

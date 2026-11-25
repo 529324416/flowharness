@@ -149,6 +149,8 @@ try {
         scenario === "designer-toggle" ||
         scenario === "designer-problems" ||
         scenario === "designer-documents" ||
+        scenario === "designer-workflow-context" ||
+        scenario === "designer-session-run" ||
         scenario === "designer-doc-flow" ||
         scenario === "designer-workbenches" ||
         scenario === "designer-workbench-flow" ||
@@ -177,6 +179,73 @@ try {
             returnByValue: true,
         });
         console.log(`node count: ${JSON.stringify(nodeCount.result?.value)}`);
+
+        if (scenario === "designer-workflow-context") {
+            await evaluate(`(() => {
+                const item = document.querySelector('[data-document-id]');
+                if (!item) return false;
+                const rect = item.getBoundingClientRect();
+                item.dispatchEvent(new MouseEvent('contextmenu', {
+                    bubbles: true,
+                    cancelable: true,
+                    button: 2,
+                    clientX: rect.x + 40,
+                    clientY: rect.y + rect.height / 2,
+                }));
+                return true;
+            })()`);
+            await settle(600);
+        }
+
+        if (scenario === "designer-session-run") {
+            const seeded = await evaluateAsync(`(async () => {
+                const workspaces = await window.flowharness.listWorkspaces();
+                const workspace = workspaces.ok ? workspaces.data[0] : null;
+                if (!workspace) return { ok: false };
+                const tree = await window.flowharness.listSessionTree({ workspaceId: workspace.id });
+                const folderId = tree.ok ? tree.data.draftFolderId : null;
+                const collect = (nodes) => nodes.flatMap((node) => (
+                    node.type === "session" ? [node.session] : collect(node.children)
+                ));
+                if (tree.ok) {
+                    for (const session of collect(tree.data.nodes)) {
+                        await window.flowharness.deleteSession({
+                            workspaceId: workspace.id,
+                            sessionId: session.id,
+                        });
+                    }
+                }
+                const created = await window.flowharness.createSession({
+                    workspaceId: workspace.id,
+                    folderId,
+                    title: "示例会话",
+                });
+                if (created.ok) {
+                    await window.flowharness.saveSession({
+                        workspaceId: workspace.id,
+                        session: {
+                            ...created.data,
+                            status: "completed",
+                            history: {
+                                version: 2,
+                                id: created.data.id,
+                                isArchived: false,
+                                messages: [
+                                    { role: "user", isCompressed: false, content: "帮我整理今天的工单。" },
+                                    { role: "assistant", isCompressed: false, content: "已按优先级整理为三条，并标记了阻塞项。" },
+                                ],
+                            },
+                        },
+                    });
+                }
+                return { ok: created.ok, id: created.ok ? created.data.id : null };
+            })()`);
+            console.log(`session seed: ${JSON.stringify(seeded.result?.value)}`);
+            await evaluate(`document.querySelector('button[aria-label="进入运行"]')?.click()`);
+            await settle(900);
+            await evaluate(`document.querySelector('[data-session-id]')?.click()`);
+            await settle(900);
+        }
 
         if (
             scenario === "designer" ||
@@ -416,7 +485,7 @@ try {
         }
 
         if (scenario === "designer-documents") {
-            await clickElement(`document.querySelector('button[aria-label="文档操作"]')`);
+            await clickElement(`document.querySelector('button[aria-label="工作流操作"]')`);
             await settle(500);
         }
 
@@ -504,10 +573,10 @@ try {
 
         if (scenario === "designer-plan-runner") {
             // 先建第二份图，让计划有两个步骤。
-            await clickElement(`document.querySelector('button[aria-label="文档操作"]')`);
+            await clickElement(`document.querySelector('button[aria-label="工作流操作"]')`);
             await settle(250);
             await clickElement(
-                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('新建文档'))`,
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('新建工作流'))`,
             );
             await settle(1200);
 
@@ -888,7 +957,7 @@ try {
             };
             const openMenu = async () => {
                 await clickElement(
-                    `document.querySelector('button[aria-label="文档操作"]')`,
+                    `document.querySelector('button[aria-label="工作流操作"]')`,
                 );
                 await settle(300);
             };
@@ -897,7 +966,7 @@ try {
 
             await openMenu();
             await clickElement(
-                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('新建文档'))`,
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('新建工作流'))`,
             );
             await settle(1200);
             console.log(`doc flow after create: ${JSON.stringify(await readDocuments())} / ${JSON.stringify(await triggerText())}`);
@@ -919,14 +988,14 @@ try {
 
             await openMenu();
             await clickElement(
-                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('复制当前文档'))`,
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('复制当前工作流'))`,
             );
             await settle(1200);
             console.log(`doc flow after duplicate: ${JSON.stringify(await readDocuments())} / ${JSON.stringify(await triggerText())}`);
 
             await openMenu();
             await clickElement(
-                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('删除当前文档'))`,
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('删除当前工作流'))`,
             );
             await settle(400);
             await clickElement(

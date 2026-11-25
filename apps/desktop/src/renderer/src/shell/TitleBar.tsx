@@ -113,7 +113,7 @@ export function TitleBar({
                             <MenuLabel>文件</MenuLabel>
                             <MenuItem onSelect={onCreateDocument} disabled={busy}>
                                 <Plus size={16} aria-hidden="true" />
-                                新建图文档
+                                新建工作流
                                 <MenuShortcut>Ctrl N</MenuShortcut>
                             </MenuItem>
                             <MenuItem onSelect={onCreateWorkspace} disabled={busy}>
@@ -186,7 +186,7 @@ export function TitleBar({
                         <MenuLabel>命令</MenuLabel>
                         <MenuItem onSelect={onCreateDocument} disabled={busy}>
                             <Plus size={16} aria-hidden="true" />
-                            新建图文档
+                            新建工作流
                             <MenuShortcut>Ctrl N</MenuShortcut>
                         </MenuItem>
                         <MenuItem onSelect={onToggleSidebar}>

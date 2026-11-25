@@ -619,7 +619,7 @@ export function DesignerView({
         return (
             <div className={styles.state}>
                 <Alert tone="danger" title="无法加载工作流">
-                    {loadError ?? "工作流文档不可用"}
+                    {loadError ?? "工作流不可用"}
                     <div className={styles.actions}>
                         <Button size="sm" onClick={reload}>
                             重试
@@ -689,7 +689,7 @@ export function DesignerView({
             {hasBanners ? (
                 <div className={styles.banners}>
                     {error !== null && error !== undefined ? (
-                        <Alert tone="danger" title="文档操作失败">
+                        <Alert tone="danger" title="工作流操作失败">
                             <p>{error}</p>
                         </Alert>
                     ) : null}

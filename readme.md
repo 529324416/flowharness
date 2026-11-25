@@ -26,15 +26,16 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M6.2 checkpoint v2 / 工作区工具 / 运行前依赖目录 / Session 生命周期 | ✅ |
 | M6.3 Session 历史序列化 / 回放视图 / 附件渲染 | ✅ |
 | M7.0 工作台导航 / Session 树 / RunResult 设计 | ✅ 设计定稿（ADR-019 / ADR-020） |
-| M7.1 工作台导航宿主 / 图文档导航 / 左栏切换 | ✅ |
+| M7.1 工作台导航宿主 / 工作流导航 / 左栏切换 | ✅ |
 | M7.2 Session 递归文件夹 / SessionRecord v2 / 草稿目录 | ✅ |
+| M7.3 Session 树导航 / 历史浮动面板 / 工作流右键菜单 | ✅ |
 | 打包分发 | ⬜ |
 
 **已知限制**
 
 - 真透明窗口可透出桌面，但当前 Chromium/Electron 无法模糊桌面（ADR-009）；
 - 左侧栏已改为工作台导航 Panel：设计器显示 GraphDocument 列表；Session 导航与历史面板在 M7.3 迁移，当前暂时不显示会话；
-- Session 历史以 wireclaw `SessionData` 持久化；M6.3 的回放视图在 M7.1 暂未挂载，M7.3 以浮动面板恢复；消息写入侧（聊天输入与 Agent 会话对接）尚未接入；
+- Session 历史以 wireclaw `SessionData` 持久化；M6.3 的回放视图已恢复为 Canvas 浮动面板；消息写入侧（聊天输入与 Agent 会话对接）尚未接入；
 - 设计器运行中切换视图会丢失节点/边状态（run 仍在 main 继续）；
 - 暂停 run 的 checkpoint 已可跨重启恢复；wireclaw checkpoint v2 校验 graphHash 与 nodeVersions，恢复入口只在 Diagnostics；
 - 运行前 requirements 目录已从 ProviderRegistry 注入；模型目录需先「测试连接」才会进入 catalog；
@@ -123,7 +124,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（34 files / 168 tests） |
+| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（34 files / 169 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

@@ -19,6 +19,7 @@ import {
     type RunStartRequest,
     type RunResumeInterruptedRequest,
     type SessionCreateRequest,
+    type SessionDeleteRequest,
     type SessionFolder,
     type SessionFolderCreateRequest,
     type SessionFolderDeleteRequest,
@@ -28,6 +29,7 @@ import {
     type SessionMoveRequest,
     type SessionReadRequest,
     type SessionRecord,
+    type SessionRenameRequest,
     type SessionSaveRequest,
     type SessionSummary,
     type SessionTree,
@@ -149,6 +151,14 @@ const bridge = {
         request: SessionMoveRequest,
     ): Promise<IpcResult<SessionRecord>> =>
         invoke(IpcChannel.SessionMove, request),
+    renameSession: (
+        request: SessionRenameRequest,
+    ): Promise<IpcResult<SessionRecord>> =>
+        invoke(IpcChannel.SessionRename, request),
+    deleteSession: (
+        request: SessionDeleteRequest,
+    ): Promise<IpcResult<{ deleted: boolean }>> =>
+        invoke(IpcChannel.SessionDelete, request),
     createSessionFolder: (
         request: SessionFolderCreateRequest,
     ): Promise<IpcResult<SessionFolder>> =>

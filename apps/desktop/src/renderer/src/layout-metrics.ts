@@ -4,7 +4,7 @@
  * 组件与测试共用同一组常量，避免出现「请求 256、实际被最小宽度钳到 280」
  * 或「侧栏 token 与默认值不一致」这类漂移。
  */
-export type PanelId = "run-log" | "inspector";
+export type PanelId = "run-log" | "inspector" | "session-history";
 
 export const PANEL_MIN_WIDTH = 280;
 export const PANEL_MIN_HEIGHT = 140;
@@ -18,6 +18,7 @@ export const PANEL_DEFAULTS: Record<
 > = {
     "run-log": { width: 448, height: 224, title: "运行日志" },
     inspector: { width: 280, height: 432, title: "属性" },
+    "session-history": { width: 420, height: 520, title: "会话历史" },
 };
 
 export const SIDEBAR_MIN_WIDTH = 200;

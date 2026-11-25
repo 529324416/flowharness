@@ -166,7 +166,7 @@ class WorkspaceFileHost implements IFileHost {
 - 提供 wireclaw `GraphHost.attachments`；
 - 会话历史与附件引用持久化；M6.3 起由 `SessionStore` 校验 / 规范化 wireclaw `SessionData`，派生消息数与附件索引；M7.2 起支持递归文件夹、Session v2 与草稿目录。
 
-**当前实现（M7.2）**：每个已打开工作区装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore）与一个 `SessionStore`（`sessions/<folderId>/.../<sessionId>/session.json`）；支持默认会话、创建 / 列表 / 读取 / 保存、文件夹 CRUD、session 移动。`SessionRecord` v2 带 `kind / folderId / entryCount`；草稿目录由 `manifest.settings.draftSessionFolderId` 持久化；v1 记录读取时迁移为 v2。`messageCount` / `attachments` 从 conversation history 派生，非法历史返回 `E_INVALID_ARGUMENT`。
+**当前实现（M7.3）**：每个已打开工作区装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore）与一个 `SessionStore`（`sessions/<folderId>/.../<sessionId>/session.json`）；支持默认会话、创建 / 列表 / 读取 / 保存、文件夹 CRUD、session 移动 / 重命名 / 删除。`SessionRecord` v2 带 `kind / folderId / entryCount`；草稿目录由 `manifest.settings.draftSessionFolderId` 持久化；v1 记录读取时迁移为 v2。`messageCount` / `attachments` 从 conversation history 派生，非法历史返回 `E_INVALID_ARGUMENT`；Session 树与历史面板已接入 renderer。
 
 ## 9. RunStore
 
@@ -307,7 +307,8 @@ interface WorkbenchController {
 ## 18. M7 目标（M7.1 已落地）
 
 - **M7.1 已实现**：`WorkbenchDefinition.navigation`（design 模式）；`NavigationPanel` / `DocumentNavigation` / `PlanNavigation`；App 按工作台渲染左栏；移除全局 SessionSidebar 与顶层 sessions 视图；`WorkbenchHost` 提供 `panelLayer` 槽；文档选择同步 primaryGraph；删除 graph 前检查工作台引用；`--fh-panel-alpha` 0.78。
-- **M7.2 已实现**：Session 递归文件夹树、SessionRecord v2、草稿目录、session/folder 移动与 IPC；Session 树 UI 与历史面板在 M7.3。
+- **M7.2 已实现**：Session 递归文件夹树、SessionRecord v2、草稿目录、session/folder 移动与 IPC。
+- **M7.3 已实现**：设计/运行模式切换；设计左栏工作流列表 + 右键菜单；运行左栏 Session 树（递归、搜索、文件夹/会话 CRUD、移动、草稿标识）；会话历史嵌入 Canvas 浮动 Panel；对外文案统一为“工作流”。
 - **Workbench Framework**：`WorkbenchDefinition` 提供 `navigation`（design / run 两套 PanelContent）与 `mode` / `RunView`；Shell 渲染左栏，不再硬编码 SessionSidebar。
 - **SessionService / SessionStore**：Session 改为递归文件夹树；`SessionRecord.kind` 区分 conversation / run；草稿目录；RunResult 写入。
 - **RuntimeHost / RunStore**：采集 wireclaw `RunResult`，写 `runs/<runId>/result.json`，run 结束向 renderer 提供结果。

@@ -194,7 +194,7 @@ function PlanRunnerWorkbench({
     }, [running, savePlan, selected, workspace.id]);
 
     if (documents.length === 0) {
-        return <EmptyState title="没有可编排的图" description="先新建 Harness 文档。" />;
+        return <EmptyState title="没有可编排的图" description="先新建一个工作流。" />;
     }
 
     return (

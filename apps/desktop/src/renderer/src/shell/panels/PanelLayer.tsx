@@ -1,14 +1,30 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
-import type { RunEventDto, RunSnapshot } from "@flowharness/contracts";
-import { SlidersHorizontal, Terminal } from "lucide-react";
-import { Badge } from "../../ui";
+import type {
+    RunEventDto,
+    RunSnapshot,
+    WorkspaceSummary,
+} from "@flowharness/contracts";
+import {
+    History,
+    SlidersHorizontal,
+    Terminal,
+} from "lucide-react";
+import { Badge, EmptyState } from "../../ui";
 import type { InspectorModel } from "../../inspector/model";
 import type { DesignerProblem } from "../../designer/core/problems";
+import { SessionHistoryView } from "../../views/SessionHistoryView";
+import type { SessionSummary } from "../sessions";
 import { FloatingPanel } from "./FloatingPanel";
 import { InspectorContent } from "./InspectorContent";
 import { RunLogContent } from "./RunLogContent";
 import type { FloatingPanelState, PanelId } from "./useFloatingPanels";
 import styles from "./PanelLayer.module.css";
+
+export type SessionHistoryPanelInput = {
+    workspace: WorkspaceSummary;
+    session: SessionSummary;
+    onOpenDesigner: () => void;
+};
 
 export type PanelLayerProps = {
     panels: FloatingPanelState[];
@@ -16,6 +32,7 @@ export type PanelLayerProps = {
     snapshot: RunSnapshot | null;
     inspector: InspectorModel | null;
     problems: readonly DesignerProblem[];
+    sessionHistory?: SessionHistoryPanelInput | null;
     onSelectProblem?: (problem: DesignerProblem) => void;
     onClose: (id: PanelId) => void;
     onFocus: (id: PanelId) => void;
@@ -28,6 +45,7 @@ export function PanelLayer({
     snapshot,
     inspector,
     problems,
+    sessionHistory,
     onSelectProblem,
     onClose,
     onFocus,
@@ -82,6 +100,38 @@ export function PanelLayer({
                                   problems={problems}
                                   onSelectProblem={onSelectProblem}
                               />
+                          </FloatingPanel>
+                      ) : panel.id === "session-history" ? (
+                          <FloatingPanel
+                              key={panel.id}
+                              panel={panel}
+                              containerWidth={size.width}
+                              containerHeight={size.height}
+                              title="会话历史"
+                              icon={<History size={16} aria-hidden="true" />}
+                              badge={
+                                  <Badge variant="neutral">
+                                      {sessionHistory?.session.title ?? "未选择"}
+                                  </Badge>
+                              }
+                              footer={<span>会话已持久化到工作区</span>}
+                              onUpdate={onUpdate}
+                              onClose={() => onClose(panel.id)}
+                              onFocus={() => onFocus(panel.id)}
+                          >
+                              {sessionHistory ? (
+                                  <SessionHistoryView
+                                      workspace={sessionHistory.workspace}
+                                      session={sessionHistory.session}
+                                      onOpenDesigner={sessionHistory.onOpenDesigner}
+                                      embedded
+                                  />
+                              ) : (
+                                  <EmptyState
+                                      title="没有打开的会话"
+                                      description="在左侧 Session 树中选择一条会话。"
+                                  />
+                              )}
                           </FloatingPanel>
                       ) : (
                           <FloatingPanel

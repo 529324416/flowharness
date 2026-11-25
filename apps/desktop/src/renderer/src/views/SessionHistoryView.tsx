@@ -16,6 +16,8 @@ export type SessionHistoryViewProps = {
     workspace: WorkspaceSummary | null;
     session: SessionSummary | null;
     onOpenDesigner: () => void;
+    /** 嵌入浮动面板时隐藏整页标题，只保留紧凑工具栏。 */
+    embedded?: boolean;
 };
 
 const ROLE_LABEL: Record<SessionHistoryMessage["role"], string> = {
@@ -30,6 +32,7 @@ export function SessionHistoryView({
     workspace,
     session,
     onOpenDesigner,
+    embedded = false,
 }: SessionHistoryViewProps): ReactElement {
     const workspaceId = workspace?.id ?? null;
     const sessionId = session?.id ?? null;
@@ -127,57 +130,105 @@ export function SessionHistoryView({
             </Button>
         ) : undefined;
 
-    return (
-        <section className={styles.root} aria-label="会话历史">
-            <header className={styles.header}>
-                <div className={styles.heading}>
-                    <p className={styles.eyebrow}>SESSION HISTORY</p>
-                    <h1 className={styles.title}>
-                        {session?.title ?? "会话历史"}
-                    </h1>
-                    {session !== null ? (
-                        <div className={styles.meta}>
-                            <StatusDot
-                                tone={SESSION_TONE[record?.status ?? session.status]}
-                            />
-                            <span>
-                                {record !== null
-                                    ? `${record.messageCount} 条消息`
-                                    : session.subtitle}
-                            </span>
-                            <span aria-hidden="true">·</span>
-                            <span>{session.updatedAt}</span>
-                            {workspace !== null ? (
-                                <>
-                                    <span aria-hidden="true">·</span>
-                                    <span>{workspace.name}</span>
-                                </>
-                            ) : null}
-                        </div>
-                    ) : null}
-                    {record !== null ? (
-                        <div className={styles.meta}>
-                            <Badge variant="neutral">{record.id}</Badge>
-                            {model?.isArchived === true ? (
-                                <Badge variant="warning">已归档</Badge>
-                            ) : null}
-                        </div>
-                    ) : null}
-                </div>
+    const countLabel =
+        record !== null
+            ? record.kind === "run"
+                ? `${record.entryCount} 条结果`
+                : `${record.messageCount} 条消息`
+            : (session?.subtitle ?? "");
 
-                <div className={styles.actions}>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={reload}
-                        disabled={loading || workspaceId === null || sessionId === null}
-                    >
-                        <RefreshCw size={17} aria-hidden="true" />
-                        刷新
-                    </Button>
-                    {messageActions}
+    return (
+        <section
+            className={cx(styles.root, embedded && styles.rootEmbedded)}
+            aria-label="会话历史"
+        >
+            {embedded ? (
+                <div className={styles.embeddedBar}>
+                    <div className={styles.meta}>
+                        <StatusDot
+                            tone={
+                                SESSION_TONE[
+                                    record?.status ?? session?.status ?? "idle"
+                                ]
+                            }
+                        />
+                        <span>{countLabel}</span>
+                        {record !== null ? (
+                            <Badge variant="neutral">{record.id}</Badge>
+                        ) : null}
+                    </div>
+                    <div className={styles.actions}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={reload}
+                            disabled={
+                                loading ||
+                                workspaceId === null ||
+                                sessionId === null
+                            }
+                        >
+                            <RefreshCw size={17} aria-hidden="true" />
+                            刷新
+                        </Button>
+                        {messageActions}
+                    </div>
                 </div>
-            </header>
+            ) : (
+                <header className={styles.header}>
+                    <div className={styles.heading}>
+                        <p className={styles.eyebrow}>SESSION HISTORY</p>
+                        <h1 className={styles.title}>
+                            {session?.title ?? "会话历史"}
+                        </h1>
+                        {session !== null ? (
+                            <div className={styles.meta}>
+                                <StatusDot
+                                    tone={
+                                        SESSION_TONE[
+                                            record?.status ?? session.status
+                                        ]
+                                    }
+                                />
+                                <span>{countLabel}</span>
+                                <span aria-hidden="true">·</span>
+                                <span>{session.updatedAt}</span>
+                                {workspace !== null ? (
+                                    <>
+                                        <span aria-hidden="true">·</span>
+                                        <span>{workspace.name}</span>
+                                    </>
+                                ) : null}
+                            </div>
+                        ) : null}
+                        {record !== null ? (
+                            <div className={styles.meta}>
+                                <Badge variant="neutral">{record.id}</Badge>
+                                {model?.isArchived === true ? (
+                                    <Badge variant="warning">已归档</Badge>
+                                ) : null}
+                            </div>
+                        ) : null}
+                    </div>
+
+                    <div className={styles.actions}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={reload}
+                            disabled={
+                                loading ||
+                                workspaceId === null ||
+                                sessionId === null
+                            }
+                        >
+                            <RefreshCw size={17} aria-hidden="true" />
+                            刷新
+                        </Button>
+                        {messageActions}
+                    </div>
+                </header>
+            )}
 
             <div className={styles.body}>
                 {workspaceId === null ? (

@@ -200,11 +200,30 @@ export class SessionStore {
         return next;
     }
 
+    async renameSession(sessionId: string, title: string): Promise<SessionRecord> {
+        assertSessionId(sessionId);
+        const entry = await this.findSession(sessionId);
+        if (entry === undefined) {
+            throw new FhError("E_NOT_FOUND", `session not found: ${sessionId}`);
+        }
+        const nextTitle = title.trim();
+        if (nextTitle.length === 0) {
+            throw new FhError("E_INVALID_ARGUMENT", "session title is required");
+        }
+        const record = await this.readSessionAt(entry);
+        const next: SessionRecord = {
+            ...record,
+            title: nextTitle,
+            updatedAt: new Date().toISOString(),
+        };
+        await this.writeSession(entry.dir, next);
+        return next;
+    }
+
     async createFolder(input: {
         title: string;
         parentFolderId?: string | null;
-    }): Promise<SessionFolder> {
-        const title = input.title.trim();
+    }): Promise<SessionFolder> {        const title = input.title.trim();
         if (title.length === 0) {
             throw new FhError("E_INVALID_ARGUMENT", "folder title is required");
         }

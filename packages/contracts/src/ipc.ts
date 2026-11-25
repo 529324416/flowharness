@@ -16,6 +16,7 @@ import type { ProviderStatus, ProviderTestResult } from "./provider";
 import type {
     SessionCloseRequest,
     SessionCreateRequest,
+    SessionDeleteRequest,
     SessionFolder,
     SessionFolderCreateRequest,
     SessionFolderDeleteRequest,
@@ -25,6 +26,7 @@ import type {
     SessionMoveRequest,
     SessionReadRequest,
     SessionRecord,
+    SessionRenameRequest,
     SessionSaveRequest,
     SessionSummary,
     SessionTree,
@@ -92,6 +94,8 @@ export const IpcChannel = {
     SessionTree: "session:tree",
     SessionSave: "session:save",
     SessionMove: "session:move",
+    SessionRename: "session:rename",
+    SessionDelete: "session:delete",
     SessionCreateFolder: "session:createFolder",
     SessionRenameFolder: "session:renameFolder",
     SessionMoveFolder: "session:moveFolder",
@@ -262,6 +266,14 @@ export type IpcInvokeContracts = {
     [IpcChannel.SessionMove]: {
         request: SessionMoveRequest;
         response: SessionRecord;
+    };
+    [IpcChannel.SessionRename]: {
+        request: SessionRenameRequest;
+        response: SessionRecord;
+    };
+    [IpcChannel.SessionDelete]: {
+        request: SessionDeleteRequest;
+        response: { deleted: boolean };
     };
     [IpcChannel.SessionCreateFolder]: {
         request: SessionFolderCreateRequest;

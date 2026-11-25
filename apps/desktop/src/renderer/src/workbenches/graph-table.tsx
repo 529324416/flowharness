@@ -80,7 +80,7 @@ function GraphTableWorkbench({
         return (
             <EmptyState
                 title="没有可展示的图"
-                description="先在文档菜单里新建或选择一份 Harness 文档。"
+                description="先在左栏新建或选择一份工作流。"
             />
         );
     }

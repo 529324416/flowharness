@@ -7,6 +7,25 @@
   overflow: hidden;
 }
 
+.rootEmbedded {
+  padding: 0 12px;
+}
+
+.embeddedBar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--fh-border);
+}
+
+.embeddedBar .meta {
+  flex: 1;
+  margin-top: 0;
+}
+
 .header {
   display: flex;
   align-items: flex-start;

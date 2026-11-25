@@ -162,7 +162,7 @@ export function WorkbenchMenu({
         <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
             <DialogContent
                 title="删除工作台"
-                description="只删除实例文档，不删除它绑定的 Harness 图。"
+                description="只删除工作台实例，不删除它绑定的工作流。"
                 footer={
                     <>
                         <Button

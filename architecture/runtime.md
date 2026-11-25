@@ -135,7 +135,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | workspace | `workspace:list` / `create` / `open` / `close` / `readDocument` / `saveDocument` / `listDocuments` / `deleteDocument` / `exportHarness` / `listWorkbenches` / `export` / `import` | ✅ | 前十个 ✅，`export`/`import` ❌ |
 | workspace | `workspace:applyCommands` | ❌（仅契约，见 ADR-012） | ❌ |
 | blob | `blob:stat` / `blob:delete` | ✅ | `stat` ✅，`delete` ❌ |
-| session | `session:create` / `open` / `close` / `list` / `tree` / `save` / `move` / `createFolder` / `renameFolder` / `moveFolder` / `deleteFolder` | ✅ | ✅ |
+| session | `session:create` / `open` / `close` / `list` / `tree` / `save` / `move` / `rename` / `delete` / `createFolder` / `renameFolder` / `moveFolder` / `deleteFolder` | ✅ | ✅ |
 | run | `run:start` / `pause` / `resume` / `cancel` / `get` / `list` / `resume-interrupted` | ✅ | ✅ |
 | approval | `approval:respond` | ✅ | ✅ |
 | input | `input:respond` | ✅ | ✅ |

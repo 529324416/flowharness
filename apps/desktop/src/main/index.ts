@@ -32,6 +32,7 @@ import {
     type RunStartRequest,
     type ProvidersTestRequest,
     type SessionCreateRequest,
+    type SessionDeleteRequest,
     type SessionFolderCreateRequest,
     type SessionFolderDeleteRequest,
     type SessionFolderMoveRequest,
@@ -39,6 +40,7 @@ import {
     type SessionListRequest,
     type SessionMoveRequest,
     type SessionReadRequest,
+    type SessionRenameRequest,
     type SessionSaveRequest,
     type SessionTreeRequest,
     type SecretsDeleteRequest,
@@ -623,6 +625,20 @@ function registerIpcHandlers(): void {
         IpcChannel.SessionMove,
         ({ workspaceId, sessionId, folderId }: SessionMoveRequest) =>
             requireSessionStore(workspaceId).moveSession(sessionId, folderId),
+    );
+
+    registerHandler(
+        IpcChannel.SessionRename,
+        ({ workspaceId, sessionId, title }: SessionRenameRequest) =>
+            requireSessionStore(workspaceId).renameSession(sessionId, title),
+    );
+
+    registerHandler(
+        IpcChannel.SessionDelete,
+        ({ workspaceId, sessionId }: SessionDeleteRequest) =>
+            requireSessionStore(workspaceId)
+                .delete(sessionId)
+                .then((deleted) => ({ deleted })),
     );
 
     registerHandler(

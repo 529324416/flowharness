@@ -50,11 +50,12 @@
 
 ### M7.3 Session 树导航与回放面板
 
-- [ ] `SessionNavigation`：递归树、展开 / 折叠、搜索、新建文件夹 / 会话、重命名、移动、删除、草稿目录标识
-- [ ] `SessionHistoryView` → `SessionHistoryPanel`，挂 `PanelLayer`；入口为树节点 / 运行结果面板
-- [ ] 运行阶段左栏 = Session 树；设计阶段左栏 = GraphDocument
-- [ ] 空态 / 错误态 / 附件渲染复用 M6.3
-- [ ] 测试：树操作投影、选中联动；视觉基线：设计文档树 / 运行会话树 / 历史面板
+- [x] `SessionNavigation`：递归树、展开 / 折叠、搜索、新建文件夹 / 会话、重命名、移动、删除、草稿目录标识
+- [x] `SessionHistoryView` → 浮动面板，挂 `PanelLayer`；入口为 Session 树节点（运行结果入口随 M7.4）
+- [x] 运行阶段左栏 = Session 树；设计阶段左栏 = 工作流（GraphDocument）；标题栏/菜单统一对外称“工作流”
+- [x] 工作流列表右键菜单，与操作菜单共用动作与重命名 / 删除 / 导入对话框
+- [x] 空态 / 错误态 / 附件渲染复用 M6.3
+- [x] 测试：树操作投影、选中联动；视觉基线：工作流右键菜单 / 运行会话树 / 历史面板
 
 ### M7.4 运行结果 → 草稿 Session
 

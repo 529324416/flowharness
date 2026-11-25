@@ -1,4 +1,5 @@
 import { DocumentNavigation } from "../shell/navigation/DocumentNavigation";
+import { SessionNavigation } from "../shell/navigation/SessionNavigation";
 import { DesignerView } from "../views/DesignerView";
 import type { WorkbenchDefinition, WorkbenchViewProps } from "../workbench/types";
 
@@ -34,6 +35,6 @@ export const harnessDesignerWorkbench: WorkbenchDefinition = {
     title: "Harness Designer",
     description: "画布式 Harness 工作流设计与运行工作台",
     canOpen: (instance) => instance.graphs.length > 0,
-    navigation: { design: DocumentNavigation },
+    navigation: { design: DocumentNavigation, run: SessionNavigation },
     View: HarnessDesignerView,
 };

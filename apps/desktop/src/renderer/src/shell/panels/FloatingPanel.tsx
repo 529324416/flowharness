@@ -74,7 +74,7 @@ export function FloatingPanel({
     const collapsedHeight = PANEL_HEADER_HEIGHT;
 
     const defaultLeft =
-        panel.id === "run-log"
+        panel.id === "run-log" || panel.id === "session-history"
             ? PANEL_EDGE
             : Math.max(PANEL_EDGE, containerWidth - width - PANEL_EDGE);
     const defaultTop =

@@ -15,6 +15,7 @@ import type {
     RunEventBatch,
     RunEventDto,
     RunSnapshot,
+    SessionSummary as StoredSessionSummary,
     UserInputAnswerDto,
     UserInputRequestPayload,
     WorkbenchInstanceDocument,
@@ -43,6 +44,7 @@ import {
 import { StatusBar } from "./shell/StatusBar";
 import { PanelLayer } from "./shell/panels/PanelLayer";
 import { useFloatingPanels } from "./shell/panels/useFloatingPanels";
+import { fromStoredSession } from "./shell/sessions";
 import { VIEW_LABEL, type ViewId } from "./shell/views";
 import type { DesignerSaveStatus } from "./views/DesignerView";
 import { DiagnosticsView } from "./views/DiagnosticsView";
@@ -136,8 +138,9 @@ export function App(): ReactElement {
     );
     const [sidebarOpen, setSidebarOpen] = useState(readSidebarOpen);
     const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth);
-    /** M7.5 会在这里切到 run；M7.1 只有 design 导航。 */
-    const workbenchMode: WorkbenchMode = "design";
+    const [workbenchMode, setWorkbenchMode] = useState<WorkbenchMode>("design");
+    const [activeSession, setActiveSession] =
+        useState<StoredSessionSummary | null>(null);
 
     const [config, setConfig] = useState<AppConfig | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -186,12 +189,19 @@ export function App(): ReactElement {
         panels,
         isOpen: isPanelOpen,
         toggle: togglePanel,
+        open: openPanel,
         close: closePanel,
         focus: focusPanel,
         update: updatePanel,
     } = useFloatingPanels();
 
     const panelsEnabled = view === "designer" && activeWorkspace !== null;
+
+    // 切换工作台 / 工作区时回到设计模式，避免把上一个工作台的会话带进 run 导航。
+    useEffect(() => {
+        setWorkbenchMode("design");
+        setActiveSession(null);
+    }, [activeWorkbenchId, activeWorkspace?.id]);
 
     useEffect(() => {
         try {
@@ -753,14 +763,14 @@ export function App(): ReactElement {
                 });
                 if (!snapshot.ok || snapshot.data === null) {
                     setDocumentError(
-                        snapshot.ok ? "文档不存在" : snapshot.error.message,
+                        snapshot.ok ? "工作流不存在" : snapshot.error.message,
                     );
                     return;
                 }
 
                 const document = withDocumentTitle(snapshot.data.document, trimmed);
                 if (document === null) {
-                    setDocumentError("文档格式不支持重命名");
+                    setDocumentError("工作流格式不支持重命名");
                     return;
                 }
 
@@ -810,12 +820,12 @@ export function App(): ReactElement {
                 });
                 if (!snapshot.ok || snapshot.data === null) {
                     setDocumentError(
-                        snapshot.ok ? "文档不存在" : snapshot.error.message,
+                        snapshot.ok ? "工作流不存在" : snapshot.error.message,
                     );
                     return;
                 }
                 if (!isGraphDocument(snapshot.data.document)) {
-                    setDocumentError("文档不是有效的 GraphDocument");
+                    setDocumentError("工作流不是有效的 GraphDocument");
                     return;
                 }
 
@@ -990,9 +1000,12 @@ export function App(): ReactElement {
     );
 
     const handleExportDocument = useCallback(
-        async ({ stripUi }: { stripUi: boolean }): Promise<void> => {
+        async (
+            { stripUi }: { stripUi: boolean },
+            documentId?: string,
+        ): Promise<void> => {
             const workspace = activeWorkspace;
-            const id = activeDocumentId;
+            const id = documentId ?? activeDocumentId;
             if (workspace === null || id === null) return;
 
             setDocumentError(null);
@@ -1005,7 +1018,7 @@ export function App(): ReactElement {
                 });
                 if (!snapshot.ok || snapshot.data === null) {
                     setDocumentError(
-                        snapshot.ok ? "文档不存在" : snapshot.error.message,
+                        snapshot.ok ? "工作流不存在" : snapshot.error.message,
                     );
                     return;
                 }
@@ -1014,7 +1027,7 @@ export function App(): ReactElement {
                     stripUi,
                 });
                 if (text === null) {
-                    setDocumentError("文档不是有效的 GraphDocument");
+                    setDocumentError("工作流不是有效的 GraphDocument");
                     return;
                 }
 
@@ -1396,6 +1409,19 @@ export function App(): ReactElement {
                                     snapshot={runSnapshot}
                                     inspector={designerInspector}
                                     problems={designerProblems?.problems ?? []}
+                                    sessionHistory={
+                                        activeSession !== null &&
+                                        activeWorkspace !== null
+                                            ? {
+                                                  workspace: activeWorkspace,
+                                                  session: fromStoredSession(
+                                                      activeSession,
+                                                  ),
+                                                  onOpenDesigner: () =>
+                                                      setWorkbenchMode("design"),
+                                              }
+                                            : null
+                                    }
                                     onSelectProblem={designerProblems?.select}
                                     onClose={closePanel}
                                     onFocus={focusPanel}
@@ -1442,6 +1468,12 @@ export function App(): ReactElement {
                   width: sidebarWidth,
                   onResize: setSidebarWidth,
                   onCollapse: () => setSidebarOpen(false),
+                  onModeChange: setWorkbenchMode,
+                  activeSessionId: activeSession?.id ?? null,
+                  onOpenSession: (session) => {
+                      setActiveSession(session);
+                      openPanel("session-history");
+                  },
                   onSelectDocument: (id) => void handleSelectDocument(id),
                   onCreateDocument: () => void handleCreateDocument(),
                   onRenameDocument: (id, title) =>
@@ -1450,8 +1482,8 @@ export function App(): ReactElement {
                   onDeleteDocument: (id) => void handleDeleteDocument(id),
                   onImportDocument: (text, fileName) =>
                       void handleImportDocument(text, fileName),
-                  onExportDocument: (options) =>
-                      void handleExportDocument(options),
+                  onExportDocument: (options, documentId) =>
+                      void handleExportDocument(options, documentId),
               }
             : null;
     const navigationContent =

@@ -59,7 +59,9 @@
 - `settings` 是工作区级自由对象，当前恒为 `{}`；应用级设置放 AppConfig（见 [modules.md](./modules.md)）；
 - 没有 `runtime.wireclawVersion` 字段；`parseManifest` 重建对象时会丢弃未知字段。
 
-## 4. Harness Graph 文档
+## 4. Harness Graph 文档（对外称“工作流”）
+
+> UI / 文档中面向用户的名称统一为 **工作流（workflow）**；`GraphDocument` 仅作为 wireclaw 与 contracts 的内部类型名保留。
 
 即 wireclaw 的 `GraphDocument`：
 

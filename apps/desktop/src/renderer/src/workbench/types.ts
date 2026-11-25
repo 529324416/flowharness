@@ -4,6 +4,7 @@ import type {
     HarnessDocumentSummary,
     RunSnapshot,
     RunStatus,
+    SessionSummary,
     WorkbenchInstanceDocument,
     WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -68,13 +69,21 @@ export type WorkbenchNavigationProps = {
     width: number;
     onResize: (width: number) => void;
     onCollapse: () => void;
+    /** 在当前工作台的 design / run 模式之间切换。 */
+    onModeChange: (mode: WorkbenchMode) => void;
+    /** 当前打开的会话；run 模式的 Session 树与历史面板共用。 */
+    activeSessionId: string | null;
+    onOpenSession: (session: SessionSummary) => void;
     onSelectDocument: (id: string) => void;
     onCreateDocument: () => void;
     onRenameDocument: (id: string, title: string) => void;
     onDuplicateDocument: (id: string) => void;
     onDeleteDocument: (id: string) => void;
     onImportDocument: (text: string, fileName: string) => void;
-    onExportDocument: (options: { stripUi: boolean }) => void;
+    onExportDocument: (
+        options: { stripUi: boolean },
+        documentId?: string,
+    ) => void;
 };
 
 export type WorkbenchNavigation = Partial<

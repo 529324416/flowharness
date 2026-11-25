@@ -37,12 +37,23 @@ const INITIAL_PANELS: FloatingPanelState[] = [
         height: PANEL_DEFAULTS["run-log"].height,
         z: 1,
     },
+    {
+        id: "session-history",
+        open: false,
+        collapsed: false,
+        x: null,
+        y: null,
+        width: PANEL_DEFAULTS["session-history"].width,
+        height: PANEL_DEFAULTS["session-history"].height,
+        z: 0,
+    },
 ];
 
 export type FloatingPanelsApi = {
     panels: FloatingPanelState[];
     isOpen: (id: PanelId) => boolean;
     toggle: (id: PanelId) => void;
+    open: (id: PanelId) => void;
     close: (id: PanelId) => void;
     focus: (id: PanelId) => void;
     update: (id: PanelId, patch: Partial<FloatingPanelState>) => void;
@@ -88,6 +99,16 @@ export function useFloatingPanels(): FloatingPanelsApi {
         [],
     );
 
+    const open = useCallback((id: PanelId) => {
+        topZ.current += 1;
+        const z = topZ.current;
+        setPanels((current) =>
+            current.map((panel) =>
+                panel.id === id ? { ...panel, open: true, z } : panel,
+            ),
+        );
+    }, []);
+
     const close = useCallback((id: PanelId) => {
         setPanels((current) =>
             current.map((panel) => (panel.id === id ? { ...panel, open: false } : panel)),
@@ -99,5 +120,5 @@ export function useFloatingPanels(): FloatingPanelsApi {
         [panels],
     );
 
-    return { panels, isOpen, toggle, close, focus, update };
+    return { panels, isOpen, toggle, open, close, focus, update };
 }

@@ -72,6 +72,15 @@ export type SessionMoveRequest = {
     sessionId: string;
     folderId: string | null;
 };
+export type SessionRenameRequest = {
+    workspaceId: string;
+    sessionId: string;
+    title: string;
+};
+export type SessionDeleteRequest = {
+    workspaceId: string;
+    sessionId: string;
+};
 
 export type SessionFolderCreateRequest = {
     workspaceId: string;

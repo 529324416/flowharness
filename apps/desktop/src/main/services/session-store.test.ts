@@ -216,6 +216,18 @@ describe("SessionStore", () => {
         expect(drafts).toHaveLength(1);
     });
 
+    it("renames sessions", async () => {
+        const { store } = await makeStoreIn();
+        const created = await store.create({ title: "旧标题" });
+        const renamed = await store.renameSession(created.id, "新标题");
+
+        expect(renamed.title).toBe("新标题");
+        expect((await store.read(created.id)).title).toBe("新标题");
+        await expect(
+            store.renameSession(created.id, "  "),
+        ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
+    });
+
     it("migrates v1 session records to v2", async () => {
         const { store, dir } = await makeStoreIn();
         await mkdir(join(dir, "ses_legacy"), { recursive: true });

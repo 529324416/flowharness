@@ -278,7 +278,8 @@ CanvasCommand → GraphDocument
 - Ribbon 设置菜单打开 `shell/ProviderSettingsDialog.tsx`：启用/禁用 Provider，编辑显示名、Base URL、默认模型；云 Provider 可写入 / 清除 API Key；
 - 密钥通过 `secrets:set / delete` 进入 main，renderer 只能看到 `hasKey`；`providers:list` 返回可用状态，`providers:test` 拉取模型目录；
 - run 期间：审批走 `shell/InteractionDialogs.tsx` 的 ApprovalDialog，用户输入走 UserInputDialog；main 发 `approval` / `input` topic，renderer 回 `approval:respond` / `input:respond`；
-- Diagnostics 提供「运行恢复」面板：列出 paused / interrupted run，使用 `run:resume-interrupted` 从 checkpoint + graph 快照恢复。
+- Diagnostics 提供「运行恢复」面板：列出 paused / interrupted run，使用 `run:resume-interrupted` 从 checkpoint + graph 快照恢复；
+- Session Sidebar 读取真实 SessionStore；当前只展示摘要与状态，历史消息 / 附件回放 UI 未接。
 
 ## 7. 其他工作台
 
@@ -302,7 +303,7 @@ CanvasCommand → GraphDocument
 | tokens | `styles/tokens.css`：表面 / 文本 / 边框 / 主色（去饱和青绿）/ 状态 / 画布 / 阴影 / 圆角 / 间距 / 字体 / 动效 / 尺寸 / 层级；深色默认、亮色覆盖 |
 | 密度 | 非画布文字 125% 基准（16.25px 正文）、控件 32px（sm 28）、节点 220px、4px 间距基线；图标同步放大 |
 | 外壳 | TitleBar 40（不透明，无底边框）/ Ribbon 52 / Session Sidebar 200–360（默认 260，可收起/拖宽；token 兜底 280）/ StatusBar 26（全宽不透明 Chrome 层，仅底部圆角）；Session 与 Canvas 面板化（各 1px 外框 + 6px 圆角，间隙 4px），中间 Body 统一 95% 半透；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
-| 会话入口 | Session Sidebar 使用 mock 数据（M6 接真实 Session）；设计器按工作区加载，无工作区时显示空状态 |
+| 会话入口 | Session Sidebar 读取当前工作区 SessionStore（默认会话 / 新建 / 切换）；设计器按工作区加载，无工作区时显示空状态 |
 | 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Field、Select、Checkbox、NumberField、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
 | 画布视觉 | 商务扁平节点：6px 圆角、纯色不透明底、HeaderBar 30 + Body 两层、无 Footer；描边通过 `--fh-canvas-zoom` 反向缩放，屏幕恒为 1px；选中仅换 accent 边框；网格线 24px/低亮度，拖拽吸附同为 24px；边 1.4px 贝塞尔，活跃边用主色流动虚线、失败 danger 虚线；缩放工具栏已移除；节点宽、Header、端口、边宽、网格、小地图与缩放范围全部来自 `canvas/metrics.ts`，并通过 CSS 变量下发 |
 | 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张（跟随全局主题，页面内无主题切换） |

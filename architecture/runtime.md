@@ -49,7 +49,7 @@ start → running → completed
 | wireclaw 字段 | FH 来源 | 说明 |
 | --- | --- | --- |
 | `resolveProvider(providerId)` | `ProviderRegistry`（AppConfig + SecretsStore） | 按 providerId 返回已构造的 `AIProvider`，密钥不出 main；配置/密钥变更后 reload |
-| `tools` | ToolRegistry（wireclaw）+ 本地工具注册 | 工具定义与审批策略由 FH 决定；**当前仍是空 ToolRegistry** |
+| `tools` | 每工作区 ToolRegistry + LocalToolProvider | `workspace__readFile` / `workspace__writeFile`，写文件需审批；MCP 等更多 Provider 待接 |
 | `attachments` | SessionService → `AttachmentFileManager` → `WorkspaceFileHost` | 按 contentHash 读写 |
 | `onToolApproval(request, nodeId)` | IPC 往返到 renderer 审批对话框 | 超时默认拒绝；UI 已接 |
 | `onUserInput(request, nodeId)` | IPC 往返到 renderer 输入对话框 | 超时/取消返回取消结果；UI 已接 |
@@ -86,7 +86,8 @@ renderer 侧：
 - 只在**节点边界**暂停，正在执行的节点会完成；
 - 暂停后写 `runs/<runId>/checkpoint.json`；
 - 异常退出遗留的 `running` 在**打开工作区时**标记为 `interrupted`；
-- 目标（未实现）：优雅退出时对运行中的 run 暂停落盘、启动时按 checkpoint 恢复。当前 `resume()` 只在进程内、且必须持有同一个 `RuntimeHost` 实例。
+- 退出时对运行中的 run 暂停落盘仍未自动完成；跨重启恢复由 Diagnostics 的 `run:resume-interrupted` 显式触发；
+- checkpoint v2 携带 graphHash 与 nodeVersions，恢复时校验可执行图与节点类型版本。
 
 ## 7. 审批与用户输入
 
@@ -134,7 +135,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | workspace | `workspace:list` / `create` / `open` / `close` / `readDocument` / `saveDocument` / `listDocuments` / `deleteDocument` / `exportHarness` / `listWorkbenches` / `export` / `import` | ✅ | 前十个 ✅，`export`/`import` ❌ |
 | workspace | `workspace:applyCommands` | ❌（仅契约，见 ADR-012） | ❌ |
 | blob | `blob:stat` / `blob:delete` | ✅ | ❌ |
-| session | `session:create` / `open` / `close` / `list` | ❌（仅契约） | ❌ |
+| session | `session:create` / `open` / `close` / `list` / `save` | ✅ | ✅ |
 | run | `run:start` / `pause` / `resume` / `cancel` / `get` / `list` / `resume-interrupted` | ✅ | ✅ |
 | approval | `approval:respond` | ✅ | ✅ |
 | input | `input:respond` | ✅ | ✅ |
@@ -195,7 +196,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 
 **已知限制**
 
-- Agent 节点已有 Provider / 审批 / 输入 UI，但 `ToolRegistry` 仍为空，真实工具尚未注册；
-- 运行前 requirements catalog 尚未从 ProviderRegistry 注入，校验阶段不会提前拦截缺失 Provider；
-- wireclaw checkpoint 尚未携带 graph hash / node type version，恢复时按 graphId 匹配；
+- Agent 只注册了工作区文件工具；MCP / 扩展工具尚未接入；
+- 运行前 requirements 已注入 ProviderRegistry，但模型目录需先在设置页「测试连接」才会进入 catalog；
+- Session 历史消息仍是 opaque JSON，附件回放 UI 未接；
 - 受限环境写盘不可用时，RunStore 退化为内存态（日志告警一次），执行本身不受影响。

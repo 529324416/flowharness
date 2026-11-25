@@ -14,7 +14,7 @@
 | L2 | BlobStore | 内容寻址的二进制存储 | ✅ |
 | L2 | WorkspaceStore | 工作区文档、索引、迁移、导入导出 | ✅（无 `applyCommands`、无迁移） |
 | L2 | WorkspaceFileHost | wireclaw `IFileHost` 的 FH 实现 | ✅ |
-| L2 | SessionService | Session 生命周期与附件管理器装配 | 🚧 仅按工作区装配附件管理器 |
+| L2 | SessionService | Session 生命周期与附件管理器装配 | ✅ M6.2（历史回放 UI 未做） |
 | L2 | RunStore | run 记录、事件日志、checkpoint | ✅ |
 | L2 | RuntimeHost | Graph 执行、事件流、暂停/恢复/取消 | ✅（Provider 已接） |
 | L0 | Contracts | IPC 契约、DTO、错误码 | ✅ |
@@ -164,7 +164,7 @@ class WorkspaceFileHost implements IFileHost {
 - 提供 wireclaw `GraphHost.attachments`；
 - 会话历史与附件引用持久化，支持重新打开与回放。
 
-**当前实现（M1 之后）**：每个**已打开的工作区**装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore），还没有 Session 维度；完整的 Session 生命周期（创建 / 历史 / 回放）随 M6 落地。
+**当前实现（M6.2）**：每个已打开工作区装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore）与一个 `SessionStore`（`sessions/<id>/session.json`）；支持默认会话、创建 / 列表 / 读取 / 保存。消息历史当前是 opaque JSON 数组，附件回放 UI 尚未接入。
 
 ## 9. RunStore
 
@@ -196,7 +196,7 @@ interface RuntimeHost {
 ```
 
 - 输入是 `GraphDocument` + 输入值 + 可选 checkpoint，内部 `deserializeGraph` 后调用 `graph.run(...)`；暂停/恢复走 `GraphRun.pause()/resume()`，跨重启用 `resumeInterrupted()` 装载 RunStore 的 graph + checkpoint 后重新 start；
-- 实现 wireclaw `GraphHost`：`resolveProvider`（ProviderRegistry）、`tools`、`attachments`、`onToolApproval`、`onUserInput`、`parameters`、`log`；当前 `tools` 是空 `ToolRegistry`；
+- 实现 wireclaw `GraphHost`：`resolveProvider`（ProviderRegistry）、`tools`（每工作区 LocalToolProvider：readFile / writeFile）、`attachments`、`onToolApproval`、`onUserInput`、`parameters`、`log`；
 - 事件：`GraphRun.onEvent` → RunStore + 节流广播；
 - 并发（目标，未实现）：每个工作台默认 1 个活动 run，可配置；
 - 详见 [runtime.md](./runtime.md)。

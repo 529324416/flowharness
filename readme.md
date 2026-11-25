@@ -22,19 +22,20 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M3 校验与运行可视化：问题面板 / 内嵌图递归校验 / 事件→画布 / 暂停·继续 | ✅ |
 | M4 文档生命周期与编辑体验：多图 / 撤销复制 / 框选·右键平移 / JSON 导入导出 | ✅ |
 | M5 Workbench Framework：定义 / 实例 / 三个工作台 / WorkbenchPlan / 节点内联与端口槽 | ✅ |
-| M6.1 Provider 工厂 / Secrets / 设置页 / 审批输入 / 跨重启恢复 | 🚧 |
-| Session 生命周期、wireclaw checkpoint 校验、打包 | ⬜ |
+| M6.1 Provider 工厂 / Secrets / 设置页 / 审批输入 / 跨重启恢复 | ✅ |
+| M6.2 checkpoint v2 / 工作区工具 / 运行前依赖目录 / Session 生命周期 | ✅ |
+| Session 历史回放、打包 | ⬜ |
 
 **已知限制**
 
 - 真透明窗口可透出桌面，但当前 Chromium/Electron 无法模糊桌面（ADR-009）；
-- Session Sidebar 仍是 mock；真实 Session 生命周期 / 历史 / 附件回放尚未实现；
+- Session Sidebar 已接工作区 SessionStore（创建 / 列表 / 默认会话）；消息历史目前是 opaque JSON，附件回放 UI 尚未实现；
 - 设计器运行中切换视图会丢失节点/边状态（run 仍在 main 继续）；
-- 暂停 run 的 checkpoint 已可跨重启恢复，但恢复入口只在 Diagnostics；wireclaw checkpoint 尚未携带 graph hash / node type version；
-- 运行前的 requirements 目录尚未接 Provider / Secrets，运行时已由 ProviderRegistry 解析；宿主目录校验仍待接；
+- 暂停 run 的 checkpoint 已可跨重启恢复；wireclaw checkpoint v2 校验 graphHash 与 nodeVersions，恢复入口只在 Diagnostics；
+- 运行前 requirements 目录已从 ProviderRegistry 注入；模型目录需先「测试连接」才会进入 catalog；
 - 标题栏关闭与 Ctrl+W 会先 flush 当前文档；系统级关闭（Alt+F4）仍无退出握手；
 - 撤销栈只覆盖画布结构编辑与 config，重启后不保留；
-- Agent 节点已接 Provider / 审批 / 用户输入，但 `ToolRegistry` 仍为空，真实工具体系待后续；
+- Agent 节点已接 Provider / 审批 / 用户输入，并注册工作区 LocalToolProvider（readFile / writeFile）；MCP 等更多工具待后续；
 - WorkbenchPlan 目前在 renderer 侧顺序调用 `run:start`，尚未下沉 RuntimeHost；`plan.bindings` 与 `layout.overrides` 未接线；
 - 内联编辑覆盖 Constant / Model Call / Log / Value / Agent / Loop / ForEach，复杂字段仍走检查器 JSON；
 - 亮色 token 与切换已接入（`ThemeProvider` + `config:update`），尚未做视觉走查；
@@ -117,7 +118,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（31 files / 149 tests） |
+| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（33 files / 155 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

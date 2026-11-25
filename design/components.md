@@ -50,7 +50,7 @@
 
 - TitleBar 是拖拽区（`-webkit-app-region: drag`），按钮/输入自动 `no-drag`；双击空白处切换最大化；
 - Ribbon 是工作台切换栏：会话栏开关 + 设计器 / 诊断 / 样式指南，底部设置；
-- **只有一个 Session Sidebar**（当前为 mock 会话，M6 接真实 Session）；可收起、可拖宽，宽度记入 localStorage；
+- **只有一个 Session Sidebar**（M6.2 起读取工作区 SessionStore，默认会话 / 新建 / 切换）；可收起、可拖宽，宽度记入 localStorage；
 - Session 与 Canvas 各自带 1px 外框和 6px 圆角，用 4px 间隙分隔，不再用共享分隔线“拼”在一起；
 - TitleBar 与 StatusBar 使用不透明表面，中间 Body 统一 95% 半透；Session 与 Canvas 处于同一层，最终不透明度一致；
 - 设计器按工作区加载：无工作区时显示设计器空状态（「新建工作区」），有工作区时直接进入画布；Session 侧栏目前只是 mock 列表，选中会话不会切换 canvas 文档；

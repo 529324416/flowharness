@@ -34,7 +34,7 @@
       graph.json
       events.jsonl
       checkpoint.json
-  sessions/                   # 仅预留空目录，暂无写入方
+  sessions/                   # 工作区会话（SessionStore，M6.2 起）
 ```
 
 - 目录名带 shortId 便于人眼识别，**id 本身才是主键**；
@@ -158,7 +158,7 @@
 runs/<runId>/meta.json        # RunSnapshot（与 IPC 快照同构）
 runs/<runId>/graph.json       # 运行时的 GraphDocument 快照
 runs/<runId>/events.jsonl     # RunEventDto，逐行追加
-runs/<runId>/checkpoint.json  # GraphCheckpoint，仅显式暂停时写入
+runs/<runId>/checkpoint.json  # GraphCheckpoint v2（graphHash/nodeVersions），仅显式暂停时写入
 ```
 
 ```json
@@ -175,19 +175,18 @@ runs/<runId>/checkpoint.json  # GraphCheckpoint，仅显式暂停时写入
 - `error` 只在失败时出现，不带 `schemaVersion`；
 - `events.jsonl` 每行一个 `RunEventDto`，追加写；
 - `checkpoint.json` 只在**显式暂停**时产生：引擎不提供周期性 checkpoint，也没有退出时自动落盘；
-- 恢复按设计需要 checkpoint + **原 Graph 定义**；当前 resume 只在进程内，跨重启恢复未接入。
+- checkpoint v2 保存 graphHash / nodeVersions；恢复按设计需要 checkpoint + 原 Graph 定义，当前可从 RunStore 跨重启恢复并校验图定义。
 
-## 8. 会话（目标，未实现）
+## 8. 会话（M6.2 已实现基础）
 
 ```text
-sessions/<sessionId>/session.json     # wireclaw 会话历史序列化结果
-sessions/<sessionId>/attachments.json # 引用到的 contentHash 列表
+sessions/<sessionId>/session.json     # SessionRecord：摘要 + opaque history + attachments
 ```
 
 - 会话历史与附件索引分离，保证 `AttachmentFileManager` 的 GC 有可靠 roots；
 - 会话不内联二进制，只引用 Blob。
 
-> 现状：没有写入 `sessions/` 的任何代码——`sessions/` 目录只在创建工作区时预建；SessionService 仅按工作区缓存 `AttachmentFileManager`。Session 历史随 M6 落地。
+> 现状（M6.2）：`SessionStore` 按工作区写入 `sessions/<id>/session.json`，支持默认会话、创建 / 列表 / 读取 / 保存；`history` 目前是不透明 JSON 数组，附件索引内联在记录里，回放 UI 未接。
 
 ## 9. 导入 / 导出
 

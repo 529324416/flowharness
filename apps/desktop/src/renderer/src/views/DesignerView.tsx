@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import type { RunSnapshot, WorkspaceSummary } from "@flowharness/contracts";
-import type { GraphDocument, NodeRequirement } from "wireclaw";
+import type {
+    GraphDocument,
+    NodeRequirement,
+    RequirementCatalog,
+} from "wireclaw";
 import {
     Alert,
     Button,
@@ -105,6 +109,34 @@ export function DesignerView({
         seq: number;
     } | null>(null);
     const { entries: recentNodes, record: recordRecentNode } = useRecentNodes();
+    const [requirementCatalog, setRequirementCatalog] = useState<
+        RequirementCatalog | undefined
+    >(undefined);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async (): Promise<void> => {
+            const result = await window.flowharness.listProviders();
+            if (!result.ok || cancelled) return;
+            setRequirementCatalog({
+                providers: result.data
+                    .filter((provider) => provider.available)
+                    .map((provider) => provider.id),
+                models: result.data.flatMap((provider) =>
+                    provider.models.map((modelId) => ({
+                        providerId: provider.id,
+                        modelId,
+                    })),
+                ),
+            });
+        };
+        void load();
+        window.addEventListener("focus", load);
+        return () => {
+            cancelled = true;
+            window.removeEventListener("focus", load);
+        };
+    }, [workspace?.id]);
 
     const {
         snapshot,
@@ -121,7 +153,7 @@ export function DesignerView({
         cancel,
         reset,
         clearMessages,
-    } = useDesignerRun();
+    } = useDesignerRun(requirementCatalog);
 
     useEffect(() => {
         setSelectedNodeIds([]);

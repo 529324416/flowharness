@@ -1,3 +1,4 @@
+import type { SessionSummary as StoredSessionSummary } from "@flowharness/contracts";
 import type { StatusTone } from "../ui";
 
 export type SessionStatus = "idle" | "running" | "completed" | "failed";
@@ -17,40 +18,32 @@ export const SESSION_TONE: Record<SessionStatus, StatusTone> = {
     failed: "failed",
 };
 
-/**
- * Shell v2 的占位会话数据。
- * 真实 Session 在 Phase 5 接入；这里只用于验证布局与状态表达。
- */
-export const INITIAL_SESSIONS: SessionSummary[] = [
-    {
-        id: "session-triage",
-        title: "客服工单分诊",
-        subtitle: "Model Call · 12 个节点",
-        status: "running",
-        updatedAt: "刚刚",
-    },
-    {
-        id: "session-research",
-        title: "研究资料摘要",
-        subtitle: "Branch · 8 个节点",
-        status: "completed",
-        updatedAt: "12 分钟前",
-    },
-    {
-        id: "session-review",
-        title: "代码审查流水线",
-        subtitle: "Log Sink · 6 个节点",
-        status: "failed",
-        updatedAt: "昨天",
-    },
-];
-
-export function createSession(index: number): SessionSummary {
+/** 把 main 的会话摘要映射为侧栏展示模型。 */
+export function fromStoredSession(
+    session: StoredSessionSummary,
+): SessionSummary {
     return {
-        id: `session-${Date.now().toString(36)}-${index}`,
-        title: `未命名会话 ${index}`,
-        subtitle: "空画布 · 0 个节点",
-        status: "idle",
-        updatedAt: "刚刚",
+        id: session.id,
+        title: session.title,
+        subtitle:
+            session.messageCount === 0
+                ? "空会话 · 0 条消息"
+                : `${session.messageCount} 条消息`,
+        status: session.status,
+        updatedAt: formatRelativeTime(session.updatedAt),
     };
+}
+
+function formatRelativeTime(iso: string): string {
+    const timestamp = Date.parse(iso);
+    if (Number.isNaN(timestamp)) return "";
+
+    const diffMs = Date.now() - timestamp;
+    const minutes = Math.floor(diffMs / 60_000);
+    if (minutes < 1) return "刚刚";
+    if (minutes < 60) return `${minutes} 分钟前`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} 小时前`;
+    const days = Math.floor(hours / 24);
+    return `${days} 天前`;
 }

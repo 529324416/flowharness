@@ -14,6 +14,15 @@ import type {
 import type { WorkbenchSummary } from "./workbench";
 import type { ProviderStatus, ProviderTestResult } from "./provider";
 import type {
+    SessionCloseRequest,
+    SessionCreateRequest,
+    SessionListRequest,
+    SessionReadRequest,
+    SessionRecord,
+    SessionSaveRequest,
+    SessionSummary,
+} from "./session";
+import type {
     ApprovalResponseRequest,
     RunCancelRequest,
     RunEventBatch,
@@ -72,6 +81,7 @@ export const IpcChannel = {
     SessionOpen: "session:open",
     SessionClose: "session:close",
     SessionList: "session:list",
+    SessionSave: "session:save",
 
     RunStart: "run:start",
     RunPause: "run:pause",
@@ -210,6 +220,27 @@ export type IpcInvokeContracts = {
 
     [IpcChannel.BlobStat]: { request: BlobStatRequest; response: BlobMeta | null };
     [IpcChannel.BlobDelete]: { request: BlobDeleteRequest; response: { deleted: boolean } };
+
+    [IpcChannel.SessionCreate]: {
+        request: SessionCreateRequest;
+        response: SessionRecord;
+    };
+    [IpcChannel.SessionList]: {
+        request: SessionListRequest;
+        response: SessionSummary[];
+    };
+    [IpcChannel.SessionOpen]: {
+        request: SessionReadRequest;
+        response: SessionRecord;
+    };
+    [IpcChannel.SessionClose]: {
+        request: SessionCloseRequest;
+        response: void;
+    };
+    [IpcChannel.SessionSave]: {
+        request: SessionSaveRequest;
+        response: SessionRecord;
+    };
 
     [IpcChannel.RunStart]: { request: RunStartRequest; response: RunSnapshot };
     [IpcChannel.RunPause]: { request: RunPauseRequest; response: RunSnapshot };

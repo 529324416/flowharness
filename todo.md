@@ -121,16 +121,18 @@
 - [x] 高频节点内联编辑：Constant / Model Call / Log / Value / Agent / Loop / ForEach
 - [x] 拖拽传入：输出端口可落在 Body 输入端口槽，或使用左侧 Handle
 
-### M6 — Session / Provider 闭环（M6.1 已完成）
+### M6 — Session / Provider 闭环（M6.2 已完成）
 
-> M6.1：Provider 工厂 + Secrets + 设置页；`resolveProvider` 接入 RuntimeHost；模型 / Agent 节点通过真实 Provider 解析（Agent 工具注册表仍为空）；审批 / 用户输入对话框；暂停 run 的 checkpoint 持久化与跨重启恢复（Diagnostics 提供恢复入口）。剩余：Session 生命周期 / 历史 / 附件回放；wireclaw checkpoint 的 graph hash / node type version。
+> M6.1：Provider 工厂 + Secrets + 设置页；`resolveProvider` 接入 RuntimeHost；审批 / 用户输入对话框；跨重启 checkpoint 恢复。
+> M6.2：wireclaw checkpoint 升级到 v2（graphHash + nodeVersions）；工作区 LocalToolProvider 注册真实文件工具；renderer 运行前 requirements catalog 接 ProviderRegistry；SessionStore 生命周期（默认会话 / 创建 / 列表 / 读取 / 保存）与侧栏真实会话。剩余：Session history 消息序列化与附件回放 UI。
 
 - [x] Provider 工厂 + Secrets（DeepSeek / Ollama / MiniMax / Qwen）
-- [x] 模型 / Agent 节点真正可运行（Provider 闭环；工具注册表仍为空）
-- [ ] Session 生命周期、历史、附件回放
+- [x] 模型 / Agent 节点真正可运行（Provider + workspace 文件工具 + 审批）
+- [x] Session 生命周期（创建 / 列表 / 读取 / 保存 / 默认会话）
+- [ ] Session 历史消息序列化、附件回放 UI
 - [x] 审批 / 用户输入 UI
 - [x] 跨重启 resume（checkpoint + graph 装载）
-- [ ] wireclaw：checkpoint 的 graph hash / node type version
+- [x] wireclaw：checkpoint 的 graph hash / node type version（v2）
 
 ### M7 — 模板、导入导出与多工作台（原 Phase 6）
 
@@ -273,6 +275,7 @@
 - [x] 28 个测试文件 / 138 个测试通过（M5.1 修复）
 - [x] 30 个测试文件 / 143 个测试通过（M5.2）
 - [x] 31 个测试文件 / 149 个测试通过（M6.1）
+- [x] 33 个测试文件 / 155 个测试通过（M6.2；wireclaw 66/66）
 - [x] wireclaw：66 项离线测试通过（新增 `harness-nested-validation`）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步

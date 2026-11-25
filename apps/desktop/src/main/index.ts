@@ -31,6 +31,10 @@ import {
     type RunResumeRequest,
     type RunStartRequest,
     type ProvidersTestRequest,
+    type SessionCreateRequest,
+    type SessionListRequest,
+    type SessionReadRequest,
+    type SessionSaveRequest,
     type SecretsDeleteRequest,
     type SecretsHasRequest,
     type SecretsSetRequest,
@@ -51,7 +55,12 @@ import {
     type WorkspaceSaveDocumentRequest,
 } from "@flowharness/contracts";
 // Wireclaw 以普通包依赖方式引入；这里做启动自检并复用其类型。
-import { Graph, type ToolApprovalDecision, type UserInputResult } from "wireclaw";
+import {
+    Graph,
+    type ToolApprovalDecision,
+    type ToolRegistry,
+    type UserInputResult,
+} from "wireclaw";
 import { registerAssetProtocol, registerAssetScheme } from "./platform/asset-protocol";
 import { registerHandler } from "./platform/ipc";
 import { RequestBroker } from "./platform/request-broker";
@@ -62,6 +71,7 @@ import { RuntimeHost } from "./services/runtime-host";
 import { SecretsStore, type SecretCipher } from "./services/secrets";
 import { SessionService } from "./services/session-service";
 import { WindowStateStore, type SavedWindowState } from "./services/window-state";
+import { createWorkspaceToolRegistry } from "./services/workspace-tools";
 import { WorkspaceStore } from "./services/workspace-store";
 
 // 必须在 app ready 之前注册。
@@ -131,6 +141,7 @@ let workspaces: WorkspaceStore;
 let sessionService: SessionService;
 let runtime: RuntimeHost;
 const runStores = new Map<string, RunStore>();
+const toolRegistries = new Map<string, ToolRegistry>();
 
 const approvalBroker = new RequestBroker<ToolApprovalDecision>(
     APPROVAL_TIMEOUT_MS,
@@ -327,6 +338,26 @@ function runStoreFor(workspaceId: string): RunStore {
     return store;
 }
 
+function requireSessionStore(workspaceId: string) {
+    const store = sessionService.sessionsFor(workspaceId);
+    if (store === undefined) {
+        throw new FhError("E_NOT_FOUND", `workspace is not open: ${workspaceId}`);
+    }
+    return store;
+}
+
+function toolsFor(workspaceId: string): ToolRegistry | undefined {
+    const existing = toolRegistries.get(workspaceId);
+    if (existing !== undefined) return existing;
+
+    const dir = workspaces.getWorkspaceDir(workspaceId);
+    if (dir === undefined) return undefined;
+
+    const registry = createWorkspaceToolRegistry(dir);
+    toolRegistries.set(workspaceId, registry);
+    return registry;
+}
+
 async function initialize(): Promise<void> {
     const userData = app.getPath("userData");
     const documents = app.getPath("documents");
@@ -352,8 +383,9 @@ async function initialize(): Promise<void> {
     providers = new ProviderRegistry(secrets);
     await providers.reload(config.providers);
 
-    sessionService = new SessionService((workspaceId) =>
-        workspaces.getBlobStore(workspaceId),
+    sessionService = new SessionService(
+        (workspaceId) => workspaces.getBlobStore(workspaceId),
+        (workspaceId) => workspaces.getWorkspaceDir(workspaceId),
     );
 
     runtime = new RuntimeHost({
@@ -409,6 +441,7 @@ async function initialize(): Promise<void> {
         },
         resolveProvider: (providerId) => providers.get(providerId),
         attachmentsFor: (workspaceId) => sessionService.attachmentsFor(workspaceId),
+        toolsFor,
         storeFor: (workspaceId) => runStoreFor(workspaceId),
     });
 
@@ -549,10 +582,45 @@ function registerIpcHandlers(): void {
     );
 
     registerHandler(
+        IpcChannel.SessionCreate,
+        async ({ workspaceId, title }: SessionCreateRequest) => {
+            const store = requireSessionStore(workspaceId);
+            return store.create(title === undefined ? {} : { title });
+        },
+    );
+
+    registerHandler(
+        IpcChannel.SessionList,
+        async ({ workspaceId }: SessionListRequest) => {
+            const store = requireSessionStore(workspaceId);
+            await store.ensureDefault();
+            return store.list();
+        },
+    );
+
+    registerHandler(
+        IpcChannel.SessionOpen,
+        ({ workspaceId, sessionId }: SessionReadRequest) =>
+            requireSessionStore(workspaceId).read(sessionId),
+    );
+
+    registerHandler(
+        IpcChannel.SessionSave,
+        ({ workspaceId, session }: SessionSaveRequest) =>
+            requireSessionStore(workspaceId).save(session),
+    );
+
+    registerHandler(
+        IpcChannel.SessionClose,
+        async () => undefined,
+    );
+
+    registerHandler(
         IpcChannel.WorkspaceClose,
         async ({ id }: WorkspaceCloseRequest) => {
             sessionService.close(id);
             runStores.delete(id);
+            toolRegistries.delete(id);
             await workspaces.close(id);
         },
     );

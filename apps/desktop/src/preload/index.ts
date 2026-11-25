@@ -17,6 +17,12 @@ import {
     type RunSnapshot,
     type RunStartRequest,
     type RunResumeInterruptedRequest,
+    type SessionCreateRequest,
+    type SessionListRequest,
+    type SessionReadRequest,
+    type SessionRecord,
+    type SessionSaveRequest,
+    type SessionSummary,
     type UserInputResponseRequest,
     type WindowStatePayload,
     type WorkspaceCreateInput,
@@ -113,6 +119,27 @@ const bridge = {
         request: WorkspaceExportHarnessRequest,
     ): Promise<IpcResult<{ path: string | null }>> =>
         invoke(IpcChannel.WorkspaceExportHarness, request),
+    listSessions: (
+        request: SessionListRequest,
+    ): Promise<IpcResult<SessionSummary[]>> =>
+        invoke(IpcChannel.SessionList, request),
+    createSession: (
+        request: SessionCreateRequest,
+    ): Promise<IpcResult<SessionRecord>> =>
+        invoke(IpcChannel.SessionCreate, request),
+    openSession: (
+        request: SessionReadRequest,
+    ): Promise<IpcResult<SessionRecord>> =>
+        invoke(IpcChannel.SessionOpen, request),
+    saveSession: (
+        request: SessionSaveRequest,
+    ): Promise<IpcResult<SessionRecord>> =>
+        invoke(IpcChannel.SessionSave, request),
+    closeSession: (
+        workspaceId: string,
+        sessionId: string,
+    ): Promise<IpcResult<void>> =>
+        invoke(IpcChannel.SessionClose, { workspaceId, sessionId }),
     startRun: (request: RunStartRequest): Promise<IpcResult<RunSnapshot>> =>
         invoke(IpcChannel.RunStart, request),
     pauseRun: (runId: string): Promise<IpcResult<RunSnapshot>> =>

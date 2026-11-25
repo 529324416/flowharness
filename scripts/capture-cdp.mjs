@@ -139,6 +139,7 @@ try {
         scenario === "designer-plan-runner" ||
         scenario === "designer-workbench-manage" ||
         scenario === "provider-settings" ||
+        scenario === "session-new" ||
         scenario === "designer-inline" ||
         scenario === "designer-inline-type" ||
         scenario === "designer-slot-connect" ||
@@ -403,6 +404,17 @@ try {
         if (scenario === "designer-documents") {
             await clickElement(`document.querySelector('button[aria-label="切换或管理文档"]')`);
             await settle(500);
+        }
+
+        if (scenario === "session-new") {
+            await clickElement(`document.querySelector('button[aria-label="新建会话"]')`);
+            await settle(900);
+            const sessions = await send("Runtime.evaluate", {
+                expression:
+                    "[...document.querySelectorAll('[data-session-id]')].map((item) => ({ id: item.getAttribute('data-session-id'), text: item.textContent?.trim() }))",
+                returnByValue: true,
+            });
+            console.log(`sessions: ${JSON.stringify(sessions.result?.value)}`);
         }
 
         if (scenario === "provider-settings") {

@@ -1,6 +1,5 @@
 import { randomBytes } from "node:crypto";
 import {
-    ToolRegistry,
     createBuiltinNodeRegistry,
     deserializeGraph,
     type AttachmentFileManager,
@@ -13,6 +12,7 @@ import {
     type GraphRunOptions,
     type GraphRunResult,
     type NodeTypeRegistry,
+    type ToolRegistry,
     type ToolApprovalDecision,
     type ToolApprovalRequest,
     type UserInputRequest,
@@ -49,6 +49,7 @@ export type RuntimeHostOptions = {
     userInput: { ask: (request: UserInputAsk) => Promise<UserInputResult> };
     registry?: NodeTypeRegistry;
     attachmentsFor?: (workspaceId: string) => AttachmentFileManager | undefined;
+    toolsFor?: (workspaceId: string) => ToolRegistry | undefined;
     resolveProvider?: GraphProviderResolver;
     storeFor?: (workspaceId: string) => RunStorePort | undefined;
     now?: () => number;
@@ -280,9 +281,14 @@ export class RuntimeHost {
                 ? undefined
                 : this.options.attachmentsFor?.(request.workspaceId);
 
+        const tools =
+            request.workspaceId === undefined
+                ? undefined
+                : this.options.toolsFor?.(request.workspaceId);
+
         return {
             resolveProvider: this.options.resolveProvider ?? (() => undefined),
-            tools: new ToolRegistry(),
+            ...(tools === undefined ? {} : { tools }),
             attachments,
             onToolApproval: (toolRequest, nodeId) =>
                 this.options.approval.ask({

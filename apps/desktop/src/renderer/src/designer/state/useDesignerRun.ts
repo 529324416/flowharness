@@ -11,6 +11,7 @@ import {
     createRunView,
     type RunViewState,
 } from "../core/run-events";
+import type { RequirementCatalog } from "wireclaw";
 import { validateGraphDocument } from "../core/validate";
 
 export type UseDesignerRunResult = {
@@ -44,7 +45,9 @@ const EMPTY_VIEW: RunViewState = { nodeStatuses: {}, edgeStatuses: {} };
  * - 启动响应前到达的事件先缓冲，拿到 runId 后再回放；
  * - 节点与边状态由同一批事件投影，取消/结束后不残留 running/active。
  */
-export function useDesignerRun(): UseDesignerRunResult {
+export function useDesignerRun(
+    requirements?: RequirementCatalog,
+): UseDesignerRunResult {
     const [snapshot, setSnapshot] = useState<RunSnapshot | null>(null);
     const [starting, setStarting] = useState(false);
     const [controlling, setControlling] = useState(false);
@@ -87,7 +90,10 @@ export function useDesignerRun(): UseDesignerRunResult {
             workspaceId: string,
             onWillStart?: () => void,
         ): Promise<RunSnapshot | null> => {
-            const validationIssues = validateGraphDocument(graph);
+            const validationIssues = validateGraphDocument(
+                graph,
+                requirements === undefined ? {} : { requirements },
+            );
             setIssues(validationIssues);
             setError(null);
 
@@ -135,7 +141,7 @@ export function useDesignerRun(): UseDesignerRunResult {
                 setStarting(false);
             }
         },
-        [applyBatch],
+        [applyBatch, requirements],
     );
 
     const runControl = useCallback(

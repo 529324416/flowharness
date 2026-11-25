@@ -1,5 +1,7 @@
+import { join } from "node:path";
 import { AttachmentFileManager } from "wireclaw";
 import type { BlobStore } from "./blob-store";
+import { SessionStore } from "./session-store";
 import { WorkspaceFileHost } from "./workspace-file-host";
 
 /**
@@ -12,8 +14,12 @@ import { WorkspaceFileHost } from "./workspace-file-host";
  */
 export class SessionService {
     private readonly managers = new Map<string, AttachmentFileManager>();
+    private readonly stores = new Map<string, SessionStore>();
 
-    constructor(private readonly blobsFor: (workspaceId: string) => BlobStore | undefined) {}
+    constructor(
+        private readonly blobsFor: (workspaceId: string) => BlobStore | undefined,
+        private readonly dirFor: (workspaceId: string) => string | undefined,
+    ) {}
 
     attachmentsFor(workspaceId: string): AttachmentFileManager | undefined {
         const existing = this.managers.get(workspaceId);
@@ -27,7 +33,18 @@ export class SessionService {
         return manager;
     }
 
+    sessionsFor(workspaceId: string): SessionStore | undefined {
+        const existing = this.stores.get(workspaceId);
+        if (existing) return existing;
+        const dir = this.dirFor(workspaceId);
+        if (dir === undefined) return undefined;
+        const store = new SessionStore(join(dir, "sessions"));
+        this.stores.set(workspaceId, store);
+        return store;
+    }
+
     close(workspaceId: string): void {
         this.managers.delete(workspaceId);
+        this.stores.delete(workspaceId);
     }
 }

@@ -43,7 +43,7 @@ import {
     SIDEBAR_MIN_WIDTH,
 } from "./layout-metrics";
 import { StatusBar } from "./shell/StatusBar";
-import { createSession, INITIAL_SESSIONS, type SessionSummary } from "./shell/sessions";
+import { fromStoredSession, type SessionSummary } from "./shell/sessions";
 import { PanelLayer } from "./shell/panels/PanelLayer";
 import { useFloatingPanels } from "./shell/panels/useFloatingPanels";
 import { VIEW_LABEL, type ViewId } from "./shell/views";
@@ -137,7 +137,7 @@ export function App(): ReactElement {
     const [sidebarOpen, setSidebarOpen] = useState(readSidebarOpen);
     const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth);
 
-    const [sessions, setSessions] = useState<SessionSummary[]>(INITIAL_SESSIONS);
+    const [sessions, setSessions] = useState<SessionSummary[]>([]);
     const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
     const [config, setConfig] = useState<AppConfig | null>(null);
@@ -1253,13 +1253,42 @@ export function App(): ReactElement {
         setSidebarOpen((value) => !value);
     }, []);
 
-    const handleNewSession = useCallback(() => {
-        const next = createSession(sessions.length + 1);
-        setSessions((current) => [next, ...current]);
-        setActiveSessionId(next.id);
+    const refreshSessions = useCallback(
+        async (workspaceId: string): Promise<void> => {
+            const result = await bridge.listSessions({ workspaceId });
+            if (!result.ok) return;
+            const next = result.data.map(fromStoredSession);
+            setSessions(next);
+            setActiveSessionId((current) =>
+                current !== null && next.some((session) => session.id === current)
+                    ? current
+                    : (next[0]?.id ?? null),
+            );
+        },
+        [bridge],
+    );
+
+    useEffect(() => {
+        if (activeWorkspace === null) {
+            setSessions([]);
+            setActiveSessionId(null);
+            return;
+        }
+
+        void refreshSessions(activeWorkspace.id);
+    }, [activeWorkspace, refreshSessions]);
+
+    const handleNewSession = useCallback(async (): Promise<void> => {
+        if (activeWorkspace === null) return;
+        const result = await bridge.createSession({
+            workspaceId: activeWorkspace.id,
+        });
+        if (!result.ok) return;
+        setActiveSessionId(result.data.id);
+        await refreshSessions(activeWorkspace.id);
         setView("designer");
         setSidebarOpen(true);
-    }, [sessions.length]);
+    }, [activeWorkspace, bridge, refreshSessions]);
 
     const handleSelectSession = useCallback((id: string) => {
         setActiveSessionId(id);

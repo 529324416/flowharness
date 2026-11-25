@@ -13,6 +13,12 @@ import type {
     RunSnapshot,
     RunStartRequest,
     RunResumeInterruptedRequest,
+    SessionCreateRequest,
+    SessionListRequest,
+    SessionReadRequest,
+    SessionRecord,
+    SessionSaveRequest,
+    SessionSummary,
     UserInputResponseRequest,
     WindowStatePayload,
     WorkspaceCreateInput,
@@ -83,6 +89,22 @@ interface FlowHarnessBridge {
         request: WorkspaceExportHarnessRequest,
     ) => Promise<IpcResult<{ path: string | null }>>;
 
+    readonly listSessions: (
+        request: SessionListRequest,
+    ) => Promise<IpcResult<SessionSummary[]>>;
+    readonly createSession: (
+        request: SessionCreateRequest,
+    ) => Promise<IpcResult<SessionRecord>>;
+    readonly openSession: (
+        request: SessionReadRequest,
+    ) => Promise<IpcResult<SessionRecord>>;
+    readonly saveSession: (
+        request: SessionSaveRequest,
+    ) => Promise<IpcResult<SessionRecord>>;
+    readonly closeSession: (
+        workspaceId: string,
+        sessionId: string,
+    ) => Promise<IpcResult<void>>;
     readonly startRun: (request: RunStartRequest) => Promise<IpcResult<RunSnapshot>>;
     readonly pauseRun: (runId: string) => Promise<IpcResult<RunSnapshot>>;
     readonly resumeRun: (runId: string) => Promise<IpcResult<RunSnapshot>>;

@@ -58,7 +58,7 @@ export function SessionSidebar({
         <aside className={styles.sidebar} aria-label="会话列表">
             <header className={styles.header}>
                 <span className={styles.title}>会话</span>
-                <Badge variant="neutral">示例</Badge>
+                <Badge variant="neutral">本地</Badge>
                 <div className={styles.spacer} />
                 <Tooltip label="新建会话">
                     <IconButton label="新建会话" size="sm" onClick={onNew}>
@@ -117,7 +117,7 @@ export function SessionSidebar({
                 )}
             </div>
 
-            <footer className={styles.footer}>会话数据将在 Phase 5 接入</footer>
+            <footer className={styles.footer}>会话已持久化到工作区</footer>
 
             <div
                 className={styles.resize}

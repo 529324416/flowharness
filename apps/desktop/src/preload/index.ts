@@ -43,6 +43,7 @@ import {
     type WorkspaceCreateInput,
     type WorkbenchSummary,
     type WorkspaceExportHarnessRequest,
+    type WorkspaceExportArchiveRequest,
     type WorkspaceSaveDocumentRequest,
     type WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -134,6 +135,13 @@ const bridge = {
         request: WorkspaceExportHarnessRequest,
     ): Promise<IpcResult<{ path: string | null }>> =>
         invoke(IpcChannel.WorkspaceExportHarness, request),
+    exportWorkspaceArchive: (
+        request: WorkspaceExportArchiveRequest,
+    ): Promise<IpcResult<{ path: string } | null>> =>
+        invoke(IpcChannel.WorkspaceExportArchive, request),
+    importWorkspaceArchive: (): Promise<
+        IpcResult<WorkspaceSummary | null>
+    > => invoke(IpcChannel.WorkspaceImportArchive),
     statBlob: (
         workspaceId: string,
         hash: string,

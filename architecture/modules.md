@@ -238,7 +238,7 @@ type CanvasDocument = { nodes: CanvasNode[]; edges: CanvasEdge[]; viewport: View
 
 **职责**：把「一个工作台」抽象为「实例文档 + 导航 + 视图 + 运行控制」。
 
-> 现状：`renderer/src/workbench/` 提供 `WorkbenchDefinition`、`WorkbenchController`、`WorkbenchPlan`、registry 与 `WorkbenchHost`；实例文档持久化到 `documents/workbenches/<id>.json`，通过 `workspace:listWorkbenches` 列出。M7.1 起 `WorkbenchDefinition.navigation` 提供左栏 PanelContent（design / run 槽位），Shell 不再硬编码 SessionSidebar；当前设计器 design 使用 `DocumentNavigation`，plan-runner 使用 `PlanNavigation`。View 自持 hooks（设计器复用现有 document/run/undo），`WorkbenchController` 由设计器上报给 Shell。工作台类型：`harness-designer` / `graph-table` / `plan-runner` / `flow-runner`；`plan-runner` 在 renderer 侧按顺序调用 `run:start`，尚未下沉 RuntimeHost。
+> 现状：`renderer/src/workbench/` 提供 `WorkbenchDefinition`、`WorkbenchController`、`WorkbenchPlan`、registry 与 `WorkbenchHost`；实例文档持久化到 `documents/workbenches/<id>.json`，通过 `workspace:listWorkbenches` 列出。M7.1 起 `WorkbenchDefinition.navigation` 提供左栏 PanelContent（design / run 槽位），Shell 不再硬编码 SessionSidebar；当前设计器 design 使用 `DocumentNavigation`，plan-runner 使用 `PlanNavigation`。View 自持 hooks（设计器复用现有 document/run/undo），`WorkbenchController` 由设计器上报给 Shell。工作台类型：`harness-designer` / `graph-table` / `plan-runner` / `flow-runner`；新建入口由 `workbench/templates.ts` 提供 6 条模板（可创建起始工作流），`plan-runner` 在 renderer 侧按顺序调用 `run:start`，尚未下沉 RuntimeHost。
 
 ```ts
 interface WorkbenchDefinition {
@@ -301,7 +301,7 @@ interface WorkbenchController {
 | 格式 | 内容 | 用途 | 状态 |
 | --- | --- | --- | --- |
 | Harness JSON | 单个 `GraphDocument` | 工作流互通、版本管理 | ✅ M4（文档菜单导入/导出） |
-| `.fhws` | zip：`export.json` + `manifest.json` + `documents/**` + `objects/**` | 整工作区迁移 | ✅ 已实现（不含 runs/sessions） |
+| `.fhws` | zip：`export.json` + `manifest.json` + `documents/**` + `objects/**` | 整工作区迁移 | ✅ M8.2（文件菜单 + 系统对话框；导入总是新副本，不含 runs/sessions） |
 | 备份 | 迁移前的自动副本 | 恢复 | ⬜ 未实现（无迁移表） |
 
 两者不混用：Harness JSON 不包含工作台实例信息，`.fhws` 才包含。

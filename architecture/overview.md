@@ -153,6 +153,8 @@ vendor/wireclaw/               # 引擎（submodule）
 
 本文件描述**目标架构**。当前已实现：pnpm workspace + wireclaw submodule、Electron main/preload/renderer 三端、contracts、main 服务层（配置 / 密钥 / Blob / 工作区 / 运行记录 / RuntimeHost）、Shell v2、浮动 Panel、Canvas core + view、UI 打磨，以及 M1 ~ M4 Designer（GraphDocument adapter、编辑命令、运行、自动保存、检查器、问题面板、递归校验、暂停/继续、多图文档、撤销复制、框选平移、JSON 导入导出）与 M5 Workbench Framework（定义 / 实例 / registry / host / 三个工作台 / WorkbenchPlan / 节点内联与端口槽），以及 M6（Provider 工厂 / Secrets / 审批输入 / checkpoint v2 / 工作区工具 / SessionStore / Session 历史序列化与回放视图）。
 
-**尚未实现**：Plan 编排下沉 RuntimeHost、`plan.bindings` 与 `layout.overrides`；手动聊天输入（运行消息写入已接入，但还没有持续对话入口）；MCP 等更多工具 Provider；`applyCommands` 与 `workspace:changed` 事件；`.fhws` UI；`CanvasAnimationApi`（当前动画由状态 + CSS + focusNode 承担）。迁移顺序见 [../todo.md](../todo.md)。
+**尚未实现**：Plan 编排下沉 RuntimeHost、`plan.bindings` 与 `layout.overrides`；手动聊天输入（运行消息写入已接入，但还没有持续对话入口）；MCP 等更多工具 Provider；`applyCommands` 与 `workspace:changed` 事件；用户节点预设库导入导出；`CanvasAnimationApi`（当前动画由状态 + CSS + focusNode 承担）。迁移顺序见 [../todo.md](../todo.md)。
 
-**M7 已完成（2026-11-26）**：M7.1 左栏 Panel 宿主 / GraphDocument 导航 / 文档绑定；M7.2 Session 递归文件夹、`SessionRecord` v2、草稿目录与 IPC；M7.3 设计/运行模式切换、工作流右键菜单、Session 树导航与会话历史浮动面板；M7.4 wireclaw `RunResult` 聚合、`runs/<runId>/result.json`、运行结果面板、run 会话保存与回放、草稿目录配置；M7.4.1 设计器双区导航；M7.4.2 运行消息写入 conversation 会话；M7.5 RunView / mode·runId·sessionId 持久化 / `flow-runner` 参考运行页与动画原语；M7.6 全量验证与文档收口。下一阶段 M8。
+**M7 已完成（2026-11-26）**：M7.1 左栏 Panel 宿主 / GraphDocument 导航 / 文档绑定；M7.2 Session 递归文件夹、`SessionRecord` v2、草稿目录与 IPC；M7.3 设计/运行模式切换、工作流右键菜单、Session 树导航与会话历史浮动面板；M7.4 wireclaw `RunResult` 聚合、`runs/<runId>/result.json`、运行结果面板、run 会话保存与回放、草稿目录配置；M7.4.1 设计器双区导航；M7.4.2 运行消息写入 conversation 会话；M7.5 RunView / mode·runId·sessionId 持久化 / `flow-runner` 参考运行页与动画原语；M7.6 全量验证与文档收口。
+
+**M8 进行中（2026-11-26）**：M8.1 工作台模板（6 条）与内置节点预设第 4 条；M8.2 `.fhws` 导入导出 UI 与副本冲突策略；用户节点预设库导入导出待做。

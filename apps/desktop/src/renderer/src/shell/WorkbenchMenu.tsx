@@ -13,7 +13,7 @@ import {
     MenuSeparator,
     MenuTrigger,
 } from "../ui";
-import { listWorkbenchDefinitions } from "../workbench/registry";
+import { WORKBENCH_TEMPLATES } from "../workbench/templates";
 import styles from "./WorkbenchMenu.module.css";
 
 export type WorkbenchMenuProps = {
@@ -110,14 +110,14 @@ export function WorkbenchMenu({
                 </MenuItem>
 
                 <MenuSeparator />
-                <MenuLabel>新建工作台</MenuLabel>
-                {listWorkbenchDefinitions().map((definition) => (
+                <MenuLabel>从模板新建</MenuLabel>
+                {WORKBENCH_TEMPLATES.map((template) => (
                     <MenuItem
-                        key={definition.type}
-                        onSelect={() => onCreateWorkbench(definition.type)}
+                        key={template.id}
+                        onSelect={() => onCreateWorkbench(template.id)}
                     >
                         <Plus size={15} aria-hidden="true" />
-                        {definition.title}
+                        {template.title}
                     </MenuItem>
                 ))}
             </MenuContent>

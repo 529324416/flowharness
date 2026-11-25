@@ -136,6 +136,7 @@ try {
         scenario === "designer-split-nav" ||
         scenario === "designer-run-mode" ||
         scenario === "designer-flow-runner" ||
+        scenario === "file-menu" ||
         scenario === "canvas" ||
         scenario === "canvas-zoom" ||
         scenario === "designer-run" ||
@@ -1459,6 +1460,13 @@ try {
                 `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '运行')?.click()`,
             );
             await settle(900);
+        }
+
+        if (scenario === "file-menu") {
+            await clickElement(
+                `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '文件')`,
+            );
+            await settle(300);
         }
 
         if (scenario === "designer-run") {

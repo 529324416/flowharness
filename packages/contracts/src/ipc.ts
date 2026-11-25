@@ -87,6 +87,8 @@ export const IpcChannel = {
     WorkspaceApplyCommands: "workspace:applyCommands",
     WorkspaceExport: "workspace:export",
     WorkspaceImport: "workspace:import",
+    WorkspaceExportArchive: "workspace:exportArchive",
+    WorkspaceImportArchive: "workspace:importArchive",
 
     BlobStat: "blob:stat",
     BlobDelete: "blob:delete",
@@ -157,6 +159,14 @@ export type WorkspaceOpenRequest = { id: string };
 export type WorkspaceCloseRequest = { id: string };
 export type WorkspaceExportRequest = { id: string; targetPath: string };
 export type WorkspaceImportRequest = { sourcePath: string };
+/** 通过系统保存对话框导出整工作区（.fhws）。 */
+export type WorkspaceExportArchiveRequest = {
+    workspaceId: string;
+    /** 默认文件名（不含路径），通常为工作区名称。 */
+    defaultName: string;
+};
+/** 通过系统打开对话框导入 .fhws；总是创建新工作区副本。 */
+export type WorkspaceImportArchiveResponse = WorkspaceSummary | null;
 
 export type WorkspaceReadDocumentRequest = {
     workspaceId: string;
@@ -218,6 +228,14 @@ export type IpcInvokeContracts = {
     [IpcChannel.WorkspaceClose]: { request: WorkspaceCloseRequest; response: void };
     [IpcChannel.WorkspaceExport]: { request: WorkspaceExportRequest; response: { path: string } };
     [IpcChannel.WorkspaceImport]: { request: WorkspaceImportRequest; response: WorkspaceSummary };
+    [IpcChannel.WorkspaceExportArchive]: {
+        request: WorkspaceExportArchiveRequest;
+        response: { path: string } | null;
+    };
+    [IpcChannel.WorkspaceImportArchive]: {
+        request: void;
+        response: WorkspaceImportArchiveResponse;
+    };
 
     [IpcChannel.WorkspaceReadDocument]: {
         request: WorkspaceReadDocumentRequest;

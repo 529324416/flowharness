@@ -39,6 +39,7 @@ import type {
     WorkspaceCreateInput,
     WorkbenchSummary,
     WorkspaceExportHarnessRequest,
+    WorkspaceExportArchiveRequest,
     WorkspaceSaveDocumentRequest,
     WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -103,6 +104,12 @@ interface FlowHarnessBridge {
     readonly exportHarness: (
         request: WorkspaceExportHarnessRequest,
     ) => Promise<IpcResult<{ path: string | null }>>;
+    readonly exportWorkspaceArchive: (
+        request: WorkspaceExportArchiveRequest,
+    ) => Promise<IpcResult<{ path: string } | null>>;
+    readonly importWorkspaceArchive: () => Promise<
+        IpcResult<WorkspaceSummary | null>
+    >;
     readonly statBlob: (
         workspaceId: string,
         hash: string,

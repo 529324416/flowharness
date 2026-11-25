@@ -214,7 +214,8 @@ objects/**             # 默认包含；ExportOptions.includeObjects=false 可�
 
 - 导出**不包含** `runs/` 与 `sessions/`；
 - 导入时校验 `formatVersion`（更高版本报 `E_MIGRATION`）后**直接写入最终目录**，没有临时目录、也没有迁移；
-- id 冲突策略：导入一律新建 workspace id（导入为副本），没有「合并/覆盖」选项。
+- id 冲突策略：导入一律新建 workspace id（导入为副本），没有「合并/覆盖」选项；
+- M8.2：文件菜单提供 `.fhws` 导入 / 导出，main 使用系统保存 / 打开对话框；导入总是创建新副本，可重复导入同一档案。
 
 ## 10. 版本与迁移（迁移未实现）
 

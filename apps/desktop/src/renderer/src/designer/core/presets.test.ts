@@ -13,13 +13,14 @@ describe("designer presets", () => {
             "preset.text-constant",
             "preset.model-chat",
             "preset.agent-readonly",
+            "preset.model-image",
         ]);
 
         const catalog = createEditorCatalog(designerRegistry, {
             presets: designerPresetLibrary,
         });
-        expect(catalog.presets).toHaveLength(3);
-        expect(BUILTIN_PRESETS).toHaveLength(3);
+        expect(catalog.presets).toHaveLength(4);
+        expect(BUILTIN_PRESETS).toHaveLength(4);
     });
 
     it("applies parameter defaults when instantiating a preset config", () => {

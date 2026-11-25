@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import {
+    Download,
     FolderOpen,
     Moon,
     PanelBottom,
@@ -12,6 +13,7 @@ import {
     Search,
     Square,
     Sun,
+    Upload,
 } from "lucide-react";
 import type { ResolvedTheme } from "@flowharness/contracts";
 import {
@@ -40,6 +42,9 @@ export type TitleBarProps = {
     busy: boolean;
     onCreateDocument: () => void;
     onCreateWorkspace: () => void;
+    onImportWorkspace: () => void;
+    onExportWorkspace: () => void;
+    canExportWorkspace: boolean;
     onSelectView: (view: ViewId) => void;
     onToggleSidebar: () => void;
     onToggleTheme: () => void;
@@ -61,6 +66,9 @@ export function TitleBar({
     busy,
     onCreateDocument,
     onCreateWorkspace,
+    onImportWorkspace,
+    onExportWorkspace,
+    canExportWorkspace,
     onSelectView,
     onToggleSidebar,
     onToggleTheme,
@@ -119,6 +127,17 @@ export function TitleBar({
                             <MenuItem onSelect={onCreateWorkspace} disabled={busy}>
                                 <FolderOpen size={16} aria-hidden="true" />
                                 新建示例工作区
+                            </MenuItem>
+                            <MenuItem onSelect={onImportWorkspace} disabled={busy}>
+                                <Upload size={16} aria-hidden="true" />
+                                导入工作区 (.fhws)
+                            </MenuItem>
+                            <MenuItem
+                                onSelect={onExportWorkspace}
+                                disabled={busy || !canExportWorkspace}
+                            >
+                                <Download size={16} aria-hidden="true" />
+                                导出当前工作区 (.fhws)
                             </MenuItem>
                             <MenuSeparator />
                             <MenuItem onSelect={onCloseWindow}>关闭窗口</MenuItem>

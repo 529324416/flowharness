@@ -33,6 +33,9 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M7.4.1 双区导航（工作流 + 会话上下分区） | ✅ |
 | M7.5 工作台运行模式 / RunView / 动画运行页 | ✅ |
 | M7.6 M7 收口（验证 / 文档 / 里程碑顺延） | ✅ |
+| M8.1 工作台模板 / 内置节点预设（4 条） | ✅ |
+| M8.2 `.fhws` 导入导出 UI / 副本冲突策略 | ✅ |
+| 用户节点预设库导入导出 | ⬜ |
 | 打包分发 | ⬜ |
 
 **已知限制**
@@ -45,6 +48,7 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 - 暂停 run 的 checkpoint 已可跨重启恢复；wireclaw checkpoint v2 校验 graphHash 与 nodeVersions，恢复入口只在 Diagnostics；
 - 运行前 requirements 目录已从 ProviderRegistry 注入；模型目录需先「测试连接」才会进入 catalog；
 - 草稿目录通过 Session 树文件夹右键「设为草稿目录」配置，暂无独立工作区设置页；
+- `.fhws` 导入总是创建新工作区副本（不合并 / 不覆盖），档案不含 `runs/` 与 `sessions/`；工作台模板为内置静态列表，用户节点预设库导入导出尚未接入；
 - 标题栏关闭与 Ctrl+W 会先 flush 当前文档；系统级关闭（Alt+F4）仍无退出握手；
 - 撤销栈只覆盖画布结构编辑与 config，重启后不保留；
 - Agent 节点已接 Provider / 审批 / 用户输入，并注册工作区 LocalToolProvider（readFile / writeFile）；MCP 等更多工具待后续；
@@ -130,7 +134,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（35 files / 177 tests） |
+| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（36 files / 180 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

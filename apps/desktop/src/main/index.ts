@@ -59,6 +59,7 @@ import {
     type WorkspaceDeleteDocumentRequest,
     type WorkspaceExportHarnessRequest,
     type WorkspaceExportRequest,
+    type WorkspaceExportArchiveRequest,
     type WorkspaceImportRequest,
     type WorkspaceListDocumentsRequest,
     type WorkspaceListWorkbenchesRequest,
@@ -772,6 +773,66 @@ function registerIpcHandlers(): void {
         IpcChannel.WorkspaceImport,
         ({ sourcePath }: WorkspaceImportRequest) =>
             workspaces.importWorkspace(sourcePath),
+    );
+
+    registerHandler(
+        IpcChannel.WorkspaceExportArchive,
+        async ({ workspaceId, defaultName }: WorkspaceExportArchiveRequest) => {
+            const owner = BrowserWindow.getFocusedWindow();
+            const safeName =
+                typeof defaultName === "string" && defaultName.trim().length > 0
+                    ? defaultName.trim()
+                    : workspaceId;
+            const options = {
+                title: "导出工作区 (.fhws)",
+                defaultPath: `${safeName}.fhws`,
+                filters: [
+                    {
+                        name: "FlowHarness Workspace",
+                        extensions: ["fhws"],
+                    },
+                ],
+            };
+            const result =
+                owner === null
+                    ? await dialog.showSaveDialog(options)
+                    : await dialog.showSaveDialog(owner, options);
+            if (result.canceled || result.filePath === undefined) {
+                return null;
+            }
+
+            const path = await workspaces.exportWorkspace(
+                workspaceId,
+                result.filePath,
+            );
+            return { path };
+        },
+    );
+
+    registerHandler(
+        IpcChannel.WorkspaceImportArchive,
+        async () => {
+            const owner = BrowserWindow.getFocusedWindow();
+            const options = {
+                title: "导入 .fhws（作为新工作区副本）",
+                properties: ["openFile" as const],
+                filters: [
+                    {
+                        name: "FlowHarness Workspace",
+                        extensions: ["fhws"],
+                    },
+                ],
+            };
+            const result =
+                owner === null
+                    ? await dialog.showOpenDialog(options)
+                    : await dialog.showOpenDialog(owner, options);
+            if (result.canceled || result.filePaths.length === 0) {
+                return null;
+            }
+
+            return workspaces.importWorkspace(result.filePaths[0]!);
+        },
     );
 
     registerHandler(

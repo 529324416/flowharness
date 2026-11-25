@@ -68,6 +68,24 @@ const PRESETS: readonly NodePresetDocument[] = [
             },
         ],
     },
+    {
+        version: 1,
+        presetId: "preset.model-image",
+        name: "图片生成",
+        description: "A 类 generate 模式，默认 image 模态",
+        type: "core.model.call",
+        typeVersion: 1,
+        tags: ["model", "image", "生成", "图片"],
+        config: { mode: "generate", modality: "image" },
+        parameters: [
+            {
+                name: "modality",
+                path: "modality",
+                default: "image",
+                description: "生成模态（image / audio / video）",
+            },
+        ],
+    },
 ];
 
 for (const preset of PRESETS) {

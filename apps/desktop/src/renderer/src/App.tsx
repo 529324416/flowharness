@@ -78,6 +78,7 @@ import {
 } from "./designer/state/recent-documents";
 import { WorkbenchHost } from "./workbench/WorkbenchHost";
 import { getWorkbench } from "./workbench/registry";
+import { getWorkbenchTemplate } from "./workbench/templates";
 import {
     createWorkbenchId,
     createWorkbenchInstance,
@@ -687,21 +688,47 @@ export function App(): ReactElement {
     );
 
     const handleCreateWorkbench = useCallback(
-        async (type: string): Promise<void> => {
+        async (templateId: string): Promise<void> => {
             const workspace = activeWorkspace;
             if (workspace === null) return;
+
+            const template = getWorkbenchTemplate(templateId);
+            if (template === undefined) {
+                setDocumentError(`未知工作台模板：${templateId}`);
+                return;
+            }
 
             setWorkbenchBusy(true);
             setDocumentError(null);
             try {
                 if (!(await flushCurrentDocument())) return;
 
+                let graphId = activeDocumentId ?? documents[0]?.id ?? "main";
+                if (template.createGraph !== undefined) {
+                    const newGraphId = createDocumentId();
+                    const graph = template.createGraph(newGraphId);
+                    const savedGraph = await bridge.saveDocument({
+                        workspaceId: workspace.id,
+                        ref: { kind: "harness", id: newGraphId },
+                        baseRevision: null,
+                        document: graph,
+                    });
+                    if (!savedGraph.ok) {
+                        setDocumentError(savedGraph.error.message);
+                        return;
+                    }
+                    await refreshDocuments(workspace.id);
+                    graphId = newGraphId;
+                }
+
                 const id = createWorkbenchId();
                 const instance = createWorkbenchInstance({
                     id,
-                    type,
-                    title: defaultWorkbenchTitle(type),
-                    graphId: activeDocumentId ?? documents[0]?.id ?? "main",
+                    type: template.type,
+                    title:
+                        template.instanceTitle ??
+                        defaultWorkbenchTitle(template.type),
+                    graphId,
                 });
                 const saved = await bridge.saveDocument({
                     workspaceId: workspace.id,
@@ -716,10 +743,10 @@ export function App(): ReactElement {
 
                 await refreshWorkbenches(workspace.id);
                 await loadWorkbench(workspace.id, id);
-                const graphId = primaryGraphId(instance);
-                if (graphId !== null) {
-                    setActiveDocumentId(graphId);
-                    rememberDocument(workspace.id, graphId);
+                const primary = primaryGraphId(instance);
+                if (primary !== null) {
+                    setActiveDocumentId(primary);
+                    rememberDocument(workspace.id, primary);
                 }
             } finally {
                 setWorkbenchBusy(false);
@@ -732,6 +759,7 @@ export function App(): ReactElement {
             documents,
             flushCurrentDocument,
             loadWorkbench,
+            refreshDocuments,
             refreshWorkbenches,
             rememberDocument,
         ],
@@ -1166,6 +1194,45 @@ export function App(): ReactElement {
         await loadData();
         setBusy(false);
     }, [bridge, loadData, openWorkspaceById]);
+
+    const handleImportWorkspace = useCallback(async (): Promise<void> => {
+        if (busy) return;
+        setBusy(true);
+        setDataError(null);
+        try {
+            const imported = await bridge.importWorkspaceArchive();
+            if (!imported.ok) {
+                setDataError(imported.error.message);
+                return;
+            }
+            if (imported.data === null) return;
+
+            autoOpenedWorkspace.current = true;
+            await loadData();
+            await openWorkspaceById(imported.data.id);
+        } finally {
+            setBusy(false);
+        }
+    }, [bridge, busy, loadData, openWorkspaceById]);
+
+    const handleExportWorkspace = useCallback(async (): Promise<void> => {
+        const workspace = activeWorkspace;
+        if (workspace === null || busy) return;
+
+        setBusy(true);
+        setDataError(null);
+        try {
+            const exported = await bridge.exportWorkspaceArchive({
+                workspaceId: workspace.id,
+                defaultName: workspace.name,
+            });
+            if (!exported.ok) {
+                setDataError(exported.error.message);
+            }
+        } finally {
+            setBusy(false);
+        }
+    }, [activeWorkspace, bridge, busy]);
 
     const handleDesignerRunWillStart = useCallback(() => {
         setRunEvents([]);
@@ -1824,6 +1891,9 @@ export function App(): ReactElement {
                         busy={busy}
                         onCreateDocument={() => void handleCreateDocument()}
                         onCreateWorkspace={() => void createDemoWorkspace()}
+                        onImportWorkspace={() => void handleImportWorkspace()}
+                        onExportWorkspace={() => void handleExportWorkspace()}
+                        canExportWorkspace={activeWorkspace !== null}
                         onSelectView={setView}
                         onToggleSidebar={handleToggleSidebar}
                         onToggleTheme={toggleTheme}

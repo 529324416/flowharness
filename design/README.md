@@ -68,7 +68,7 @@ pnpm build        # 先产出 out/
 pnpm capture:ui   # 启动应用并通过 CDP 截取 renderer（默认 devlog/assets/ui-current.png）
 
 # 选择场景：designer（默认）/ designer-split-nav / designer-run-mode /
-# designer-flow-runner / designer-run / designer-run-result / designer-run-session /
+# designer-flow-runner / file-menu / designer-run / designer-run-result / designer-run-session /
 # designer-edit / designer-drag / designer-problems / designer-documents /
 # designer-doc-flow / designer-workbenches / designer-workbench-flow /
 # designer-workbench-manage / designer-plan-runner / designer-slot-connect /

@@ -384,6 +384,27 @@ describe("WorkspaceStore", () => {
         expect(snapshot?.document).toEqual({ version: 1, nodes: [{ id: "n1" }], edges: [] });
     });
 
+    it("imports archives as new workspace copies without overwriting", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Copy Me" });
+        await store.open(created.id);
+
+        const archivePath = join(dirs[dirs.length - 1]!, "copy.fhws");
+        await store.exportWorkspace(created.id, archivePath);
+
+        const first = await store.importWorkspace(archivePath);
+        const second = await store.importWorkspace(archivePath);
+
+        expect(first.id).not.toBe(created.id);
+        expect(second.id).not.toBe(created.id);
+        expect(second.id).not.toBe(first.id);
+
+        const list = await store.list();
+        expect(list.some((workspace) => workspace.id === created.id)).toBe(true);
+        expect(list.some((workspace) => workspace.id === first.id)).toBe(true);
+        expect(list.some((workspace) => workspace.id === second.id)).toBe(true);
+    });
+
     it("refuses a workspace written by a newer schema", async () => {
         const { store } = await makeStore();
         const created = await store.create({ name: "Future" });

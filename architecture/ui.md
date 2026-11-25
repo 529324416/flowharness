@@ -182,7 +182,7 @@ interface WorkbenchController {
 - 当前 View 自持 hooks（设计器复用现有 document/run/undo），通过 View 收到的 `shell.onControllerChange` 上报 controller；框架级统一工具栏/命令栈注入待后续；
 - 已有四个工作台：`harness-designer`（画布）、`graph-table`（节点清单）、`plan-runner`（批量运行）、`flow-runner`（固定只读运行页），共用实例文档与 `WorkbenchHost`；
 - `plan-runner` 以 `WorkbenchPlan` 顺序运行多个独立图；当前在 renderer 侧调用 `run:start`，尚未下沉 RuntimeHost；
-- 标题栏 WorkbenchMenu 切换 / 新建 / 重命名 / 删除实例；实例存 `documents/workbenches`。
+- 标题栏 WorkbenchMenu 切换 / 新建 / 重命名 / 删除实例；实例存 `documents/workbenches`；M8.1 起“从模板新建”提供 6 条模板（Harness 空白 / 当前、节点清单、批量运行、运行页空白 / 当前），模板可创建起始工作流。
 
 ### 5.3 多图组合：WorkbenchPlan
 
@@ -284,6 +284,7 @@ CanvasCommand → GraphDocument
 - 会话历史已迁入 Canvas 浮动面板（`PanelLayer` 的 `session-history`），点击 Session 树节点即打开；M6.3 的 `SessionSerializer` 回放逻辑复用；M7.4 起 run 会话用 `RunResultView` 展示输出与条目；
 - 运行日志面板的「结果」页签展示 `RunResult`（输出 / 模型调用 / Agent 会话），可在其中「保存到会话」或「写入对话」；运行模式下若选中 conversation 会话，run 结束会自动追加 Agent / ModelCall 消息并刷新会话历史面板；
 - 对外 UI 统一称 **工作流（workflow）**；`GraphDocument` 仅保留为 wireclaw / 契约内部类型名。
+- 文件菜单提供 `.fhws` 导入 / 导出：导入经系统打开对话框并创建新工作区副本，导出经系统保存对话框写档；不覆盖现有工作区。
 
 ## 7. 其他工作台
 

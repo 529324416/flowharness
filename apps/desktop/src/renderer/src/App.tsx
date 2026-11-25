@@ -49,6 +49,7 @@ import {
 import { StatusBar } from "./shell/StatusBar";
 import { PanelLayer } from "./shell/panels/PanelLayer";
 import { useFloatingPanels } from "./shell/panels/useFloatingPanels";
+import { SplitSidebar } from "./shell/navigation/SplitSidebar";
 import { fromStoredSession } from "./shell/sessions";
 import { VIEW_LABEL, type ViewId } from "./shell/views";
 import type { DesignerSaveStatus } from "./views/DesignerView";
@@ -1571,6 +1572,15 @@ export function App(): ReactElement {
 
     const activeWorkbenchDefinition =
         activeWorkbench === null ? undefined : getWorkbench(activeWorkbench.type);
+    const split = activeWorkbenchDefinition?.splitNavigation;
+    const SplitTop =
+        split === undefined
+            ? undefined
+            : activeWorkbenchDefinition?.navigation?.[split.top];
+    const SplitBottom =
+        split === undefined
+            ? undefined
+            : activeWorkbenchDefinition?.navigation?.[split.bottom];
     const Navigation = activeWorkbenchDefinition?.navigation?.[workbenchMode];
     const navigationProps: WorkbenchNavigationProps | null =
         activeWorkbench !== null && activeWorkspace !== null
@@ -1605,9 +1615,25 @@ export function App(): ReactElement {
               }
             : null;
     const navigationContent =
-        Navigation !== undefined && navigationProps !== null ? (
-            <Navigation {...navigationProps} />
-        ) : null;
+        navigationProps === null
+            ? null
+            : SplitTop !== undefined && SplitBottom !== undefined
+              ? (
+                    <SplitSidebar
+                        width={sidebarWidth}
+                        onResize={setSidebarWidth}
+                        top={<SplitTop {...navigationProps} navSection="top" />}
+                        bottom={
+                            <SplitBottom
+                                {...navigationProps}
+                                navSection="bottom"
+                            />
+                        }
+                    />
+                )
+              : Navigation !== undefined
+                ? <Navigation {...navigationProps} />
+                : null;
     const navigationOpen = sidebarOpen && navigationContent !== null;
 
     return (

@@ -75,6 +75,8 @@ export type WorkbenchNavigationProps = {
     activeSessionId: string | null;
     /** 外部新增 / 变更会话后递增，用于让 Session 树刷新。 */
     sessionRevision?: number;
+    /** 上下分区中的槽位；由 Shell 注入，导航组件据此切换紧凑样式。 */
+    navSection?: "top" | "bottom";
     onOpenSession: (session: SessionSummary) => void;
     onSelectDocument: (id: string) => void;
     onCreateDocument: () => void;
@@ -86,6 +88,14 @@ export type WorkbenchNavigationProps = {
         options: { stripUi: boolean },
         documentId?: string,
     ) => void;
+};
+
+/** 左栏上下分区的槽位定义；用于同时展示两类导航的工作台。 */
+export type WorkbenchSplitNavigation = {
+    /** 上半区使用的导航槽位（通常是工作流列表）。 */
+    top: WorkbenchMode;
+    /** 下半区使用的导航槽位（通常是 Session 树）。 */
+    bottom: WorkbenchMode;
 };
 
 export type WorkbenchNavigation = Partial<
@@ -104,5 +114,10 @@ export type WorkbenchDefinition = {
     canOpen: (instance: WorkbenchInstanceDocument) => boolean;
     /** 左栏内容：按模式提供，Shell 只负责 Panel 宿主。 */
     navigation?: WorkbenchNavigation;
+    /**
+     * 某些工作台需要同时展示两类导航（例如工作流 + 会话）。
+     * 声明后左栏改为上下两区，mode 只影响主视图。
+     */
+    splitNavigation?: WorkbenchSplitNavigation;
     View: ComponentType<WorkbenchViewProps>;
 };

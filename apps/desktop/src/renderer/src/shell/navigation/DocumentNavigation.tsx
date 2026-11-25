@@ -43,6 +43,7 @@ export function DocumentNavigation({
     onResize,
     onCollapse,
     onModeChange,
+    navSection,
     onSelectDocument,
     onCreateDocument,
     onRenameDocument,
@@ -115,7 +116,8 @@ export function DocumentNavigation({
                 footer={`工作区工作流 · ${String(documents.length)}`}
                 width={width}
                 onResize={onResize}
-                onCollapse={onCollapse}
+                section={navSection !== undefined}
+                onCollapse={navSection === "bottom" ? undefined : onCollapse}
             >
                 <div className={styles.search}>
                     <div className={styles.searchBox}>

@@ -1,8 +1,8 @@
 # FlowHarness 架构文档
 
-> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化、M4 文档生命周期与编辑体验、M5 Workbench Framework、M6 Session / Provider 闭环、M7.1 工作台导航宿主 / M7.2 Session 树存储、M7.3 Session 树导航 / 历史面板、M7.4 RunResult 与运行结果会话；进度见文末。
+> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化、M4 文档生命周期与编辑体验、M5 Workbench Framework、M6 Session / Provider 闭环、M7.1 工作台导航宿主 / M7.2 Session 树存储、M7.3 Session 树导航 / 历史面板、M7.4 RunResult 与运行结果会话、M7.4.1 双区导航；进度见文末。
 >
-> 当前阶段：**M7 进行中（M7.0 设计定稿；M7.1 工作台导航宿主；M7.2 Session 树存储；M7.3 Session 树导航 / 历史面板 / 工作流右键菜单；M7.4 RunResult / 运行结果面板 / 保存到草稿 Session 已完成）**。
+> 当前阶段：**M7 进行中（M7.0 设计定稿；M7.1 工作台导航宿主；M7.2 Session 树存储；M7.3 Session 树导航 / 历史面板 / 工作流右键菜单；M7.4 RunResult / 运行结果面板 / 保存到草稿 Session；M7.4.1 双区导航已完成）**。
 > 术语：FH = FlowHarness。
 
 ## 阅读顺序
@@ -12,7 +12,7 @@
 3. [data-model.md](./data-model.md) — 工作区数据、文档、导入导出
 4. [runtime.md](./runtime.md) — 执行、事件、IPC、安全
 5. [ui.md](./ui.md) — React、画布、工作台框架、设计器
-6. [decisions.md](./decisions.md) — 架构决策记录（ADR-001 ~ ADR-020）
+6. [decisions.md](./decisions.md) — 架构决策记录（ADR-001 ~ ADR-021）
 
 ## 六个已定稿的关键决策
 
@@ -68,6 +68,7 @@
 | M7.2 Session 递归文件夹 / SessionRecord v2 / 草稿目录 / IPC | ✅ 已实现（M7.2） |
 | M7.3 Session 树导航 / 历史面板 / 工作流右键菜单 / 设计-运行切换 | ✅ 已实现（M7.3） |
 | M7.4 RunResult / 运行结果面板 / 保存到草稿 Session / run 回放 | ✅ 已实现（M7.4） |
+| M7.4.1 双区导航（工作流 + 会话上下分区，ADR-021） | ✅ 已实现（M7.4.1） |
 | M6.2 wireclaw checkpoint v2（graphHash + nodeVersions） | ✅ 已实现（M6.2） |
 | M6.2 工作区文件工具 / 运行前 requirements catalog | ✅ 已实现（M6.2） |
 | SessionService（AttachmentFileManager / SessionStore 装配） | ✅ 已实现（Phase 2 附件；M6.2 会话） |

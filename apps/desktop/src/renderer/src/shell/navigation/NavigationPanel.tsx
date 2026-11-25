@@ -6,6 +6,7 @@ import {
 } from "react";
 import { PanelLeftClose } from "lucide-react";
 import { IconButton, Tooltip } from "../../ui";
+import { cx } from "../../ui/cx";
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from "../../layout-metrics";
 import styles from "./NavigationPanel.module.css";
 
@@ -16,7 +17,9 @@ export type NavigationPanelProps = {
     footer?: ReactNode;
     width: number;
     onResize: (width: number) => void;
-    onCollapse: () => void;
+    onCollapse?: () => void;
+    /** 作为上下分区的一节渲染：占满分区高度，不重复宽度拖拽与收起按钮。 */
+    section?: boolean;
     children: ReactNode;
 };
 
@@ -33,6 +36,7 @@ export function NavigationPanel({
     width,
     onResize,
     onCollapse,
+    section = false,
     children,
 }: NavigationPanelProps): ReactElement {
     const drag = useRef<{ x: number; width: number } | null>(null);
@@ -52,43 +56,50 @@ export function NavigationPanel({
     };
 
     return (
-        <aside className={styles.root} aria-label={title}>
+        <aside
+            className={cx(styles.root, section && styles.sectionRoot)}
+            aria-label={title}
+        >
             <header className={styles.header}>
                 <span className={styles.title}>{title}</span>
                 {badge}
                 <span className={styles.spacer} />
                 {actions}
-                <Tooltip label="收起导航">
-                    <IconButton label="收起导航" size="sm" onClick={onCollapse}>
-                        <PanelLeftClose size={19} aria-hidden="true" />
-                    </IconButton>
-                </Tooltip>
+                {onCollapse !== undefined ? (
+                    <Tooltip label="收起导航">
+                        <IconButton label="收起导航" size="sm" onClick={onCollapse}>
+                            <PanelLeftClose size={19} aria-hidden="true" />
+                        </IconButton>
+                    </Tooltip>
+                ) : null}
             </header>
 
             <div className={styles.body}>{children}</div>
 
             {footer ? <footer className={styles.footer}>{footer}</footer> : null}
 
-            <div
-                className={styles.resize}
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="调整导航宽度"
-                tabIndex={0}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
-                onKeyDown={(event) => {
-                    if (event.key === "ArrowLeft") {
-                        event.preventDefault();
-                        onResize(clampWidth(width - 16));
-                    } else if (event.key === "ArrowRight") {
-                        event.preventDefault();
-                        onResize(clampWidth(width + 16));
-                    }
-                }}
-            />
+            {section ? null : (
+                <div
+                    className={styles.resize}
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label="调整导航宽度"
+                    tabIndex={0}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerUp}
+                    onKeyDown={(event) => {
+                        if (event.key === "ArrowLeft") {
+                            event.preventDefault();
+                            onResize(clampWidth(width - 16));
+                        } else if (event.key === "ArrowRight") {
+                            event.preventDefault();
+                            onResize(clampWidth(width + 16));
+                        }
+                    }}
+                />
+            )}
         </aside>
     );
 }

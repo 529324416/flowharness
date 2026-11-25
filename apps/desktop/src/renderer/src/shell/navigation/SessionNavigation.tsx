@@ -114,6 +114,7 @@ export function SessionNavigation({
     busy,
     width,
     sessionRevision,
+    navSection,
     onResize,
     onCollapse,
     onModeChange,
@@ -538,7 +539,8 @@ export function SessionNavigation({
                 footer="会话已持久化到工作区"
                 width={width}
                 onResize={onResize}
-                onCollapse={onCollapse}
+                section={navSection !== undefined}
+                onCollapse={navSection === "bottom" ? undefined : onCollapse}
             >
                 <div className={styles.search}>
                     <Input

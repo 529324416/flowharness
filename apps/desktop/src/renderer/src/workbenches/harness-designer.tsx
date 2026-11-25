@@ -36,5 +36,7 @@ export const harnessDesignerWorkbench: WorkbenchDefinition = {
     description: "画布式 Harness 工作流设计与运行工作台",
     canOpen: (instance) => instance.graphs.length > 0,
     navigation: { design: DocumentNavigation, run: SessionNavigation },
+    // 设计器同时需要工作流与会话两类导航：上半区工作流、下半区 Session 树。
+    splitNavigation: { top: "design", bottom: "run" },
     View: HarnessDesignerView,
 };

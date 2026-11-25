@@ -154,4 +154,4 @@ vendor/wireclaw/               # 引擎（submodule）
 
 **尚未实现**：Plan 编排下沉 RuntimeHost、`plan.bindings` 与 `layout.overrides`；Session 消息写入侧（聊天输入 / Agent 会话对接）；MCP 等更多工具 Provider；`applyCommands` 与 `workspace:changed` 事件；`.fhws` UI；工作台 run 模式与独立 RunView。迁移顺序见 [../todo.md](../todo.md)。
 
-**M7 进行中**：M7.1 已实现左栏 Panel 宿主、GraphDocument 导航、文档绑定与删除引用检查；M7.2 已实现 Session 递归文件夹、`SessionRecord` v2、草稿目录与 IPC；M7.3 已实现设计/运行模式切换、工作流右键菜单、Session 树导航与会话历史浮动面板；M7.4 已实现 wireclaw `RunResult` 聚合、`runs/<runId>/result.json`、运行结果面板、run 会话保存与回放、草稿目录右键配置；M7.5（工作台 RunView 与动画）尚未实现。
+**M7 进行中**：M7.1 已实现左栏 Panel 宿主、GraphDocument 导航、文档绑定与删除引用检查；M7.2 已实现 Session 递归文件夹、`SessionRecord` v2、草稿目录与 IPC；M7.3 已实现设计/运行模式切换、工作流右键菜单、Session 树导航与会话历史浮动面板；M7.4 已实现 wireclaw `RunResult` 聚合、`runs/<runId>/result.json`、运行结果面板、run 会话保存与回放、草稿目录右键配置；M7.4.1 已实现设计器双区导航（上工作流 / 下会话）；M7.5（工作台 RunView 与动画）尚未实现。

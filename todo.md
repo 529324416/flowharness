@@ -70,6 +70,14 @@
 - [x] 测试：run→session 往返、草稿目录、输出投影（FH 34 文件 / 171 项；wireclaw 67 项）
 - [ ] Agent / ModelCall 的消息写入（conversation session）仍作为后续项，不与 run session 混用
 
+### M7.4.1 双区导航（2026-11-26 已完成）
+
+- [x] `WorkbenchDefinition.splitNavigation`（top / bottom 槽位）与 `WorkbenchNavigationProps.navSection`
+- [x] `SplitSidebar`：上下两区共享侧栏宽度，横向拖动比例（20%–80%）并写入 `localStorage`
+- [x] `NavigationPanel` 增加 `section` 变体：分区内不再重复宽度拖拽，收起按钮只留上半区
+- [x] `harness-designer` 固定为上工作流 / 下会话；mode 只影响主视图
+- [x] 测试：导航槽位解析；视觉基线 `designer-split-nav`
+
 ### M7.5 工作台运行模式与动画
 
 - [ ] `WorkbenchDefinition` 增加 design / run 模式（`DesignView` / `RunView` / `navigation`）

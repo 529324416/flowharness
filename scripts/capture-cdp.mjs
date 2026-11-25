@@ -77,6 +77,7 @@ try {
 
     // Optional deterministic UI state for visual baselines:
     // designer (panels open) | designer-run (run once) | designer-problems |
+    // designer-split-nav (workflow + session split sidebar) |
     // canvas (panels closed) | canvas-zoom | styleguide | styleguide-nodes |
     // designer-form | designer-library | designer-documents (nav actions).
     const scenario = process.env.FH_CAPTURE_SCENARIO;
@@ -131,6 +132,7 @@ try {
 
     if (
         scenario === "designer" ||
+        scenario === "designer-split-nav" ||
         scenario === "canvas" ||
         scenario === "canvas-zoom" ||
         scenario === "designer-run" ||

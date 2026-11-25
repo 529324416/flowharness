@@ -247,6 +247,8 @@ interface WorkbenchDefinition {
   description: string;
   canOpen(instance: WorkbenchInstanceDocument): boolean;
   navigation?: Partial<Record<"design" | "run", React.ComponentType<WorkbenchNavigationProps>>>;
+  /** 声明后左栏改为上下双区；mode 只影响主视图。 */
+  splitNavigation?: { top: "design" | "run"; bottom: "design" | "run" };
   View: React.ComponentType<WorkbenchViewProps>;
 }
 ```
@@ -267,6 +269,7 @@ interface WorkbenchController {
 
 - 当前 View 自持 hooks（设计器复用 `useDesignerDocument` / `useDesignerRun`），通过 Shell 上报 `WorkbenchController`；框架级统一工具栏与命令栈注入留给后续；
 - M7.1 起导航由 `WorkbenchDefinition.navigation` 决定，App 只负责 Panel 宿主与文档数据；`WorkbenchHost.panelLayer` 提供工作台内浮动面板槽；
+- M7.4.1 起支持 `splitNavigation`：App 用 `SplitSidebar` 渲染上下两区（harness-designer = 工作流 + 会话），两区共享侧栏宽度，分隔条比例写入 localStorage；
 - 工作台实例文档见 [data-model.md](./data-model.md)；
 - 一个实例可绑定多个 graph；组合优先用 wireclaw 的 subgraph，只有独立多 run 才用 `WorkbenchPlan`；
 - `plan-runner` 已提供顺序执行多个独立 run 的示例；`bindings` 与 RuntimeHost 编排仍未接线。
@@ -311,6 +314,7 @@ interface WorkbenchController {
 - **M7.2 已实现**：Session 递归文件夹树、SessionRecord v2、草稿目录、session/folder 移动与 IPC。
 - **M7.3 已实现**：设计/运行模式切换；设计左栏工作流列表 + 右键菜单；运行左栏 Session 树（递归、搜索、文件夹/会话 CRUD、移动、草稿标识）；会话历史嵌入 Canvas 浮动 Panel；对外文案统一为“工作流”。
 - **M7.4 已实现**：wireclaw `RunResult` v1（类型 / 序列化 / 校验 / ModelCall·AgentRun 采集 / graphPath 冒泡）；`RunStore` 写 `result.json`，`RuntimeHost.getResult` 与 `run:result` 暴露结果；运行日志扩展「结果」面板；`SessionStore.createRunSession` 校验 kind 并派生 entryCount / 附件；「保存到会话」进入草稿目录；`session:setDraftFolder` 支持 Session 树右键切换草稿目录。
+- **M7.4.1 已实现**：`WorkbenchDefinition.splitNavigation` + `SplitSidebar`；`NavigationPanel` 增加 `section` 变体；`harness-designer` 左栏固定为上工作流 / 下会话，共享宽度、比例可拖动并持久化（ADR-021）。
 - **Workbench Framework（M7.5 未实现）**：`WorkbenchDefinition` 提供 `mode` / `RunView`；工作台运行阶段渲染独立 RunView 与动画，而不是复用设计画布。
 - **SessionService / SessionStore（M7.4 已完成）**：Session 递归文件夹树；`SessionRecord.kind` 区分 conversation / run；草稿目录；RunResult 写入与校验。
 - **RuntimeHost / RunStore（M7.4 已完成）**：采集 wireclaw `RunResult`，写 `runs/<runId>/result.json`，run 结束向 renderer 提供结果。

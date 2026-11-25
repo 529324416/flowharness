@@ -1,0 +1,65 @@
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+
+.section {
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.section > * {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+}
+
+.divider {
+  position: relative;
+  flex: none;
+  height: 7px;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.divider::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 10px;
+  left: 10px;
+  height: 1px;
+  background: var(--fh-border);
+}
+
+.divider:hover::after,
+.divider:focus-visible::after {
+  background: var(--fh-border-strong);
+}
+
+.divider:focus-visible {
+  outline: none;
+}
+
+.resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.resize:hover,
+.resize:focus-visible {
+  background: var(--fh-border-strong);
+  outline: none;
+}

@@ -7,6 +7,22 @@
   min-width: 0;
 }
 
+/* 上下分区中的一节：高度由父级 flex 决定，不再占满整栏。 */
+.sectionRoot {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sectionRoot .header {
+  height: 34px;
+}
+
+.sectionRoot .footer {
+  padding: 5px 12px;
+}
+
 .header {
   display: flex;
   align-items: center;

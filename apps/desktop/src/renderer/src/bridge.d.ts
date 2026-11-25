@@ -11,6 +11,7 @@ import type {
     RunStartRequest,
     WindowStatePayload,
     WorkspaceCreateInput,
+    WorkbenchSummary,
     WorkspaceExportHarnessRequest,
     WorkspaceSaveDocumentRequest,
     WorkspaceSummary,
@@ -57,6 +58,9 @@ interface FlowHarnessBridge {
     readonly listDocuments: (
         workspaceId: string,
     ) => Promise<IpcResult<HarnessDocumentSummary[]>>;
+    readonly listWorkbenches: (
+        workspaceId: string,
+    ) => Promise<IpcResult<WorkbenchSummary[]>>;
     readonly deleteDocument: (
         workspaceId: string,
         ref: DocumentRef,

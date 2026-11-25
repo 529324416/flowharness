@@ -116,6 +116,42 @@ describe("WorkspaceStore", () => {
         expect(list.find((item) => item.id === "bad")?.title).toBe("bad");
     });
 
+    it("lists and deletes workbench instances", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Workbenches" });
+        await store.open(created.id);
+
+        await store.saveDocument(
+            created.id,
+            { kind: "workbench", id: "wb_one" },
+            {
+                schemaVersion: 1,
+                id: "wb_one",
+                type: "harness-designer",
+                title: "主工作台",
+                graphs: [{ graphId: "main", role: "main" }],
+                plan: null,
+                parameters: {},
+                createdAt: "2026-11-25T00:00:00.000Z",
+                updatedAt: "2026-11-25T00:00:00.000Z",
+            },
+            null,
+        );
+
+        const list = await store.listWorkbenches(created.id);
+        expect(list).toHaveLength(1);
+        expect(list[0]).toMatchObject({
+            id: "wb_one",
+            title: "主工作台",
+            type: "harness-designer",
+        });
+
+        await expect(
+            store.deleteDocument(created.id, { kind: "workbench", id: "wb_one" }),
+        ).resolves.toBe(true);
+        expect(await store.listWorkbenches(created.id)).toEqual([]);
+    });
+
     it("returns null for a missing document", async () => {
         const { store } = await makeStore();
         const created = await store.create({ name: "Empty" });

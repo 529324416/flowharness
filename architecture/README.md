@@ -1,8 +1,8 @@
 # FlowHarness 架构文档
 
-> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化、M4 文档生命周期与编辑体验；进度见文末。
+> 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化、M4 文档生命周期与编辑体验，以及 M5.1 Workbench Framework；进度见文末。
 >
-> 当前阶段：**M4 已完成；M5 Workbench Framework 是下一步**。
+> 当前阶段：**M5 进行中（M5.1 已完成；WorkbenchPlan / 参数槽拖拽待做）**。
 > 术语：FH = FlowHarness。
 
 ## 阅读顺序
@@ -55,6 +55,9 @@
 | 事件投影与节流、审批 / 用户输入（main handler；renderer 未接通） | 🚧 部分实现（Phase 2） |
 | M3 问题面板 / 内嵌图递归校验 / 运行事件→画布 / 暂停·继续 | ✅ 已实现（2026-11-25） |
 | M4 多图文档 / 撤销复制 / 框选·右键平移 / Harness JSON 导入导出 | ✅ 已实现（2026-11-25） |
+| M5.1 Workbench 定义 / 实例文档 / registry + host / 第二工作台 | ✅ 已实现（M5.1） |
+| M5.1 节点内联编辑（Constant / Model Call / Log） | ✅ 已实现（M5.1） |
+| M5.1 WorkbenchPlan / 参数槽拖拽 | ⬜ 未开始 |
 | SessionService（AttachmentFileManager 装配） | ✅ 已实现（Phase 2，仅附件管理） |
 | UI 基础：tokens / 组件原语 / 画布样张 / Styleguide | ✅ 已实现（Phase 2.5） |
 | Shell v2：无边框标题栏 / Ribbon / 会话侧栏 / StatusBar（HeroView 未接入） | ✅ 已实现（Phase 2.6） |
@@ -82,7 +85,7 @@
 | 画布框选 / 右键拖动平移 | ✅ 已实现（M4） |
 | 保存保护（切换 / 关闭前 flush、冲突副本） | ✅ 已实现（M4；系统级关闭仍有限制） |
 | 300 节点性能基线 | ⬜ 未开始 |
-| Workbench Framework | ⬜ 未开始 |
+| Workbench Framework | 🚧 M5.1（定义 / 实例 / 宿主 / 第二工作台） |
 | Harness Designer | ✅ M3（编辑 / 运行 / 问题 / 暂停） |
 | 打包分发、CI | ⬜ 未开始 |
 

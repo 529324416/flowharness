@@ -26,7 +26,9 @@ renderer/src/
   App.tsx                  # shell 组合、视图切换、自检上报
   styles/                  # tokens.css（唯一视觉事实源）、global.css
   ui/                      # 组件原语（Button/Menu/Dialog/Tabs/...）
-  shell/                   # TitleBar / DocumentMenu / Ribbon / SessionSidebar / StatusBar / 窗口控制
+  shell/                   # TitleBar / DocumentMenu / WorkbenchMenu / Ribbon / SessionSidebar / StatusBar
+  workbench/               # WorkbenchDefinition / Controller / registry / WorkbenchHost
+  workbenches/             # harness-designer / graph-table 工作台实现
   views/                   # Designer / Diagnostics / Styleguide（HeroView 存在但未接入）
   canvas/core/             # 纯 TS：几何、边 key、类型
   canvas/view/             # React Flow 受控视图、节点/边 renderer
@@ -157,21 +159,28 @@ Workspace（数据容器）
 interface WorkbenchDefinition {
   type: string;
   title: string;
-  canOpen(doc: WorkbenchInstanceDocument): boolean;
-  createController(doc: WorkbenchInstanceDocument): WorkbenchController;
+  description: string;
+  canOpen(instance: WorkbenchInstanceDocument): boolean;
   View: React.ComponentType<WorkbenchViewProps>;
 }
 
 interface WorkbenchController {
-  run(input?: unknown): Promise<void>;
-  pause(): Promise<void>;
-  resume(): Promise<void>;
-  cancel(): void;
   readonly status: RunStatus;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  run(): void;
+  pause(): void;
+  resume(): void;
+  cancel(): void;
+  undo(): void;
+  redo(): void;
+  save(): Promise<void>;
 }
 ```
 
-框架提供：运行工具栏（运行/暂停/继续/取消 + 状态）、问题面板、运行日志、命令栈、自动保存。
+- 当前 View 自持 hooks（设计器复用现有 document/run/undo），通过 `WorkbenchShell.onControllerChange` 上报 controller；框架级统一工具栏/命令栈注入待后续；
+- 已有两个工作台：`harness-designer`（画布）与 `graph-table`（节点清单，只读表格），共用实例文档与 `WorkbenchHost`；
+- 标题栏 WorkbenchMenu 切换 / 新建实例；实例存 `documents/workbenches`。
 
 ### 5.3 多图组合：WorkbenchPlan
 
@@ -260,7 +269,7 @@ CanvasCommand → GraphDocument
 ### 6.5 NodeContent
 
 - 一期（M2 已完成）：`inspector/NodeConfigForm.tsx` 根据 `configSchema` 生成通用表单（wireclaw 的 JSON Schema 子集：object / string / number / integer / boolean / array / enum / required / minimum / maximum…）；无法表达的字段用 JSON 文本域兜底，整份 config 仍可在「JSON」页签编辑；
-- 二期（M5）：为高频节点（模型调用、Agent、分支、循环）提供定制组件；在节点内直接编辑常用参数，并支持从其他节点输出端口拖拽值到参数 / 输入槽（复用端口类型与连线语义）；
+- 二期（M5.1 部分完成）：节点 Body 内联编辑 Constant 文本、Model Call 的 mode / temperature、Log 级别；从其他节点输出端口拖到输入端口仍通过 Handle 完成；独立「参数槽」拖拽与更多高频节点待做；
 - 节点内容组件通过 `canvas/view/node-registry.ts` 的 registry 注册，Canvas 不感知；当前所有类型都回落到 `SciFiNode`。
 
 ## 7. 其他工作台

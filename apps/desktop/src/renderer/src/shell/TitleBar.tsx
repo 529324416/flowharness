@@ -52,6 +52,8 @@ export type TitleBarProps = {
     runControls?: RunControls | null;
     /** 文档切换器（由 App 注入，避免 TitleBar 感知文档状态）。 */
     documentMenu?: ReactNode;
+    /** 工作台切换器（由 App 注入）。 */
+    workbenchMenu?: ReactNode;
 };
 
 export function TitleBar({
@@ -72,6 +74,7 @@ export function TitleBar({
     onToggleInspector,
     runControls,
     documentMenu,
+    workbenchMenu,
 }: TitleBarProps): ReactElement {
     const windowMode = window.flowharness.windowMode;
     const overlay = windowMode === "overlay";
@@ -167,6 +170,7 @@ export function TitleBar({
                         </MenuContent>
                     </Menu>
 
+                    {workbenchMenu}
                     {documentMenu}
                 </nav>
             </div>

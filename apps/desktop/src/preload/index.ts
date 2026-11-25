@@ -15,6 +15,7 @@ import {
     type RunStartRequest,
     type WindowStatePayload,
     type WorkspaceCreateInput,
+    type WorkbenchSummary,
     type WorkspaceExportHarnessRequest,
     type WorkspaceSaveDocumentRequest,
     type WorkspaceSummary,
@@ -80,6 +81,10 @@ const bridge = {
         workspaceId: string,
     ): Promise<IpcResult<HarnessDocumentSummary[]>> =>
         invoke(IpcChannel.WorkspaceListDocuments, { workspaceId }),
+    listWorkbenches: (
+        workspaceId: string,
+    ): Promise<IpcResult<WorkbenchSummary[]>> =>
+        invoke(IpcChannel.WorkspaceListWorkbenches, { workspaceId }),
     deleteDocument: (
         workspaceId: string,
         ref: DocumentRef,

@@ -47,6 +47,9 @@ export function SciFiNode({
                 status={data.status}
                 summary={data.summary}
                 selected={selected}
+                config={data.config}
+                readOnly={data.readOnly}
+                onUpdateConfig={data.onUpdateConfig}
                 minHeight={nodeMinHeight(data.inputs.length, data.outputs.length)}
             />
 

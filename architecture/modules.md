@@ -19,7 +19,7 @@
 | L0 | Contracts | IPC 契约、DTO、错误码 | ✅ |
 | L3 | App Shell | 应用外壳、主题 provider、模块宿主 | 🚧 外壳与主题已实现，模块注册表未开始 |
 | L4 | Canvas | 无框架画布核心 + React 视图 | ✅（core 仅几何/边 key/类型） |
-| L4 | Workbench Framework | 工作台契约、运行控制、命令与保存 | ⬜ 未实现 |
+| L4 | Workbench Framework | 工作台契约、实例、视图宿主、运行控制 | 🚧 M5.1（定义 / 实例 / registry / host） |
 | L5 | Harness Designer | 默认工作台，框架的参考实现 | ✅ M3 |
 | L5 | Other Workbenches | 面向不同目标的工作台 | ⬜ 未实现 |
 
@@ -229,29 +229,36 @@ type CanvasDocument = { nodes: CanvasNode[]; edges: CanvasEdge[]; viewport: View
 
 **不做**：不 import wireclaw、不定义 Harness 语义、不持有运行状态。
 
-## 13. Workbench Framework（L4，未实现）
+## 13. Workbench Framework（L4，M5.1 已实现基础）
 
-**职责**：把「一个工作台」抽象为「画布 + 文档 + 运行控制」。
+**职责**：把「一个工作台」抽象为「实例文档 + 视图 + 运行控制」。
+
+> 现状：`renderer/src/workbench/` 提供 `WorkbenchDefinition`、`WorkbenchController`、registry 与 `WorkbenchHost`；实例文档持久化到 `documents/workbenches/<id>.json`，通过 `workspace:listWorkbenches` 列出。当前 View 自持 hooks（设计器复用现有 document/run/undo），`WorkbenchController` 由设计器上报给 Shell；`WorkbenchPlan` 与框架级统一工具条仍是后续工作。
 
 ```ts
 interface WorkbenchDefinition {
   type: string;
   title: string;
-  canOpen(doc: WorkbenchInstanceDocument): boolean;
-  createController(doc: WorkbenchInstanceDocument): WorkbenchController;
+  description: string;
+  canOpen(instance: WorkbenchInstanceDocument): boolean;
   View: React.ComponentType<WorkbenchViewProps>;
 }
 
 interface WorkbenchController {
-  run(input?: unknown): Promise<void>;
-  pause(): Promise<void>;
-  resume(): Promise<void>;
-  cancel(): void;
   readonly status: RunStatus;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  run(): void;
+  pause(): void;
+  resume(): void;
+  cancel(): void;
+  undo(): void;
+  redo(): void;
+  save(): Promise<void>;
 }
 ```
 
-- 提供运行工具栏、错误面板、命令栈（undo/redo）、自动保存；
+- 当前 View 自持 hooks（设计器复用 `useDesignerDocument` / `useDesignerRun`），通过 Shell 上报 `WorkbenchController`；框架级统一工具栏与命令栈注入留给后续；
 - 工作台实例文档见 [data-model.md](./data-model.md)；
 - 一个实例可绑定多个 graph；组合优先用 wireclaw 的 subgraph，只有独立多 run 才用 `WorkbenchPlan`。
 
@@ -259,7 +266,7 @@ interface WorkbenchController {
 
 **职责**：默认工作台，可拖拽、连线、校验、运行、导入导出。
 
-**当前实现（M4）**：加载/保存工作区任意 Harness 文档、多图切换与新建 / 重命名 / 复制 / 删除、Harness JSON 导入导出、画布编辑（移动 / 连线 / 删除 / 添加节点 / viewport / 框选 / 右键平移）、撤销重做与复制粘贴、400ms 自动保存与冲突副本、运行前递归 `validate()`、问题面板、运行日志与检查器、节点 / 边运行状态与暂停·继续。
+**当前实现（M5.1）**：作为 `harness-designer` 工作台注册到 Workbench Framework；加载/保存任意 Harness 文档、多图、导入导出、画布编辑（含框选 / 右键平移 / 内联编辑）、撤销重做与复制粘贴、自动保存与冲突副本、递归 `validate()`、问题面板、运行日志与检查器、运行状态与暂停·继续。
 
 - 节点面板数据来自 wireclaw：`createEditorCatalog(registry, { presets })` → `NodeCatalogEntry[]` + presets（M2 已接入，含默认 config / configSchema / 分类 / 关键词）；
 - `GraphDocument` → `CanvasDocument` 单向 adapter 由设计器实现（`designer/core/adapter.ts`）；

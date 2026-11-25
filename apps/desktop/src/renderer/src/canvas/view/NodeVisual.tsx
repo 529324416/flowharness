@@ -3,6 +3,7 @@ import { Box, GitBranch, LogIn, LogOut, ScrollText, Sparkles } from "lucide-reac
 import { StatusDot, type StatusTone } from "../../ui";
 import { cx } from "../../ui/cx";
 import type { CanvasStatus } from "../core/types";
+import { InlineNodeConfig } from "./InlineNodeConfig";
 import styles from "./NodeVisual.module.css";
 
 export type NodeVisualProps = {
@@ -12,6 +13,10 @@ export type NodeVisualProps = {
     summary?: string;
     selected?: boolean;
     className?: string;
+    /** 节点内联编辑使用；Styleguide 等静态样张不传。 */
+    config?: unknown;
+    readOnly?: boolean;
+    onUpdateConfig?: (config: unknown) => void;
     /** 端口较多的节点需要最小高度，避免 Handle 挤在 header 里。 */
     minHeight?: number;
 };
@@ -54,6 +59,9 @@ export function NodeVisual({
     summary,
     selected = false,
     className,
+    config,
+    readOnly = false,
+    onUpdateConfig,
     minHeight,
 }: NodeVisualProps): ReactElement {
     const Icon = iconFor(kind);
@@ -76,7 +84,13 @@ export function NodeVisual({
 
             <div className={styles.body}>
                 <span className={styles.kind}>{kind}</span>
-                {summary ? <span className={styles.summary}>{summary}</span> : null}
+                <InlineNodeConfig
+                    kind={kind}
+                    config={config}
+                    summary={summary}
+                    readOnly={readOnly}
+                    onChange={onUpdateConfig}
+                />
             </div>
         </article>
     );

@@ -133,6 +133,10 @@ try {
         scenario === "designer-problems" ||
         scenario === "designer-documents" ||
         scenario === "designer-doc-flow" ||
+        scenario === "designer-workbenches" ||
+        scenario === "designer-workbench-flow" ||
+        scenario === "designer-workbench-return" ||
+        scenario === "designer-inline" ||
         scenario === "designer-import" ||
         scenario === "designer-history" ||
         scenario === "canvas-selection" ||
@@ -395,6 +399,60 @@ try {
             await settle(500);
         }
 
+        if (scenario === "designer-workbench-return") {
+            await clickElement(`document.querySelector('button[aria-label="切换或新建工作台"]')`);
+            await settle(300);
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('节点清单'))`,
+            );
+            await settle(1500);
+
+            await clickElement(`document.querySelector('button[aria-label="切换或新建工作台"]')`);
+            await settle(300);
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('主工作台'))`,
+            );
+            await settle(1800);
+
+            const trigger = await evaluateAsync(
+                `document.querySelector('button[aria-label="切换或新建工作台"]')?.textContent?.trim()`,
+            );
+            const nodes = await send("Runtime.evaluate", {
+                expression: "document.querySelectorAll('.react-flow__node').length",
+                returnByValue: true,
+            });
+            const panels = await send("Runtime.evaluate", {
+                expression: "document.querySelectorAll('section[aria-label=\\\"属性\\\"]').length",
+                returnByValue: true,
+            });
+            console.log(
+                `workbench return: ${JSON.stringify(trigger.result?.value)} / nodes=${String(nodes.result?.value)} / panels=${String(panels.result?.value)}`,
+            );
+        }
+
+        if (scenario === "designer-inline") {
+            const changed = await evaluate(
+                `(() => { const input = document.querySelector('input[aria-label="常量文本"]'); if (!input) return false; const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; setter.call(input, 'inline edited'); input.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`,
+            );
+            await settle(1200);
+
+            const config = await evaluateAsync(`(async () => {
+                const list = await window.flowharness.listWorkspaces();
+                const workspace = list.ok ? list.data[0] : undefined;
+                if (!workspace) return null;
+                const snapshot = await window.flowharness.readDocument(workspace.id, { kind: 'harness', id: 'main' });
+                if (!snapshot.ok || snapshot.data === null) return null;
+                const nodes = snapshot.data.document?.nodes;
+                return Array.isArray(nodes) ? nodes.find((node) => node.id === 'constant')?.config : null;
+            })()`);
+            const save = await evaluateAsync(
+                `document.querySelector('footer [data-state]')?.textContent`,
+            );
+            console.log(`inline changed: ${JSON.stringify(changed.result?.value)}`);
+            console.log(`inline config: ${JSON.stringify(config.result?.value)}`);
+            console.log(`inline save: ${JSON.stringify(save.result?.value)}`);
+        }
+
         if (scenario === "designer-import") {
             const fixture = join(tmpdir(), `fh-import-${process.pid}.json`);
             writeFileSync(
@@ -523,6 +581,47 @@ try {
             console.log(`history after undo: ${JSON.stringify(await count())}`);
             await press("y");
             console.log(`history after redo: ${JSON.stringify(await count())}`);
+        }
+
+        if (scenario === "designer-workbenches") {
+            const workbenches = await evaluateAsync(`(async () => {
+                const list = await window.flowharness.listWorkspaces();
+                const workspace = list.ok ? list.data[0] : undefined;
+                if (!workspace) return null;
+                const result = await window.flowharness.listWorkbenches(workspace.id);
+                return result.ok ? result.data.map((item) => ({ id: item.id, title: item.title, type: item.type })) : null;
+            })()`);
+            console.log(`workbenches: ${JSON.stringify(workbenches.result?.value)}`);
+
+            await clickElement(`document.querySelector('button[aria-label="切换或新建工作台"]')`);
+            await settle(500);
+        }
+
+        if (scenario === "designer-workbench-flow") {
+            await clickElement(`document.querySelector('button[aria-label="切换或新建工作台"]')`);
+            await settle(300);
+            await clickElement(
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('节点清单'))`,
+            );
+            await settle(1800);
+
+            const workbenches = await evaluateAsync(`(async () => {
+                const list = await window.flowharness.listWorkspaces();
+                const workspace = list.ok ? list.data[0] : undefined;
+                if (!workspace) return null;
+                const result = await window.flowharness.listWorkbenches(workspace.id);
+                return result.ok ? result.data.map((item) => ({ id: item.id, title: item.title, type: item.type })) : null;
+            })()`);
+            const trigger = await evaluateAsync(
+                `document.querySelector('button[aria-label="切换或新建工作台"]')?.textContent?.trim()`,
+            );
+            const rows = await send("Runtime.evaluate", {
+                expression: "document.querySelectorAll('table tbody tr').length",
+                returnByValue: true,
+            });
+            console.log(
+                `workbench flow: ${JSON.stringify(workbenches.result?.value)} / ${JSON.stringify(trigger.result?.value)} / rows=${String(rows.result?.value)}`,
+            );
         }
 
         if (scenario === "designer-doc-flow") {

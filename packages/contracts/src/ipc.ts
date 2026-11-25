@@ -11,6 +11,7 @@ import type {
     WorkspaceCreateInput,
     WorkspaceSummary,
 } from "./domain";
+import type { WorkbenchSummary } from "./workbench";
 import type {
     ApprovalResponseRequest,
     RunCancelRequest,
@@ -54,6 +55,7 @@ export const IpcChannel = {
     WorkspaceListDocuments: "workspace:listDocuments",
     WorkspaceDeleteDocument: "workspace:deleteDocument",
     WorkspaceExportHarness: "workspace:exportHarness",
+    WorkspaceListWorkbenches: "workspace:listWorkbenches",
     WorkspaceApplyCommands: "workspace:applyCommands",
     WorkspaceExport: "workspace:export",
     WorkspaceImport: "workspace:import",
@@ -138,6 +140,8 @@ export type WorkspaceExportHarnessRequest = {
     defaultFileName: string;
 };
 
+export type WorkspaceListWorkbenchesRequest = { workspaceId: string };
+
 export type BlobStatRequest = { workspaceId: string; hash: string };
 export type BlobDeleteRequest = { workspaceId: string; hash: string };
 
@@ -188,6 +192,10 @@ export type IpcInvokeContracts = {
     [IpcChannel.WorkspaceExportHarness]: {
         request: WorkspaceExportHarnessRequest;
         response: { path: string | null };
+    };
+    [IpcChannel.WorkspaceListWorkbenches]: {
+        request: WorkspaceListWorkbenchesRequest;
+        response: WorkbenchSummary[];
     };
 
     [IpcChannel.BlobStat]: { request: BlobStatRequest; response: BlobMeta | null };

@@ -43,6 +43,7 @@ import {
     type WorkspaceExportRequest,
     type WorkspaceImportRequest,
     type WorkspaceListDocumentsRequest,
+    type WorkspaceListWorkbenchesRequest,
     type WorkspaceOpenRequest,
     type WorkspaceReadDocumentRequest,
     type WorkspaceSaveDocumentRequest,
@@ -575,6 +576,12 @@ function registerIpcHandlers(): void {
         IpcChannel.WorkspaceListDocuments,
         ({ workspaceId }: WorkspaceListDocumentsRequest) =>
             workspaces.listDocuments(workspaceId),
+    );
+
+    registerHandler(
+        IpcChannel.WorkspaceListWorkbenches,
+        ({ workspaceId }: WorkspaceListWorkbenchesRequest) =>
+            workspaces.listWorkbenches(workspaceId),
     );
 
     registerHandler(

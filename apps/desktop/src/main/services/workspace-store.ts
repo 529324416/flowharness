@@ -6,6 +6,7 @@ import {
     FhError,
     type DocumentRef,
     type HarnessDocumentSummary,
+    type WorkbenchSummary,
     type WorkspaceCreateInput,
     type WorkspaceSummary,
 } from "@flowharness/contracts";
@@ -278,6 +279,65 @@ export class WorkspaceStore {
 
         documents.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
         return documents;
+    }
+
+    /** 列出工作区内的 Workbench 实例文档。 */
+    async listWorkbenches(id: string): Promise<WorkbenchSummary[]> {
+        const workspace = this.requireOpen(id);
+        const dir = join(workspace.dir, "documents", "workbenches");
+
+        let entries;
+        try {
+            entries = await fs.readdir(dir, { withFileTypes: true });
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+            throw error;
+        }
+
+        const workbenches: WorkbenchSummary[] = [];
+
+        for (const entry of entries) {
+            if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+
+            const workbenchId = entry.name.slice(0, -5);
+            if (!SAFE_ID.test(workbenchId)) continue;
+
+            const file = join(dir, entry.name);
+            const stat = await fs.stat(file).catch(() => undefined);
+            if (stat === undefined) continue;
+
+            let title = workbenchId;
+            let type = "unknown";
+            try {
+                const raw = await readJsonFile<unknown>(file);
+                if (
+                    typeof raw === "object" &&
+                    raw !== null &&
+                    !Array.isArray(raw)
+                ) {
+                    const candidate = raw as { title?: unknown; type?: unknown };
+                    if (typeof candidate.title === "string" && candidate.title.trim().length > 0) {
+                        title = candidate.title;
+                    }
+                    if (typeof candidate.type === "string" && candidate.type.length > 0) {
+                        type = candidate.type;
+                    }
+                }
+            } catch {
+                // 保留 id / unknown，避免单份损坏实例影响列表。
+            }
+
+            workbenches.push({
+                id: workbenchId,
+                title,
+                type,
+                updatedAt: stat.mtime.toISOString(),
+                size: stat.size,
+            });
+        }
+
+        workbenches.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        return workbenches;
     }
 
     /** 删除一份文档；不存在时返回 false。 */

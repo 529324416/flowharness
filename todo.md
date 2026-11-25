@@ -1,6 +1,6 @@
 # TODO
 
-> 当前主线：**M5 Workbench Framework**（M4 文档生命周期与编辑体验已完成）。
+> 当前主线：**M5 Workbench Framework（进行中，M5.1 已完成）**。
 > 原则：垂直切片；UI 外壳冻结，只改组件；wireclaw 契约先行、submodule 联合开发。
 
 ## 当前里程碑（M1 已完成）
@@ -108,14 +108,16 @@
 - [x] 未保存保护、冲突恢复、外部修改检测（系统级关闭仍有限制）
 - [x] 文档切换入口；工作台切换留 M5
 
-### M5 — Workbench Framework（原 Phase 4）
+### M5 — Workbench Framework（M5.1 已完成）
 
-- [ ] `WorkbenchDefinition` / 工作台实例文档 / controller / 命令栈 / 自动保存
-- [ ] 模块注册表与视图宿主
+> M5.1 已完成：`WorkbenchDefinition` / 实例文档（`documents/workbenches`）/ `WorkbenchController` / 命令栈与自动保存复用；workbench registry + `WorkbenchHost`；第二个「节点清单」工作台验证复用；Constant / Model Call / Log 节点内联编辑。剩余：WorkbenchPlan、独立参数槽拖拽与更完整的 NodeContent。
+
+- [x] `WorkbenchDefinition` / 工作台实例文档 / controller / 命令栈 / 自动保存
+- [x] 模块注册表与视图宿主
 - [ ] `WorkbenchPlan`（仅独立多 run；优先 subgraph）
-- [ ] 第二个工作台验证框架复用性
-- [ ] 高频节点内联编辑：在 NodeContent 内直接修改参数，不强制打开属性栏
-- [ ] 拖拽传入：从其他节点的输出端口拖到参数/输入槽，复用端口类型与连线语义
+- [x] 第二个工作台（节点清单）验证框架复用性
+- [x] 高频节点内联编辑：Constant / Model Call / Log 直接在 NodeContent 内修改参数
+- [ ] 拖拽传入：输出端口到输入端口已通过 Handle 支持；独立「参数槽」拖拽仍待做
 
 ### M6 — Session / Provider 闭环（原 Phase 5）
 
@@ -263,6 +265,7 @@
 - [x] 24 个测试文件 / 109 个测试通过（M2 + 一致性收口）
 - [x] 25 个测试文件 / 121 个测试通过（M3）
 - [x] 27 个测试文件 / 135 个测试通过（M4）
+- [x] 27 个测试文件 / 136 个测试通过（M5.1）
 - [x] wireclaw：66 项离线测试通过（新增 `harness-nested-validation`）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步

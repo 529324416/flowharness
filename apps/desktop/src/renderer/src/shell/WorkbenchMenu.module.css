@@ -1,0 +1,39 @@
+.trigger {
+  max-width: 200px;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu {
+  min-width: 280px;
+}
+
+.check {
+  display: inline-flex;
+  color: var(--fh-accent);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.type {
+  color: var(--fh-text-subtle);
+  font-family: var(--fh-font-mono);
+  font-size: var(--fh-text-xs);
+}
+
+.empty {
+  padding: var(--fh-space-2) var(--fh-space-3);
+  color: var(--fh-text-subtle);
+  font-size: var(--fh-text-xs);
+}

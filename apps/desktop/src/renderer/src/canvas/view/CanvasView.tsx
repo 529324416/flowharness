@@ -25,9 +25,9 @@ import { CANVAS_METRICS } from "../metrics";
 import type {
     CanvasCommand,
     CanvasDocument,
-    CanvasNodeData,
     CanvasStatus,
 } from "../core/types";
+import type { FlowNodeData } from "./flow-types";
 import { createNodeTypes } from "./node-registry";
 import { SciFiEdge } from "./SciFiEdge";
 import type { FlowEdge, FlowNode } from "./flow-types";
@@ -63,18 +63,31 @@ export type CanvasViewProps = {
     onAddNode?: (position: { x: number; y: number }) => void;
     /** 问题面板定位：seq 变化时把视口聚焦到节点 */
     focusNode?: { nodeId: string; seq: number } | null;
+    /** 节点内联编辑：写回该节点的 config。 */
+    onUpdateNodeConfig?: (nodeId: string, config: unknown) => void;
 };
 
 function toFlowNodes(
     document: CanvasDocument,
     selectedNodeIds: readonly string[],
     nodeStatuses: Readonly<Record<string, CanvasStatus>> | undefined,
+    onUpdateNodeConfig:
+        | ((nodeId: string, config: unknown) => void)
+        | undefined,
+    readOnly: boolean,
 ): FlowNode[] {
     const selected = new Set(selectedNodeIds);
     return document.nodes.map((node) => {
-        const data: CanvasNodeData = {
+        const data: FlowNodeData = {
             ...node.data,
             status: nodeStatuses?.[node.id] ?? node.data.status,
+            ...(onUpdateNodeConfig === undefined
+                ? {}
+                : {
+                      onUpdateConfig: (config: unknown) =>
+                          onUpdateNodeConfig(node.id, config),
+                  }),
+            readOnly,
         };
 
         return {
@@ -109,13 +122,20 @@ export function CanvasView({
     nodeStatuses,
     onAddNode,
     focusNode,
+    onUpdateNodeConfig,
 }: CanvasViewProps): ReactElement {
     const rootRef = useRef<HTMLDivElement>(null);
     const lastFocusSeq = useRef<number | null>(null);
     const rightPan = useRef<{ x: number; y: number; moved: boolean } | null>(null);
     const suppressContextMenu = useRef(false);
     const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(
-        toFlowNodes(document, selectedNodeIds, nodeStatuses),
+        toFlowNodes(
+            document,
+            selectedNodeIds,
+            nodeStatuses,
+            onUpdateNodeConfig,
+            readOnly,
+        ),
     );
     const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(
         toFlowEdges(document),
@@ -128,9 +148,25 @@ export function CanvasView({
 
     // 文档是事实源：外部加载/命令回写后重新投影；拖拽中间态只存在本地 view state。
     useEffect(() => {
-        setNodes(toFlowNodes(document, selectedNodeIds, nodeStatuses));
+        setNodes(
+            toFlowNodes(
+                document,
+                selectedNodeIds,
+                nodeStatuses,
+                onUpdateNodeConfig,
+                readOnly,
+            ),
+        );
         setEdges(toFlowEdges(document));
-    }, [document, selectedNodeIds, nodeStatuses, setNodes, setEdges]);
+    }, [
+        document,
+        selectedNodeIds,
+        nodeStatuses,
+        onUpdateNodeConfig,
+        readOnly,
+        setNodes,
+        setEdges,
+    ]);
 
     const kindsKey = useMemo(
         () =>

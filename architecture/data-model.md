@@ -24,7 +24,7 @@
     harness/
       <documentId>.json       # GraphDocument；M4 起一个工作区可有多份
     workbenches/
-      <instanceId>.json       # 目标：WorkbenchInstanceDocument（目录已建，尚无读写方）
+      <instanceId>.json       # WorkbenchInstanceDocument（M5.1 起）
   objects/
     <hash[0:2]>/<hash>        # BlobStore 内容文件
     index.json                # 元数据 + 引用（可重建）
@@ -98,7 +98,7 @@
 - 节点 `type` 必须使用 wireclaw 内建名（`HarnessBuiltinNodeType`，如 `core.constant` / `core.model.call` / `core.log`），不是显示名；
 - `inputs` / `requires` 由 wireclaw 管理，FH 只透传。
 
-## 5. Workbench Instance 文档（目标，未实现）
+## 5. Workbench Instance 文档（M5.1 已实现基础）
 
 ```json
 {
@@ -124,7 +124,7 @@
 - `plan` 为空表示单图；多图组合时填写（见 [ui.md](./ui.md)）；
 - `parameters` 是该实例的运行入参默认值。
 
-> 现状：没有任何 WorkbenchInstanceDocument 的读写代码。`documents/workbenches/` 只建目录，`DocumentRef.kind === "workbench"` 的路径映射已支持，但无调用方。以上为 M5 的目标格式。
+> 现状（M5.1）：`workbench/instance.ts` 负责创建 / 校验实例，`documents/workbenches/<id>.json` 通过通用文档 API 读写，`workspace:listWorkbenches` 返回摘要；每个工作区自动创建一个 `harness-designer` 实例，并记录主图绑定。`plan` 目前恒为 `null`，`layout.overrides` 尚未接线。
 
 ## 6. Blob 与附件
 

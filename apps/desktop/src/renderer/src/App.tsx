@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type ReactElement,
+} from "react";
 // Wireclaw 以普通包依赖的方式引入；这里用于启动自检。
 import { Graph, type GraphDocument } from "wireclaw";
 import type {
@@ -7,11 +14,18 @@ import type {
     RunEventBatch,
     RunEventDto,
     RunSnapshot,
+    WorkbenchInstanceDocument,
+    WorkbenchSummary,
     WorkspaceSummary,
 } from "@flowharness/contracts";
-import { TooltipProvider } from "./ui";
+import {
+    Button,
+    EmptyState,
+    TooltipProvider,
+} from "./ui";
 import { AppShell } from "./shell/AppShell";
 import { DocumentMenu } from "./shell/DocumentMenu";
+import { WorkbenchMenu } from "./shell/WorkbenchMenu";
 import { TitleBar } from "./shell/TitleBar";
 import { RibbonBar } from "./shell/RibbonBar";
 import { SessionSidebar } from "./shell/SessionSidebar";
@@ -25,7 +39,7 @@ import { createSession, INITIAL_SESSIONS, type SessionSummary } from "./shell/se
 import { PanelLayer } from "./shell/panels/PanelLayer";
 import { useFloatingPanels } from "./shell/panels/useFloatingPanels";
 import { VIEW_LABEL, type ViewId } from "./shell/views";
-import { DesignerView, type DesignerSaveStatus } from "./views/DesignerView";
+import type { DesignerSaveStatus } from "./views/DesignerView";
 import { DiagnosticsView } from "./views/DiagnosticsView";
 import { StyleguideView } from "./views/StyleguideView";
 import { useTheme } from "./theme/ThemeProvider";
@@ -49,6 +63,20 @@ import {
     readRecentDocuments,
     writeRecentDocuments,
 } from "./designer/state/recent-documents";
+import { WorkbenchHost } from "./workbench/WorkbenchHost";
+import {
+    createWorkbenchId,
+    createWorkbenchInstance,
+    defaultWorkbenchTitle,
+    isWorkbenchInstanceDocument,
+    primaryGraphId,
+    withPrimaryGraph,
+} from "./workbench/instance";
+import type {
+    WorkbenchController,
+    WorkbenchShell,
+} from "./workbench/types";
+import "./workbenches";
 import styles from "./App.module.css";
 
 const bootGraph = new Graph([], [], {
@@ -128,6 +156,17 @@ export function App(): ReactElement {
     const [documentBusy, setDocumentBusy] = useState(false);
     const [documentError, setDocumentError] = useState<string | null>(null);
     const documentActionsRef = useRef<DesignerDocumentActions | null>(null);
+    const [workbenches, setWorkbenches] = useState<WorkbenchSummary[]>([]);
+    const [activeWorkbenchId, setActiveWorkbenchId] = useState<string | null>(
+        null,
+    );
+    const [activeWorkbench, setActiveWorkbench] =
+        useState<WorkbenchInstanceDocument | null>(null);
+    const [workbenchBusy, setWorkbenchBusy] = useState(false);
+    const activeWorkbenchRef = useRef<WorkbenchInstanceDocument | null>(null);
+    const workbenchRevisionRef = useRef<string | null>(null);
+    const workbenchControllerRef = useRef<WorkbenchController | null>(null);
+    const workbenchSaveChain = useRef(Promise.resolve());
 
     const {
         panels,
@@ -283,7 +322,7 @@ export function App(): ReactElement {
     }, []);
 
     const openDocumentsForWorkspace = useCallback(
-        async (workspaceId: string): Promise<void> => {
+        async (workspaceId: string): Promise<string | null> => {
             setDocumentBusy(true);
             setDocumentError(null);
 
@@ -298,7 +337,7 @@ export function App(): ReactElement {
                     });
                     if (!saved.ok && saved.error.code !== "E_CONFLICT") {
                         setDocumentError(saved.error.message);
-                        return;
+                        return null;
                     }
                     list = await refreshDocuments(workspaceId);
                 }
@@ -312,12 +351,250 @@ export function App(): ReactElement {
 
                 setActiveDocumentId(preferred);
                 if (preferred !== null) rememberDocument(workspaceId, preferred);
+                return preferred;
             } finally {
                 setDocumentBusy(false);
             }
         },
         [bridge, refreshDocuments, rememberDocument],
     );
+
+    const refreshWorkbenches = useCallback(
+        async (workspaceId: string): Promise<WorkbenchSummary[]> => {
+            const result = await bridge.listWorkbenches(workspaceId);
+            if (!result.ok) {
+                setDocumentError(result.error.message);
+                return [];
+            }
+            setWorkbenches(result.data);
+            return result.data;
+        },
+        [bridge],
+    );
+
+    const loadWorkbench = useCallback(
+        async (
+            workspaceId: string,
+            workbenchId: string,
+        ): Promise<WorkbenchInstanceDocument | null> => {
+            const snapshot = await bridge.readDocument(workspaceId, {
+                kind: "workbench",
+                id: workbenchId,
+            });
+            if (!snapshot.ok || snapshot.data === null) {
+                setDocumentError(
+                    snapshot.ok ? "工作台实例不存在" : snapshot.error.message,
+                );
+                return null;
+            }
+            if (!isWorkbenchInstanceDocument(snapshot.data.document)) {
+                setDocumentError("工作台实例格式无效");
+                return null;
+            }
+
+            activeWorkbenchRef.current = snapshot.data.document;
+            workbenchRevisionRef.current = snapshot.data.revision;
+            setActiveWorkbench(snapshot.data.document);
+            setActiveWorkbenchId(workbenchId);
+            return snapshot.data.document;
+        },
+        [bridge],
+    );
+
+    const openWorkbenchesForWorkspace = useCallback(
+        async (
+            workspaceId: string,
+            preferredGraphId: string | null,
+        ): Promise<void> => {
+            setWorkbenchBusy(true);
+            setDocumentError(null);
+
+            try {
+                let list = await refreshWorkbenches(workspaceId);
+                if (list.length === 0) {
+                    const id = createWorkbenchId();
+                    const instance = createWorkbenchInstance({
+                        id,
+                        type: "harness-designer",
+                        title: defaultWorkbenchTitle("harness-designer"),
+                        graphId: preferredGraphId ?? "main",
+                    });
+                    const saved = await bridge.saveDocument({
+                        workspaceId,
+                        ref: { kind: "workbench", id },
+                        baseRevision: null,
+                        document: instance,
+                    });
+                    if (!saved.ok) {
+                        setDocumentError(saved.error.message);
+                        return;
+                    }
+                    list = await refreshWorkbenches(workspaceId);
+                }
+
+                const first = list[0];
+                if (first === undefined) return;
+
+                const loaded = await loadWorkbench(workspaceId, first.id);
+                const documents = await refreshDocuments(workspaceId);
+                const primary =
+                    loaded === null ? null : primaryGraphId(loaded);
+                const validGraph =
+                    primary !== null &&
+                    documents.some((document) => document.id === primary)
+                        ? primary
+                        : preferredGraphId ?? documents[0]?.id ?? null;
+
+                if (
+                    loaded !== null &&
+                    validGraph !== null &&
+                    primary !== validGraph
+                ) {
+                    const next = withPrimaryGraph(loaded, validGraph);
+                    activeWorkbenchRef.current = next;
+                    setActiveWorkbench(next);
+                    const saved = await bridge.saveDocument({
+                        workspaceId,
+                        ref: { kind: "workbench", id: next.id },
+                        baseRevision: workbenchRevisionRef.current,
+                        document: next,
+                    });
+                    if (saved.ok) {
+                        workbenchRevisionRef.current = saved.data.revision;
+                    }
+                }
+
+                if (validGraph !== null) {
+                    setActiveDocumentId(validGraph);
+                    rememberDocument(workspaceId, validGraph);
+                }
+            } finally {
+                setWorkbenchBusy(false);
+            }
+        },
+        [
+            bridge,
+            loadWorkbench,
+            refreshDocuments,
+            refreshWorkbenches,
+            rememberDocument,
+        ],
+    );
+
+    const updateActiveWorkbench = useCallback(
+        (mutate: (current: WorkbenchInstanceDocument) => WorkbenchInstanceDocument) => {
+            const current = activeWorkbenchRef.current;
+            const workspace = activeWorkspace;
+            if (current === null || workspace === null) return;
+
+            const next = mutate(current);
+            if (next === current) return;
+
+            activeWorkbenchRef.current = next;
+            setActiveWorkbench(next);
+
+            workbenchSaveChain.current = workbenchSaveChain.current.then(
+                async () => {
+                    const saved = await bridge.saveDocument({
+                        workspaceId: workspace.id,
+                        ref: { kind: "workbench", id: next.id },
+                        baseRevision: workbenchRevisionRef.current,
+                        document: next,
+                    });
+                    if (saved.ok) {
+                        workbenchRevisionRef.current = saved.data.revision;
+                    } else {
+                        setDocumentError(saved.error.message);
+                    }
+                },
+            );
+        },
+        [activeWorkspace, bridge],
+    );
+
+    const handleSelectWorkbench = useCallback(
+        async (workbenchId: string): Promise<void> => {
+            const workspace = activeWorkspace;
+            if (
+                workspace === null ||
+                workbenchId === activeWorkbenchId
+            ) {
+                return;
+            }
+            if (!(await flushCurrentDocument())) return;
+
+            const loaded = await loadWorkbench(workspace.id, workbenchId);
+            if (loaded === null) return;
+
+            const graphId = primaryGraphId(loaded);
+            if (graphId !== null) {
+                setActiveDocumentId(graphId);
+                rememberDocument(workspace.id, graphId);
+            }
+        },
+        [
+            activeWorkbenchId,
+            activeWorkspace,
+            flushCurrentDocument,
+            loadWorkbench,
+            rememberDocument,
+        ],
+    );
+
+    const handleCreateWorkbench = useCallback(
+        async (type: string): Promise<void> => {
+            const workspace = activeWorkspace;
+            if (workspace === null) return;
+
+            setWorkbenchBusy(true);
+            setDocumentError(null);
+            try {
+                if (!(await flushCurrentDocument())) return;
+
+                const id = createWorkbenchId();
+                const instance = createWorkbenchInstance({
+                    id,
+                    type,
+                    title: defaultWorkbenchTitle(type),
+                    graphId: activeDocumentId ?? documents[0]?.id ?? "main",
+                });
+                const saved = await bridge.saveDocument({
+                    workspaceId: workspace.id,
+                    ref: { kind: "workbench", id },
+                    baseRevision: null,
+                    document: instance,
+                });
+                if (!saved.ok) {
+                    setDocumentError(saved.error.message);
+                    return;
+                }
+
+                await refreshWorkbenches(workspace.id);
+                await loadWorkbench(workspace.id, id);
+                const graphId = primaryGraphId(instance);
+                if (graphId !== null) {
+                    setActiveDocumentId(graphId);
+                    rememberDocument(workspace.id, graphId);
+                }
+            } finally {
+                setWorkbenchBusy(false);
+            }
+        },
+        [
+            activeDocumentId,
+            activeWorkspace,
+            bridge,
+            documents,
+            flushCurrentDocument,
+            loadWorkbench,
+            refreshWorkbenches,
+            rememberDocument,
+        ],
+    );
+
+    useEffect(() => {
+        activeWorkbenchRef.current = activeWorkbench;
+    }, [activeWorkbench]);
 
     const openWorkspaceById = useCallback(
         async (id: string): Promise<void> => {
@@ -331,6 +608,11 @@ export function App(): ReactElement {
                     setActiveWorkspace(null);
                     setDocuments([]);
                     setActiveDocumentId(null);
+                    setWorkbenches([]);
+                    setActiveWorkbenchId(null);
+                    setActiveWorkbench(null);
+                    activeWorkbenchRef.current = null;
+                    workbenchRevisionRef.current = null;
                 }
 
                 const opened = await bridge.openWorkspace(id);
@@ -341,7 +623,8 @@ export function App(): ReactElement {
 
                 setActiveWorkspace(opened.data);
                 setView("designer");
-                await openDocumentsForWorkspace(opened.data.id);
+                const preferredGraph = await openDocumentsForWorkspace(opened.data.id);
+                await openWorkbenchesForWorkspace(opened.data.id, preferredGraph);
             } finally {
                 setBusy(false);
             }
@@ -351,6 +634,7 @@ export function App(): ReactElement {
             bridge,
             flushCurrentDocument,
             openDocumentsForWorkspace,
+            openWorkbenchesForWorkspace,
         ],
     );
 
@@ -754,6 +1038,29 @@ export function App(): ReactElement {
         });
     }, []);
 
+    const workbenchShell = useMemo<WorkbenchShell>(
+        () => ({
+            onRunWillStart: handleDesignerRunWillStart,
+            onRunStarted: handleDesignerRunStarted,
+            onRunControlsChange: setDesignerRunControls,
+            onSaveStatusChange: setDesignerSaveStatus,
+            onInspectorChange: setDesignerInspector,
+            onProblemsChange: setDesignerProblems,
+            onDocumentActionsChange: handleDocumentActionsChange,
+            onControllerChange: (controller: WorkbenchController | null) => {
+                workbenchControllerRef.current = controller;
+            },
+            onSaveConflictCopy: (graph: GraphDocument) =>
+                void handleSaveConflictCopy(graph),
+        }),
+        [
+            handleDesignerRunStarted,
+            handleDesignerRunWillStart,
+            handleDocumentActionsChange,
+            handleSaveConflictCopy,
+        ],
+    );
+
     useEffect(() => {
         setRunEvents([]);
         setRunSnapshot(null);
@@ -764,6 +1071,11 @@ export function App(): ReactElement {
         setDocuments([]);
         setRecentDocumentIds([]);
         setActiveDocumentId(null);
+        setWorkbenches([]);
+        setActiveWorkbenchId(null);
+        setActiveWorkbench(null);
+        activeWorkbenchRef.current = null;
+        workbenchRevisionRef.current = null;
         documentActionsRef.current = null;
     }, [activeWorkspace]);
 
@@ -857,32 +1169,53 @@ export function App(): ReactElement {
     const main =
         view === "designer" ? (
             <div className={styles.stage}>
-                <DesignerView
-                    workspace={activeWorkspace}
-                    documentId={activeDocumentId}
-                    busy={busy || documentBusy}
-                    error={dataError ?? documentError}
-                    onCreateWorkspace={() => void createDemoWorkspace()}
-                    onRunWillStart={handleDesignerRunWillStart}
-                    onRunStarted={handleDesignerRunStarted}
-                    onRunControlsChange={setDesignerRunControls}
-                    onSaveStatusChange={setDesignerSaveStatus}
-                    onInspectorChange={setDesignerInspector}
-                    onProblemsChange={setDesignerProblems}
-                    onDocumentActionsChange={handleDocumentActionsChange}
-                    onSaveConflictCopy={(graph) => void handleSaveConflictCopy(graph)}
-                />
-                <PanelLayer
-                    panels={panels}
-                    events={runEvents}
-                    snapshot={runSnapshot}
-                    inspector={designerInspector}
-                    problems={designerProblems?.problems ?? []}
-                    onSelectProblem={designerProblems?.select}
-                    onClose={closePanel}
-                    onFocus={focusPanel}
-                    onUpdate={updatePanel}
-                />
+                {activeWorkspace === null ? (
+                    <EmptyState
+                        title="还没有工作区"
+                        description="创建一个工作区，开始编排第一个 Harness 工作流。"
+                        action={
+                            <Button
+                                variant="primary"
+                                aria-label="新建工作区"
+                                disabled={busy}
+                                onClick={() => void createDemoWorkspace()}
+                            >
+                                新建工作区
+                            </Button>
+                        }
+                    />
+                ) : activeWorkbench === null ? (
+                    <EmptyState
+                        title="正在打开工作台…"
+                        description={activeWorkspace.name}
+                    />
+                ) : (
+                    <WorkbenchHost
+                        key={activeWorkbench.id}
+                        instance={activeWorkbench}
+                        workspace={activeWorkspace}
+                        documents={documents}
+                        activeDocumentId={activeDocumentId}
+                        busy={busy || documentBusy || workbenchBusy}
+                        error={dataError ?? documentError}
+                        shell={workbenchShell}
+                        onUpdateInstance={updateActiveWorkbench}
+                    />
+                )}
+
+                {activeWorkbench?.type === "harness-designer" ? (
+                    <PanelLayer
+                        panels={panels}
+                        events={runEvents}
+                        snapshot={runSnapshot}
+                        inspector={designerInspector}
+                        problems={designerProblems?.problems ?? []}
+                        onSelectProblem={designerProblems?.select}
+                        onClose={closePanel}
+                        onFocus={focusPanel}
+                        onUpdate={updatePanel}
+                    />
+                ) : null}
             </div>
         ) : view === "diagnostics" ? (
             <DiagnosticsView
@@ -926,6 +1259,21 @@ export function App(): ReactElement {
                         onToggleRunLog={() => togglePanel("run-log")}
                         onToggleInspector={() => togglePanel("inspector")}
                         runControls={designerRunControls}
+                        workbenchMenu={
+                            activeWorkspace === null ? undefined : (
+                                <WorkbenchMenu
+                                    workbenches={workbenches}
+                                    activeWorkbenchId={activeWorkbenchId}
+                                    busy={workbenchBusy || documentBusy || busy}
+                                    onSelectWorkbench={(id) =>
+                                        void handleSelectWorkbench(id)
+                                    }
+                                    onCreateWorkbench={(type) =>
+                                        void handleCreateWorkbench(type)
+                                    }
+                                />
+                            )
+                        }
                         documentMenu={
                             activeWorkspace === null ? undefined : (
                             <DocumentMenu

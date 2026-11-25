@@ -30,6 +30,7 @@ import { useDesignerRun } from "../designer/state/useDesignerRun";
 import { useRecentNodes } from "../designer/state/useRecentNodes";
 import type { InspectorModel } from "../inspector/model";
 import type { RunControls } from "../run/run-controls";
+import type { WorkbenchController } from "../workbench/types";
 import {
     NODE_LIBRARY_MAX_HEIGHT,
     NODE_LIBRARY_WIDTH,
@@ -53,6 +54,7 @@ export type DesignerViewProps = {
     onInspectorChange: (model: InspectorModel | null) => void;
     onProblemsChange: (model: DesignerProblemsModel | null) => void;
     onDocumentActionsChange: (actions: DesignerDocumentActions | null) => void;
+    onControllerChange: (controller: WorkbenchController | null) => void;
     /** 保存冲突时把当前内存文档另存为副本。 */
     onSaveConflictCopy: (graph: GraphDocument) => void;
 };
@@ -71,6 +73,7 @@ export function DesignerView({
     onInspectorChange,
     onProblemsChange,
     onDocumentActionsChange,
+    onControllerChange,
     onSaveConflictCopy,
 }: DesignerViewProps): ReactElement {
     const {
@@ -477,6 +480,52 @@ export function DesignerView({
         return () => onRunControlsChange(null);
     }, [onRunControlsChange]);
 
+    const controller = useMemo<WorkbenchController | null>(() => {
+        if (status !== "ready" || graph === null) return null;
+
+        return {
+            status: runStatus,
+            canUndo,
+            canRedo,
+            run: () => {
+                void handleRun();
+            },
+            pause: () => {
+                void pause();
+            },
+            resume: () => {
+                void resume();
+            },
+            cancel: handleCancel,
+            undo: undoEdit,
+            redo: redoEdit,
+            save: async () => {
+                await flush();
+            },
+        };
+    }, [
+        canRedo,
+        canUndo,
+        flush,
+        graph,
+        handleCancel,
+        handleRun,
+        pause,
+        redoEdit,
+        resume,
+        runStatus,
+        status,
+        undoEdit,
+    ]);
+
+    useEffect(() => {
+        onControllerChange(controller);
+    }, [controller, onControllerChange]);
+
+    useEffect(() => {
+        return () => onControllerChange(null);
+    }, [onControllerChange]);
+
     const saveIndicator = useMemo<DesignerSaveStatus | null>(() => {
         if (status !== "ready") return null;
         if (saveState.status === "pending" || saveState.status === "saving") {
@@ -570,6 +619,7 @@ export function DesignerView({
                 readOnly={editingDisabled}
                 onAddNode={openNodeLibrary}
                 focusNode={focusNode}
+                onUpdateNodeConfig={updateNodeConfig}
             />
 
             {libraryOpen && !editingDisabled ? (

@@ -126,6 +126,7 @@
   --fh-z-titlebar: 20;
   --fh-z-overlay: 100;
   --fh-z-modal: 200;
+  --fh-z-popover: 250;
   --fh-z-toast: 300;
 }
 

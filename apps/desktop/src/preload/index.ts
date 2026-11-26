@@ -13,8 +13,20 @@ import {
     type HarnessDocumentSummary,
     type IpcEventEnvelope,
     type IpcResult,
-    type ProviderStatus,
-    type ProviderTestResult,
+    type ApiKeyAddRequest,
+    type ApiKeyAddResult,
+    type ApiKeyDeleteRequest,
+    type ApiKeyDeleteResult,
+    type ApiKeyRevalidateRequest,
+    type ApiKeyReplaceRequest,
+    type ProviderCatalogRefreshResult,
+    type ProviderLibraryView,
+    type ProviderModelsRefreshRequest,
+    type ProviderProfile,
+    type ProviderProfileCreateRequest,
+    type ProviderProfileDeleteRequest,
+    type ProviderProfileDeleteResult,
+    type ProviderProfileUpdateRequest,
     type RunSnapshot,
     type RunStartRequest,
     type RunResumeInterruptedRequest,
@@ -90,20 +102,40 @@ const bridge = {
     getConfig: (): Promise<IpcResult<AppConfig>> => invoke(IpcChannel.ConfigGet),
     updateConfig: (patch: AppConfigUpdate): Promise<IpcResult<AppConfig>> =>
         invoke(IpcChannel.ConfigUpdate, patch),
-    secretsHas: (providerId: string): Promise<IpcResult<{ has: boolean }>> =>
-        invoke(IpcChannel.SecretsHas, { providerId }),
-    secretsSet: (providerId: string, value: string): Promise<IpcResult<void>> =>
-        invoke(IpcChannel.SecretsSet, { providerId, value }),
-    secretsDelete: (
-        providerId: string,
-    ): Promise<IpcResult<{ deleted: boolean }>> =>
-        invoke(IpcChannel.SecretsDelete, { providerId }),
-    listProviders: (): Promise<IpcResult<ProviderStatus[]>> =>
-        invoke(IpcChannel.ProvidersList),
-    testProvider: (
-        providerId: string,
-    ): Promise<IpcResult<ProviderTestResult>> =>
-        invoke(IpcChannel.ProvidersTest, { providerId }),
+    getProviderLibrary: (): Promise<IpcResult<ProviderLibraryView>> =>
+        invoke(IpcChannel.ProviderLibrary),
+    addProviderKey: (
+        request: ApiKeyAddRequest,
+    ): Promise<IpcResult<ApiKeyAddResult>> =>
+        invoke(IpcChannel.ProviderKeyAdd, request),
+    revalidateProviderKey: (
+        request: ApiKeyRevalidateRequest,
+    ): Promise<IpcResult<ApiKeyAddResult>> =>
+        invoke(IpcChannel.ProviderKeyRevalidate, request),
+    replaceProviderKey: (
+        request: ApiKeyReplaceRequest,
+    ): Promise<IpcResult<ApiKeyAddResult>> =>
+        invoke(IpcChannel.ProviderKeyReplace, request),
+    deleteProviderKey: (
+        request: ApiKeyDeleteRequest,
+    ): Promise<IpcResult<ApiKeyDeleteResult>> =>
+        invoke(IpcChannel.ProviderKeyDelete, request),
+    createProviderProfile: (
+        request: ProviderProfileCreateRequest,
+    ): Promise<IpcResult<ProviderProfile>> =>
+        invoke(IpcChannel.ProviderProfileCreate, request),
+    updateProviderProfile: (
+        request: ProviderProfileUpdateRequest,
+    ): Promise<IpcResult<ProviderProfile>> =>
+        invoke(IpcChannel.ProviderProfileUpdate, request),
+    deleteProviderProfile: (
+        request: ProviderProfileDeleteRequest,
+    ): Promise<IpcResult<ProviderProfileDeleteResult>> =>
+        invoke(IpcChannel.ProviderProfileDelete, request),
+    refreshProviderModels: (
+        request: ProviderModelsRefreshRequest,
+    ): Promise<IpcResult<ProviderCatalogRefreshResult>> =>
+        invoke(IpcChannel.ProviderModelsRefresh, request),
     listWorkspaces: (): Promise<IpcResult<WorkspaceSummary[]>> =>
         invoke(IpcChannel.WorkspaceList),
     createWorkspace: (input: WorkspaceCreateInput): Promise<IpcResult<WorkspaceSummary>> =>

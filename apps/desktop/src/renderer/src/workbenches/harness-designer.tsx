@@ -7,7 +7,15 @@ import { DesignerView } from "../views/DesignerView";
 import type { WorkbenchDefinition, WorkbenchViewProps } from "../workbench/types";
 import styles from "./harness-designer.module.css";
 
+/**
+ * 设计 / 运行共用同一个主视图。
+ *
+ * 运行阶段只是在画布上方加一条上下文条，不替换视图组件：
+ * 切换阶段时 DesignerView / CanvasView 保持挂载，选中节点、视口与
+ * React Flow 的本地布局状态都不会被重置。
+ */
 function HarnessDesignerView({
+    mode,
     workspace,
     activeDocumentId,
     busy,
@@ -17,49 +25,44 @@ function HarnessDesignerView({
 }: WorkbenchViewProps) {
     return (
         <PresetLibraryProvider workspaceId={workspace.id}>
-            <DesignerView
-                workspace={workspace}
-                documentId={activeDocumentId}
-                busy={busy}
-                error={error}
-                onCreateWorkspace={() => undefined}
-                onCreateDocument={onCreateDocument}
-                onRunWillStart={shell.onRunWillStart}
-                onRunStarted={shell.onRunStarted}
-                onRunControlsChange={shell.onRunControlsChange}
-                onSaveStatusChange={shell.onSaveStatusChange}
-                onInspectorChange={shell.onInspectorChange}
-                onProblemsChange={shell.onProblemsChange}
-                onDocumentActionsChange={shell.onDocumentActionsChange}
-                onControllerChange={shell.onControllerChange}
-                onSaveConflictCopy={() => undefined}
-            />
+            <div className={styles.view}>
+                {mode === "run" ? (
+                    <div className={styles.banner}>
+                        <span className={styles.mode}>运行模式</span>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => shell.onModeChange("design")}
+                        >
+                            <ArrowLeft size={16} aria-hidden="true" />
+                            返回设计
+                        </Button>
+                        <span className={styles.hint}>
+                            从下方会话树选择对话会话，运行时的 Agent / 模型消息会写入该会话
+                        </span>
+                    </div>
+                ) : null}
+                <div className={styles.body}>
+                    <DesignerView
+                        workspace={workspace}
+                        documentId={activeDocumentId}
+                        busy={busy}
+                        error={error}
+                        onCreateWorkspace={() => undefined}
+                        onCreateDocument={onCreateDocument}
+                        onRunWillStart={shell.onRunWillStart}
+                        onRunStarted={shell.onRunStarted}
+                        onRunControlsChange={shell.onRunControlsChange}
+                        onSaveStatusChange={shell.onSaveStatusChange}
+                        onInspectorChange={shell.onInspectorChange}
+                        onProblemsChange={shell.onProblemsChange}
+                        onDocumentActionsChange={shell.onDocumentActionsChange}
+                        onControllerChange={shell.onControllerChange}
+                        onSaveConflictCopy={() => undefined}
+                    />
+                </div>
+            </div>
         </PresetLibraryProvider>
-    );
-}
-
-/** 运行阶段主视图：设计画布 + 运行上下文条；结果 / 会话由浮动面板承载。 */
-function HarnessRunView(props: WorkbenchViewProps) {
-    return (
-        <div className={styles.runView}>
-            <div className={styles.banner}>
-                <span className={styles.mode}>运行模式</span>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => props.shell.onModeChange("design")}
-                >
-                    <ArrowLeft size={16} aria-hidden="true" />
-                    返回设计
-                </Button>
-                <span className={styles.hint}>
-                    从下方会话树选择对话会话，运行时的 Agent / 模型消息会写入该会话
-                </span>
-            </div>
-            <div className={styles.body}>
-                <HarnessDesignerView {...props} />
-            </div>
-        </div>
     );
 }
 
@@ -72,6 +75,5 @@ export const harnessDesignerWorkbench: WorkbenchDefinition = {
     navigation: { design: DocumentNavigation, run: SessionNavigation },
     // 设计器同时需要工作流与会话两类导航：上半区工作流、下半区 Session 树。
     splitNavigation: { top: "design", bottom: "run" },
-    RunView: HarnessRunView,
     View: HarnessDesignerView,
 };

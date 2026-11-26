@@ -1,5 +1,5 @@
 .content {
-  z-index: var(--fh-z-overlay);
+  z-index: var(--fh-z-popover);
   min-width: 200px;
   padding: var(--fh-space-1);
   border: 1px solid var(--fh-border);

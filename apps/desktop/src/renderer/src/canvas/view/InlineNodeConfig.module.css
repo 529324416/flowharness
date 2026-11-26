@@ -26,6 +26,15 @@
   padding: 0 4px;
 }
 
+/* 只读期间控件仍占位，仅降低可编辑暗示，不改变节点尺寸。 */
+.input:disabled,
+.select:disabled,
+.number:disabled {
+  opacity: 1;
+  color: var(--fh-text-muted);
+  cursor: default;
+}
+
 .row {
   display: flex;
   gap: 4px;

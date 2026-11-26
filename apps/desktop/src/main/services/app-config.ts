@@ -9,7 +9,7 @@ import {
 } from "@flowharness/contracts";
 import { readJsonFile, writeJsonFile } from "./atomic-file";
 
-export const APP_CONFIG_SCHEMA_VERSION = 1;
+export const APP_CONFIG_SCHEMA_VERSION = 2;
 
 const THEME_MODES: readonly ThemeMode[] = ["light", "dark", "system"];
 const LANGUAGES: readonly AppConfig["language"][] = ["zh-CN", "en-US"];
@@ -20,36 +20,6 @@ const PROVIDER_KINDS: readonly ProviderKind[] = [
     "qwen",
 ];
 
-function defaultProviders(): ProviderConfig[] {
-    return [
-        {
-            id: "ollama",
-            kind: "ollama",
-            label: "Ollama",
-            enabled: true,
-            baseUrl: "http://127.0.0.1:11434",
-        },
-        {
-            id: "deepseek",
-            kind: "deepseek",
-            label: "DeepSeek",
-            enabled: false,
-        },
-        {
-            id: "minimax",
-            kind: "minimax",
-            label: "MiniMax",
-            enabled: false,
-        },
-        {
-            id: "qwen",
-            kind: "qwen",
-            label: "Qwen",
-            enabled: false,
-        },
-    ];
-}
-
 export function createDefaultAppConfig(workspaceRoot: string): AppConfig {
     return {
         schemaVersion: APP_CONFIG_SCHEMA_VERSION,
@@ -58,8 +28,27 @@ export function createDefaultAppConfig(workspaceRoot: string): AppConfig {
         recentWorkspaces: [],
         language: "zh-CN",
         devtools: true,
-        providers: defaultProviders(),
     };
+}
+
+/**
+ * 首次安装 / v2 配置但 Provider 库尚不存在时的默认 Provider 列表。
+ *
+ * 与 M9 之前的默认值保持一致；只用于播种 Provider 库，不再写回 AppConfig。
+ */
+export function defaultProviderConfigs(): ProviderConfig[] {
+    return [
+        {
+            id: "ollama",
+            kind: "ollama",
+            label: "Ollama",
+            enabled: true,
+            baseUrl: "http://127.0.0.1:11434",
+        },
+        { id: "deepseek", kind: "deepseek", label: "DeepSeek", enabled: false },
+        { id: "minimax", kind: "minimax", label: "MiniMax", enabled: false },
+        { id: "qwen", kind: "qwen", label: "Qwen", enabled: false },
+    ];
 }
 
 /**
@@ -67,17 +56,25 @@ export function createDefaultAppConfig(workspaceRoot: string): AppConfig {
  *
  * - 读取时宽容（坏字段回退默认值，坏文件备份后重建）；
  * - 更新时严格（非法字段直接拒绝，绝不静默写坏）；
- * - 与工作区设置、Provider 密钥完全分离。
+ * - schemaVersion 2 起移除 `providers`；v1 的旧 Provider 列表只在迁移时通过
+ *   `legacyProviders` 暴露一次，由 main 播种 Provider 库。
  */
 export class AppConfigStore {
     private current?: AppConfig;
     private readonly defaults: AppConfig;
+    private legacy: ProviderConfig[] = [];
+    private pendingMigration = false;
 
     constructor(
         private readonly filePath: string,
         defaults: AppConfig,
     ) {
         this.defaults = structuredClone(defaults);
+    }
+
+    /** 从 v1 配置读取到的旧 Provider 列表；只用于 M9.3 一次性迁移。 */
+    get legacyProviders(): readonly ProviderConfig[] {
+        return this.legacy;
     }
 
     async get(): Promise<AppConfig> {
@@ -99,7 +96,22 @@ export class AppConfigStore {
         const next = structuredClone(this.defaults);
         await this.persist(next);
         this.current = next;
+        this.legacy = [];
+        this.pendingMigration = false;
         return next;
+    }
+
+    /**
+     * v1 → v2 的落盘握手。
+     *
+     * main 在 Provider 库确认存在后调用；这样库写入失败时 AppConfig 仍保持 v1，
+     * 下次启动还能拿到 legacy providers 重试，不会出现「配置已 v2、Provider 库为空」。
+     */
+    async finalizeMigration(): Promise<void> {
+        if (!this.pendingMigration) return;
+        const current = await this.get();
+        await this.persist(current);
+        this.pendingMigration = false;
     }
 
     /** 记录最近打开的工作区（最多 10 条，按最近优先）。 */
@@ -133,10 +145,18 @@ export class AppConfigStore {
             return fresh;
         }
 
+        this.legacy = readLegacyProviders(raw);
+        const version =
+            typeof (raw as { schemaVersion?: unknown }).schemaVersion === "number"
+                ? (raw as { schemaVersion: number }).schemaVersion
+                : 0;
         const migrated = migrateConfig(raw);
         const coerced = coerceConfig(migrated, this.defaults);
 
-        if (JSON.stringify(migrated) !== JSON.stringify(coerced)) {
+        if (version === 1) {
+            // 先留在内存；等 main 确认 Provider 库落盘后再 finalize。
+            this.pendingMigration = true;
+        } else if (JSON.stringify(migrated) !== JSON.stringify(coerced)) {
             await this.persist(coerced);
         }
 
@@ -185,6 +205,10 @@ function migrateConfig(raw: unknown): unknown {
         throw new FhError("E_MIGRATION", "app config is missing schemaVersion");
     }
 
+    if (version === 1) {
+        return { ...raw, schemaVersion: APP_CONFIG_SCHEMA_VERSION };
+    }
+
     return candidate;
 }
 
@@ -211,9 +235,6 @@ function coerceConfig(raw: unknown, defaults: AppConfig): AppConfig {
             typeof candidate.devtools === "boolean"
                 ? candidate.devtools
                 : defaults.devtools,
-        providers: Array.isArray(candidate.providers)
-            ? candidate.providers.filter(isProviderConfig).map(normalizeProvider)
-            : defaults.providers,
     };
 }
 
@@ -242,22 +263,28 @@ function applyPatch(current: AppConfig, patch: AppConfigUpdate): AppConfig {
         throw new FhError("E_INVALID_ARGUMENT", "devtools must be a boolean");
     }
 
-    let providers = current.providers;
-    if (patch.providers !== undefined) {
-        if (!Array.isArray(patch.providers)) {
-            throw new FhError("E_INVALID_ARGUMENT", "providers must be an array");
-        }
-        providers = validateProviders(patch.providers);
-    }
-
     return {
         ...current,
         theme: patch.theme ?? current.theme,
         workspaceRoot: patch.workspaceRoot ?? current.workspaceRoot,
         language: patch.language ?? current.language,
         devtools: patch.devtools ?? current.devtools,
-        providers,
     };
+}
+
+/**
+ * v1 → v2 迁移：把旧 `providers` 数组读出来留给 Provider 库迁移。
+ *
+ * 不做严格拒绝：坏条目丢弃；真正写入 v2 的配置由 `coerceConfig` 负责。
+ */
+function readLegacyProviders(raw: unknown): ProviderConfig[] {
+    if (!raw || typeof raw !== "object") return [];
+    const candidate = raw as { schemaVersion?: unknown; providers?: unknown };
+    if (candidate.schemaVersion !== 1) return [];
+    if (!Array.isArray(candidate.providers)) return [];
+    return candidate.providers
+        .filter(isProviderConfig)
+        .map(normalizeProvider);
 }
 
 const PROVIDER_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
@@ -290,26 +317,6 @@ function normalizeProvider(provider: ProviderConfig): ProviderConfig {
             ? {}
             : { model: provider.model.trim() }),
     };
-}
-
-function validateProviders(value: unknown[]): ProviderConfig[] {
-    const seen = new Set<string>();
-    return value.map((item, index) => {
-        if (!isProviderConfig(item)) {
-            throw new FhError(
-                "E_INVALID_ARGUMENT",
-                `providers[${String(index)}] is invalid`,
-            );
-        }
-        if (seen.has(item.id)) {
-            throw new FhError(
-                "E_INVALID_ARGUMENT",
-                `duplicate provider id: ${item.id}`,
-            );
-        }
-        seen.add(item.id);
-        return normalizeProvider(item);
-    });
 }
 
 function isRecentWorkspace(value: unknown): value is RecentWorkspace {

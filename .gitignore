@@ -13,6 +13,10 @@ release/
 .env
 .env.*
 !.env.example
+# local API keys / credentials (never commit)
+apikey*.txt
+api-key*.txt
+*.apikey
 
 # editor / OS
 .DS_Store

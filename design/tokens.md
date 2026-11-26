@@ -23,7 +23,7 @@
 | 动效 | `--fh-motion-fast/base/slow` + `--fh-ease-standard` | 120 / 160 / 240ms |
 | 尺寸 | `--fh-titlebar-height`、`--fh-rail-width`、`--fh-sidebar-*`、`--fh-statusbar-height`、`--fh-control-height` | token 值 40 / 46 / 260 / 26 / 32（sm 28）；侧栏范围 200–360，与 `NavigationPanel` 常量一致；面板尺寸在 `layout-metrics.ts` |
 | 布局 | `--fh-panel-gap`、`--fh-panel-inset`、`--fh-window-radius` | Session 与 Canvas 间距 4px；外边距 2px；窗口/Footer 圆角 12px |
-| 层级 | `--fh-z-canvas/rail/titlebar/overlay/modal/toast` | 避免魔法数字 |
+| 层级 | `--fh-z-canvas/rail/titlebar/overlay/modal/popover/toast` | 避免魔法数字；popover 必须高于 modal，保证 Modal 内下拉可见 |
 
 ## 取值（摘要）
 

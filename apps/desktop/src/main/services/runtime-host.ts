@@ -3,6 +3,7 @@ import {
     createBuiltinNodeRegistry,
     createRunResult,
     deserializeGraph,
+    HarnessBuiltinNodeType,
     RunResultSerializer,
     type AttachmentFileManager,
     type Graph,
@@ -55,6 +56,8 @@ export type RuntimeHostOptions = {
     attachmentsFor?: (workspaceId: string) => AttachmentFileManager | undefined;
     toolsFor?: (workspaceId: string) => ToolRegistry | undefined;
     resolveProvider?: GraphProviderResolver;
+    /** 运行期 Provider HTTP 错误；用于把 401/403、402/429 写回 key 健康。 */
+    onProviderHttpError?: (providerId: string, httpStatus: number) => void;
     storeFor?: (workspaceId: string) => RunStorePort | undefined;
     now?: () => number;
     flushIntervalMs?: number;
@@ -367,6 +370,29 @@ export class RuntimeHost {
 
     private handleEvent(active: ActiveRun, event: GraphEvent): void {
         const dto = toRunEventDto(event);
+
+        if (event.type === "node:error" && dto.type === "node:error") {
+            const providerId = providerIdForNode(active.graph, event.nodeId);
+            const httpStatus = readHttpStatus(event.error);
+            if (providerId !== undefined) dto.providerId = providerId;
+            if (httpStatus !== undefined) dto.httpStatus = httpStatus;
+
+            if (
+                providerId !== undefined &&
+                httpStatus !== undefined &&
+                (httpStatus === 401 ||
+                    httpStatus === 403 ||
+                    httpStatus === 402 ||
+                    httpStatus === 429)
+            ) {
+                try {
+                    this.options.onProviderHttpError?.(providerId, httpStatus);
+                } catch {
+                    // 健康回写失败不能打断运行事件流。
+                }
+            }
+        }
+
         active.buffer.push(dto);
 
         if (event.type === "run:end") {
@@ -511,6 +537,60 @@ export class RuntimeHost {
             );
         }
     }
+}
+
+/**
+ * 从失败节点回溯 `model` 输入边的来源 `core.model` 配置。
+ *
+ * 这是 Provider Profile 落到运行事件的最小桥：只覆盖 Model Call / Agent Run
+ * 直接消费 Model 节点的标准图；Provider 引用节点或内嵌图留待后续扩展。
+ */
+function providerIdForNode(graph: Graph, nodeId: string): string | undefined {
+    const node = graph.getNode(nodeId);
+    if (
+        node === undefined ||
+        (node.type !== HarnessBuiltinNodeType.ModelCall &&
+            node.type !== HarnessBuiltinNodeType.AgentRun)
+    ) {
+        return undefined;
+    }
+
+    const edge = graph.edges.find(
+        (candidate) =>
+            candidate.to.nodeId === nodeId && candidate.to.port === "model",
+    );
+    if (edge === undefined) return undefined;
+
+    const source = graph.getNode(edge.from.nodeId);
+    if (source === undefined || source.type !== HarnessBuiltinNodeType.Model) {
+        return undefined;
+    }
+
+    const config = source.config;
+    if (typeof config !== "object" || config === null || Array.isArray(config)) {
+        return undefined;
+    }
+    const providerId = (config as Record<string, unknown>).providerId;
+    return typeof providerId === "string" && providerId.length > 0
+        ? providerId
+        : undefined;
+}
+
+/** Provider 错误可能被 HarnessError 包一层；沿 origin 链找 HTTP 状态。 */
+function readHttpStatus(error: unknown): number | undefined {
+    let current: unknown = error;
+    for (let depth = 0; depth < 6; depth += 1) {
+        if (typeof current !== "object" || current === null) break;
+        const record = current as { httpStatus?: unknown; origin?: unknown };
+        if (
+            typeof record.httpStatus === "number" &&
+            Number.isInteger(record.httpStatus)
+        ) {
+            return record.httpStatus;
+        }
+        current = record.origin;
+    }
+    return undefined;
 }
 
 function toRunEventDto(event: GraphEvent): RunEventDto {

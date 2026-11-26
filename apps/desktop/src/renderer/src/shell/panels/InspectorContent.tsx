@@ -180,6 +180,7 @@ function NodeInspector({
                                 schema={node.configSchema}
                                 config={node.config}
                                 disabled={!canEdit}
+                                fieldOptions={node.fieldOptions}
                                 onChange={(next) => onUpdateConfig(node.id, next)}
                             />
                         </TabsContent>

@@ -9,8 +9,20 @@ import type {
     HarnessDocumentSummary,
     IpcEventEnvelope,
     IpcResult,
-    ProviderStatus,
-    ProviderTestResult,
+    ApiKeyAddRequest,
+    ApiKeyAddResult,
+    ApiKeyDeleteRequest,
+    ApiKeyDeleteResult,
+    ApiKeyRevalidateRequest,
+    ApiKeyReplaceRequest,
+    ProviderCatalogRefreshResult,
+    ProviderLibraryView,
+    ProviderModelsRefreshRequest,
+    ProviderProfile,
+    ProviderProfileCreateRequest,
+    ProviderProfileDeleteRequest,
+    ProviderProfileDeleteResult,
+    ProviderProfileUpdateRequest,
     RunSnapshot,
     RunStartRequest,
     RunResumeInterruptedRequest,
@@ -72,15 +84,31 @@ interface FlowHarnessBridge {
 
     readonly getConfig: () => Promise<IpcResult<AppConfig>>;
     readonly updateConfig: (patch: AppConfigUpdate) => Promise<IpcResult<AppConfig>>;
-    readonly secretsHas: (providerId: string) => Promise<IpcResult<{ has: boolean }>>;
-    readonly secretsSet: (providerId: string, value: string) => Promise<IpcResult<void>>;
-    readonly secretsDelete: (
-        providerId: string,
-    ) => Promise<IpcResult<{ deleted: boolean }>>;
-    readonly listProviders: () => Promise<IpcResult<ProviderStatus[]>>;
-    readonly testProvider: (
-        providerId: string,
-    ) => Promise<IpcResult<ProviderTestResult>>;
+    readonly getProviderLibrary: () => Promise<IpcResult<ProviderLibraryView>>;
+    readonly addProviderKey: (
+        request: ApiKeyAddRequest,
+    ) => Promise<IpcResult<ApiKeyAddResult>>;
+    readonly revalidateProviderKey: (
+        request: ApiKeyRevalidateRequest,
+    ) => Promise<IpcResult<ApiKeyAddResult>>;
+    readonly replaceProviderKey: (
+        request: ApiKeyReplaceRequest,
+    ) => Promise<IpcResult<ApiKeyAddResult>>;
+    readonly deleteProviderKey: (
+        request: ApiKeyDeleteRequest,
+    ) => Promise<IpcResult<ApiKeyDeleteResult>>;
+    readonly createProviderProfile: (
+        request: ProviderProfileCreateRequest,
+    ) => Promise<IpcResult<ProviderProfile>>;
+    readonly updateProviderProfile: (
+        request: ProviderProfileUpdateRequest,
+    ) => Promise<IpcResult<ProviderProfile>>;
+    readonly deleteProviderProfile: (
+        request: ProviderProfileDeleteRequest,
+    ) => Promise<IpcResult<ProviderProfileDeleteResult>>;
+    readonly refreshProviderModels: (
+        request: ProviderModelsRefreshRequest,
+    ) => Promise<IpcResult<ProviderCatalogRefreshResult>>;
     readonly listWorkspaces: () => Promise<IpcResult<WorkspaceSummary[]>>;
     readonly createWorkspace: (
         input: WorkspaceCreateInput,

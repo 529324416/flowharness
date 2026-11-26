@@ -118,7 +118,7 @@ apps/desktop/src/
     platform/                  # IPC 路由、fh-asset 协议、审批/输入请求中转
     services/                  # AppConfig / Secrets / ProviderRegistry / BlobStore /
                                # WorkspaceStore / WorkspaceFileHost / SessionService /
-                               # RunStore / RuntimeHost / workspace-tools
+                               # RunStore / RuntimeHost / workspace-tools / ProviderLibrary
   preload/index.ts             # contextBridge 白名单桥（window.flowharness）
   renderer/src/
     App.tsx main.tsx           # L3：视图切换、自检上报、首帧主题

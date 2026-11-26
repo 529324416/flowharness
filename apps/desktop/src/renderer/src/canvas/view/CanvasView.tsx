@@ -63,8 +63,11 @@ export type CanvasViewProps = {
     onCommand?: (command: CanvasCommand) => void;
     readOnly?: boolean;
     nodeStatuses?: Readonly<Record<string, CanvasStatus>>;
-    /** 右键菜单「添加节点」；位置是视口坐标（clientX / clientY）。 */
-    onAddNode?: (position: { x: number; y: number }) => void;
+    /** 右键菜单「添加节点」；screen 用于定位面板，flow 用于落点。 */
+    onAddNode?: (
+        screen: { x: number; y: number },
+        flow?: { x: number; y: number },
+    ) => void;
     /** 右键节点菜单「创建预设节点」。 */
     onCreatePreset?: (nodeId: string) => void;
     /**
@@ -454,7 +457,11 @@ export const CanvasView = memo(function CanvasView({
     const addNode = (): void => {
         if (readOnly) return;
 
-        onAddNode?.({ x: menu?.x ?? 0, y: menu?.y ?? 0 });
+        const screen = { x: menu?.x ?? 0, y: menu?.y ?? 0 };
+        // 面板锚点用屏幕坐标；节点落点必须换算到画布坐标，
+        // 否则在平移 / 缩放后会落到视口外。
+        const flow = instance?.screenToFlowPosition(screen);
+        onAddNode?.(screen, flow);
         setMenu(null);
     };
 

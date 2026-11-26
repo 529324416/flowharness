@@ -5,6 +5,7 @@ import type {
     CanvasEdgeStatus,
     CanvasNode,
     CanvasNodeData,
+    CanvasNodeNotice,
     CanvasStatus,
 } from "../../canvas/core/types";
 import { edgeKeyFromPorts } from "../../canvas/core/edge-key";
@@ -23,6 +24,8 @@ export type ToCanvasDocumentOptions = {
     edgeStatuses?: Readonly<Record<string, CanvasEdgeStatus>>;
     /** 示例/测试用的展示覆盖；真实文档默认从 config 与端口派生。 */
     presentation?: Readonly<Record<string, CanvasPresentation>>;
+    /** 节点级健康提示；来自 Provider / 依赖检查，不写回文档。 */
+    notices?: Readonly<Record<string, CanvasNodeNotice>>;
 };
 
 /**
@@ -49,6 +52,9 @@ export function toCanvasDocument(
             ...(override?.meta === undefined ? {} : { meta: override.meta }),
             ...(node.config === undefined ? {} : { config: node.config }),
             ...(presentation.error === undefined ? {} : { error: presentation.error }),
+            ...(options.notices?.[node.id] === undefined
+                ? {}
+                : { notice: options.notices[node.id] }),
         };
 
         return {
@@ -78,11 +84,19 @@ function summarize(
     presentation: NodePresentation,
 ): string | undefined {
     if (isRecord(config)) {
-        const provider = readString(config, "providerId");
+        const providerId = readString(config, "providerId");
+        const modelId = readString(config, "modelId");
+        if (modelId !== undefined) {
+            return providerId === undefined ? modelId : `${providerId} · ${modelId}`;
+        }
+
+        const provider = providerId;
         const model = readString(config, "model");
         if (model !== undefined) {
             return provider === undefined ? model : `${provider} · ${model}`;
         }
+
+        if (providerId !== undefined) return providerId;
 
         const condition = readString(config, "condition");
         if (condition !== undefined) return condition;

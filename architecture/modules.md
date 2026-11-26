@@ -10,7 +10,8 @@
 | L1 | Logging | 主进程日志与运行诊断 | ⬜ 未实现（当前用 `console.*`） |
 | L2 | AppConfig | 应用级配置（工作区位置、偏好） | ✅ |
 | L2 | Secrets | Provider 密钥，主进程独占 | ✅ |
-| L2 | ProviderRegistry | 配置 + 密钥 → AIProvider 实例，供 RuntimeHost 解析 | ✅ M6.1 |
+| L2 | ProviderRegistry | 配置 + 密钥 → AIProvider 实例，供 RuntimeHost 解析 | ✅ M9.2（库驱动 + 健康） |
+| L2 | ProviderLibrary | API Key 元数据 + Provider Profile + 持久化模型目录（app 级） | ✅ M9.1–M9.5 |
 | L2 | BlobStore | 内容寻址的二进制存储 | ✅ |
 | L2 | WorkspaceStore | 工作区文档、索引、迁移、导入导出 | ✅（无 `applyCommands`、无迁移） |
 | L2 | WorkspaceFileHost | wireclaw `IFileHost` 的 FH 实现 | ✅ |
@@ -59,31 +60,30 @@ interface Platform {
 
 ```ts
 type AppConfig = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   theme: "light" | "dark" | "system";
   workspaceRoot: string;
   recentWorkspaces: { id: string; path: string; name: string; openedAt: string }[];
   language: "zh-CN" | "en-US";
   devtools: boolean;
-  /** M6.1：非敏感 Provider 配置；密钥仍在 Secrets。 */
-  providers: ProviderConfig[];
 };
 ```
 
 - 位置：`%APPDATA%/FlowHarness/config.json`；
 - 原子写（临时文件 + rename），损坏时回退到默认值并备份；
-- 与 **Secrets**、**WorkspaceSettings** 严格分离。
+- v1 → v2 迁移把旧 `providers` 交给 Provider 库；库确认落盘后才写入 v2；
+- 与 **Secrets**、**Provider library**、**WorkspaceSettings** 严格分离。
 
-**不做**：Provider 密钥、工作流参数、工作区数据。
+**不做**：Provider 密钥、Provider/模型目录、工作流参数、工作区数据。
 
 ## 3. Secrets
 
-**职责**：Provider 密钥等敏感值的写入、读取、删除；**只存在于 main**。
+**职责**：API Key 等敏感值的写入、读取、删除；**只存在于 main**。
 
 - 使用 Electron `safeStorage` 加密后落盘（`secrets.bin`），不可用时明确报错而不是明文降级；
 - 对外只暴露 `has / set / delete`；**没有** `get` 到 renderer 的通道；
 - 运行期由 `ProviderRegistry` 组装 `AIProvider`，密钥不进入事件、日志、错误信息；
-- renderer 的 Provider 设置页通过 `secrets:set / delete` 写入，只能看到 `hasKey` 布尔值。
+- 密钥条目以 `apiKeyId` 为键；renderer 通过 Provider 库 API 只能看到元数据、指纹与健康状态。
 
 ## 4. Theme
 
@@ -287,7 +287,7 @@ interface WorkbenchController {
 - 节点面板数据来自 wireclaw：`createEditorCatalog(registry, { presets })` → `NodeCatalogEntry[]` + presets（M2 已接入，含默认 config / configSchema / 分类 / 关键词）；
 - `GraphDocument` → `CanvasDocument` 单向 adapter 由设计器实现（`designer/core/adapter.ts`）；
 - 布局写入 `GraphDocument.ui`（节点 `ui` 与图级 `ui`）；实例级覆盖（`layout.overrides`）尚未接线；
-- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌图递归校验与问题定位已在 M3 接入，`requirements` catalog 由 DesignerView 从 `providers:list`（ProviderRegistry）构造并注入（M6.2）；
+- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌图递归校验与问题定位已在 M3 接入，`requirements` catalog 由 DesignerView 从 Provider 库视图构造并注入（M9.4）；
 - 导入导出：文档菜单提供单 `GraphDocument` JSON 导入（新建文档）与导出（可选剥离 `ui`）；`.fhws` 整工作区导入导出仍只有 main 通道。
 
 ## 14.1 Preset Library（L5，M8.4）

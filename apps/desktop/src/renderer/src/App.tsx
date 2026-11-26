@@ -35,7 +35,8 @@ import {
 import { AppShell } from "./shell/AppShell";
 import { WorkbenchMenu } from "./shell/WorkbenchMenu";
 import { TitleBar } from "./shell/TitleBar";
-import { ProviderSettingsDialog } from "./shell/ProviderSettingsDialog";
+import { ProviderLibraryDialog } from "./providers/ProviderLibraryDialog";
+import { ProviderLibraryProvider } from "./providers/ProviderLibraryProvider";
 import { RibbonBar } from "./shell/RibbonBar";
 import {
     ApprovalDialog,
@@ -2071,7 +2072,8 @@ export function App(): ReactElement {
 
     return (
         <TooltipProvider>
-            <AppShell
+            <ProviderLibraryProvider>
+                <AppShell
                 titleBar={
                     <TitleBar
                         activeTitle={activeWorkspace?.name ?? null}
@@ -2143,11 +2145,9 @@ export function App(): ReactElement {
                 }
             />
 
-            <ProviderSettingsDialog
+            <ProviderLibraryDialog
                 open={settingsOpen}
-                providers={config?.providers ?? []}
                 onOpenChange={setSettingsOpen}
-                onSaved={setConfig}
             />
 
             {approvalRequests[0] === undefined ? null : (
@@ -2173,6 +2173,7 @@ export function App(): ReactElement {
                     }
                 />
             )}
+            </ProviderLibraryProvider>
         </TooltipProvider>
     );
 }

@@ -234,7 +234,7 @@ type WorkbenchPlan = {
 - 文档入口：TitleBar 的文档菜单列出工作区内全部 Harness 文档，支持新建 / 重命名 / 复制 / 删除 / 最近打开 / 导入导出（`shell/DocumentMenu.tsx`）；
 - 当前：`createEditorCatalog(registry, { presets: designerPresetLibrary })` → `{ version: 2, nodeTypes, presets }`（`designer/core/catalog.ts`）；
 - `NodeCatalogEntry` 提供 `type / title / description / builtIn / category / keywords / inputs / outputs / requirements / configSchema / defaultConfig / error`；
-- **动态端口**：wireclaw 的 `describeNodeType(registry, type, { config })` 支持按 config 试创建并取端口，adapter 每次投影也按节点 config 调用；但 16 个内建节点的端口目前都是**静态**的（`get inputs/outputs` 不读 config），该能力尚未被任何节点使用；
+- **动态端口**：wireclaw 的 `describeNodeType(registry, type, { config })` 支持按 config 试创建并取端口，adapter 每次投影也按节点 config 调用；但 17 个内建节点的端口目前都是**静态**的（`get inputs/outputs` 不读 config），该能力尚未被任何节点使用；
 - 用户节点库（M8.4）：工作区 `documents/presets/library.json`；插入菜单是画布内浮层（`presets/NodeLibraryPalette.tsx`），顺序为「最近使用（≤6 条，localStorage）→ 用户库（按文件夹）→ 内置预设 → 节点类型」，支持搜索、↑↓ + Enter、拖拽到画布；管理模式是独立 Modal（`PresetManagerDialog`，左文件夹树 / 右属性与参数表单），从标题栏「视图 → 管理节点库…」或插入菜单进入；
 - 画布节点右键「创建预设节点」捕获 `type / typeVersion / config`，命名后写入工作区库并打开管理 Modal；内置 4 条预设仍来自 `designer/core/presets.ts`。
 
@@ -259,9 +259,9 @@ CanvasCommand → GraphDocument
 
 - 拖拽/连线生成/修改 `GraphDocument`；
 - 投影时用 `findInvalidEdges` 检查节点/端口是否存在（端口随 config 投影）；存在失效连线时画布顶部提示，能渲染的边标记为 error；
-- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌 Subgraph / Loop / ForEach 递归校验，问题回填容器节点与 `graphPath`；
-- 设计器内 Alert 横幅展示首要问题；运行日志面板的「问题」页签汇总校验、失效连线与运行错误，点击可选中并聚焦节点（M3）；
-- 有 issue 时禁止运行；当前**没有**「仍然运行」的确认路径；M6.2 起 DesignerView 在打开工作区 / 窗口聚焦时从 `providers:list` 构造 `RequirementCatalog` 并注入校验（模型目录需先在设置页「测试连接」）。
+- 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌 Subgraph / Loop / ForEach 递归校验，问题回填容器节点与 `graphPath`；Provider 问题由 `provider-problems.ts` 单独汇总（M9.4）；
+- 设计器内 Alert 横幅展示首要问题；运行日志面板把校验、失效连线与运行错误作为可点击行并入同一条日志（2026-11-27 起不再有独立「问题」页签），点击可选中并聚焦节点（M3）；
+- 有 issue 时禁止运行；当前**没有**「仍然运行」的确认路径；M9.4 起 DesignerView 从 Provider 库视图构造 `RequirementCatalog` 并注入校验（模型目录在设置页「刷新模型」后持久化）。
 
 ### 6.4 运行与导入导出
 
@@ -277,8 +277,16 @@ CanvasCommand → GraphDocument
 
 ### 6.6 Provider 设置与运行交互
 
-- Ribbon 设置菜单打开 `shell/ProviderSettingsDialog.tsx`：启用/禁用 Provider，编辑显示名、Base URL、默认模型；云 Provider 可写入 / 清除 API Key；
-- 密钥通过 `secrets:set / delete` 进入 main，renderer 只能看到 `hasKey`；`providers:list` 返回可用状态，`providers:test` 拉取模型目录；
+- Ribbon 设置菜单打开 `providers/ProviderLibraryDialog.tsx`：左「API 密钥」右「Provider」两区；
+- API 密钥：新增时按协议调用 main 验证（401/403 → 失效、402/429 → 额度、网络 → 未验证），列表展示掩码指纹、状态与上次校验；支持重新验证 / 替换 / 删除；明文永不回显；
+- Provider：适配器 + 密钥 + Base URL + 默认模型 + 启用；可刷新模型目录、查看健康状态；删除密钥前检查 profile 引用；
+- 受限环境写入失败时，设置页顶部显示“无法写入磁盘，当前修改只在本次会话生效”，操作本身仍在内存成功；
+- renderer `ProviderLibraryProvider` 通过 `provider:library` 读取只读视图，并监听 main 的 `provider` topic；
+- `core.model` 检查器的 `providerId` / `modelId` 变为 Provider / 模型下拉；节点标题右侧显示 Provider 健康三角（红色 / 黄色，带 tooltip）；
+- 节点库新增 `Provider`（`core.provider`）：检查器用同一个 Provider 下拉；输出 `provider` 端口可拖到 Model 的 `provider` 输入，连接后以来源为准、config.providerId 只作回退；
+- Provider 节点自身显示健康问题；连接后的 Model 摘要显示“来源 Profile · modelId”；右键「添加节点」按画布坐标落点，不会在平移 / 缩放后插到视口外；
+- provider 问题合并进运行日志；缺 profile / model 为 error 并阻断运行，key 失效 / 未验证为 warning，允许尝试运行；
+- Model Call 的 chat / generate / modality 与目录 capabilities 不匹配为 error；旧目录没有 capabilities 时不误报；
 - run 期间：审批走 `shell/InteractionDialogs.tsx` 的 ApprovalDialog，用户输入走 UserInputDialog；main 发 `approval` / `input` topic，renderer 回 `approval:respond` / `input:respond`；
 - Diagnostics 提供「运行恢复」面板：列出 paused / interrupted run，使用 `run:resume-interrupted` 从 checkpoint + graph 快照恢复；
 - 工作台左栏由 `WorkbenchDefinition.navigation` 提供；`harness-designer` 声明 `splitNavigation: { top: "design", bottom: "run" }`，左栏为上下两区：上半区工作流列表（`DocumentNavigation`），下半区 Session 树（`SessionNavigation`），共用 `SplitSidebar` 宿主，横向分隔条可拖动比例；`plan-runner` 仍为单一 Plan 步骤列表；
@@ -327,7 +335,7 @@ smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通
 | `PanelLayer` | 铺在 Main 之上；属性面板默认右上 280×432、运行日志左下 448×224（`PANEL_DEFAULTS`，最小宽度 280） |
 | 状态 | `useFloatingPanels` 管理 open / collapsed / x / y / size / z；首版不做 docking |
 | 材质 | 面板默认 78% 不透明（`--fh-panel-alpha`），底色 `--fh-panel-bg` / 头部 `--fh-panel-header-bg`，比节点更深；后续设置 UI 只调整 alpha；不使用 backdrop-filter |
-| 接入 | 属性检查（节点信息 + configSchema 表单，JSON 页签兜底）、运行日志（`RunLogContent`，含问题 Tab：校验 / 失效连线 / 运行错误，点击定位节点；Footer runId） |
+| 接入 | 属性检查（节点信息 + configSchema 表单，JSON 页签兜底）、运行日志（`RunLogContent`，问题与事件合并为一条列表，校验 / 失效连线 / 运行错误可点击定位；Footer runId） |
 | 开关 | TitleBar 图标、命令中心、`Ctrl J`；条件为**当前视图是设计器且已打开工作区**（与会话选择无关） |
 | 窗口状态 | `WindowStateStore` 写入 `userData/window-state.json`；校验显示器可见性、尺寸/位置钳制、400ms 防抖 + close 保存 |
 
@@ -369,9 +377,10 @@ Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布�
 - **左栏 = Panel 宿主**：Shell 只提供容器与尺寸；PanelContent 默认由 `activeWorkbench.type` + `mode` 提供；声明 `splitNavigation` 的工作台改为固定上下双区（harness-designer：上工作流 / 下会话）。
 - **设计模式**：`harness-designer` 左栏 = GraphDocument 列表（新建 / 最近 / 重命名 / 复制 / 删除 / 导入导出），选中同步 `WorkbenchInstance.graphs` 的 primaryGraph。
 - **运行模式**：同一实例切到 `run`，主视图显示运行上下文条并保持同一张画布（运行时只读）；Session 树位于左栏下半区，不再替换整个左栏。
-- **工作台定义**：`WorkbenchDefinition` 增加 `navigation`（design / run）与 `RunView`；`WorkbenchHost` 渲染导航与对应 View。运行复用工作台画布，不提供独立全局运行页面（ADR-027）。
+- **工作台定义**：`WorkbenchDefinition` 增加 `navigation`（design / run）与可选的 `RunView`；`harness-designer` 不再用 `RunView` 替换主视图，运行上下文条与画布在同一个组件内渲染，design ↔ run 只更新 props、不重挂载 `DesignerView` / `CanvasView`（ADR-027）。
+- **运行期结构保持**：只读（运行 / 暂停 / 冲突）时节点仍渲染内联控件与输入端口槽，仅置为 disabled；节点高度与连线锚点不随运行状态变化。
 - **面板**：
-  - 运行日志面板：日志 / 问题；渲染 `node:end` / `run:end` outputs、`node:stream`、附件（结果页签已移除）；
+  - 运行日志面板：单一日志列表（问题行 + 事件行，无页签）；渲染 `node:end` / `run:end` outputs、`node:stream`、附件（结果页签已移除）；
   - 会话历史面板：由 `SessionHistoryView` 迁移而来，按 `kind` 渲染 conversation / run；
   - 现有属性检查、运行日志保留。
 - **移除**：顶层 `sessions` 视图与 `Ctrl+4`；`SessionSidebar` 不再作为全局左栏。

@@ -552,7 +552,7 @@ M6.3 完成后，conversation 会话只有读取 / 回放能力，没有任何�
 
 ## ADR-023：运行页与动画原语
 
-> 状态：独立 `flow-runner` 运行页已由 ADR-027 移除；`RunView` 仅保留给 `harness-designer` 的运行阶段（同一画布 + 运行上下文条）。
+> 状态：独立 `flow-runner` 运行页已由 ADR-027 移除；`RunView` 契约保留，但 `harness-designer` 在 2026-11-27 起改为在同一 `View` 内渲染运行上下文条。
 
 **背景**
 
@@ -692,15 +692,16 @@ M7.5 引入了 `flow-runner` 工作台作为“固定只读运行页”的参考
 **决定**
 
 - 删除 `flow-runner` 工作台及其 2 条模板；`WorkbenchHost` 不再注册该类型；`workbench/templates.ts` 收敛为 3 条模板（Harness 空白 / 当前、批量运行）。
-- 运行统一在 `harness-designer` 内完成：`design` / `run` 仍是同一实例的模式切换，`RunView` 只保留运行上下文条（运行 / 暂停 / 继续 / 取消 + 返回设计），主视图仍是同一张画布与浮动面板。
+- 运行统一在 `harness-designer` 内完成：`design` / `run` 仍是同一实例的模式切换，运行上下文条在同一 `View` 内按 `mode` 渲染，主视图仍是同一张画布与浮动面板；`harness-designer` 不再声明 `RunView`（契约保留给未来工作台），切换阶段不重挂载 `DesignerView` / `CanvasView`。
 - 运行期间由现有 `editingDisabled` 逻辑把画布设为只读（执行中 / 暂停中 / 控制中 / 保存冲突），结束或返回设计后恢复编辑；不再需要单独的只读工作台来禁止编辑。
+- 只读期间节点仍渲染内联控件与输入端口槽（仅 disabled），保持节点高度与连线锚点不变，避免点击运行时画布布局跳动。
 - 旧 `flow-runner` 实例在打开工作区时迁移为 `harness-designer`：保留 graph 绑定与标题（标题为“运行页”时改为“主工作台”），`mode = design`、`runId = null`；`WorkbenchHost` 仍保留兜底说明，避免迁移失败时进入未知工作台。
 - 移除 `designer-flow-runner` 截图场景；M7.5 的视觉基线不再保留该场景。
 
 **后果**
 
 - 工作台类型收敛为 `harness-designer` / `plan-runner` 两种（加旧的 `graph-table` 兜底说明）；模板从 5 条减到 3 条。
-- 运行时的画布只读、动画（节点 pulse / 活跃边）与运行日志 / 问题面板仍可用，但不再提供独立运行工作台的“固定工作流 + 时间线”外壳。
+- 运行时的画布只读、动画（节点 pulse / 活跃边）与运行日志（含可定位问题行）仍可用，但不再提供独立运行工作台的“固定工作流 + 时间线”外壳。
 - 设计 → 运行的模式与 `mode / runId / sessionId` 持久化不变；`flow-runner` 实例迁移是一次性文档写入。
 
 **否决**
@@ -742,6 +743,97 @@ M7.4 / M7.4.2 的运行结果是临时的：结果页签只在运行结束后汇
 - 仅从 `node:end` / `node:stream` 事件重建消息：缺少 system prompt、usage、thinking 与 Agent 工具调用，且与 RunResult 双轨。
 - 自动创建 `kind: "run"` 会话存 RunResult：需要实时更新整个 RunResult 文档，且会话历史以结果视图为主，不符合“逐条消息”的交互。
 - 保留结果页签：与自动会话重复，且用户明确要求移除。
+
+---
+
+## ADR-029：API Key 与 Provider Profile 分离
+
+**背景**
+
+现有 `AppConfig.providers` 把协议、实例、端点、默认模型和密钥引用压进 `ProviderConfig`，密钥按 `providerId` 存放在 `SecretsStore`。设置页每个 `kind` 固定一条，无法同协议多密钥 / 多区域；模型目录只在 `providers:test()` 后存在于 main 内存，重启丢失；`core.model` / `core.model.call` 不声明 requirements，节点只能手填 `providerId` / `modelId`；HTTP 错误只保留字符串，无法区分 401/403 与 402/429。
+
+**决定**
+
+- **API Key 是协议凭据**：`ApiKeyRecord { id, protocol, label, baseUrl?, status, lastCheckedAt, lastError?, fingerprint?, createdAt, updatedAt }`。明文只存在于 main 的 `secrets.bin`，以 key id 为条目键；库文件只保存不可逆指纹与健康元数据。
+- **Provider Profile 是图里的实例**：`ProviderProfile { id, label, adapter, apiKeyId?, baseUrl?, defaultModelId?, enabled, models, modelsFetchedAt, modelsSource }`。`adapter` 表达“协议 + 能力”（`deepseek.chat` / `qwen.image` / `minimax.video` / `ollama.chat`），与协议解耦；同一协议可由多个 profile 复用不同 key / 端点。
+- 图节点只引用 `providerId`（profile id）与 `modelId`；API Key、密文与密钥引用不进入 `GraphDocument`、节点预设库或 `.fhws`。预设只捕获 profile + model。
+- 健康状态机：`unverified` / `active` / `invalid` / `quota` / `network`。只有 401/403 标记 `invalid`；402/429 只记 `quota`，凭据仍视为有效。失效 key 仍可选择，节点显示警告，是否运行由用户决定。
+- 模型目录持久化在 profile 上（`id / name / 能力摘要 / fetchedAt / source`）；启动不联网，刷新由显式动作触发；下拉优先使用持久化目录。
+- Provider/Key 库是应用级独立数据（ADR-030），便于后续把用户配置统一打包导出。
+
+**后果**
+
+- 换 key 只需改 profile 的 `apiKeyId`，所有引用该 profile 的节点自动生效；不需要批量改图。
+- 旧 graph 的 `providerId` 必须继续有效，因此迁移保留旧 id（`ollama` / `deepseek` / `minimax` / `qwen`）。
+- 渲染进程只能拿到 profile、key 元数据、指纹与健康状态，拿不到明文；验证网络请求只在 main 发起。
+- 生成类 Provider 进入同一套库后，Model Call 可按能力过滤模型；Qwen image / MiniMax image/video 不再需要另造一套配置体系。
+
+**否决**
+
+- 在节点里直接选 API Key：密钥引用会进入图和预设，导致换 key 要改图、共享 / 导出容易泄漏凭据。
+- 只保留 `ProviderConfig` 并允许多条同 kind：协议与能力仍然混在一起，生成类 Provider 无法表达，健康状态也无处持久化。
+- 把密钥放进 workspace 或 `.fhws`：凭据是用户 / 机器级数据，不属于某个工作区；导出会泄漏。
+- 只把模型目录放内存：重启后下拉为空，等于回到手填。
+
+---
+
+## ADR-030：Provider 库的存储与两阶段迁移
+
+**背景**
+
+M9 需要在不破坏现有设置页与运行链路的前提下引入新库。旧配置在 `AppConfig.providers`，旧密钥以 providerId 存在 `secrets.bin`；两者都仍被当前 `ProviderRegistry` 使用。
+
+**决定**
+
+- 新库文件：`%APPDATA%/FlowHarness/provider-library.json`，`schemaVersion: 1`，结构 `{ schemaVersion, keys, profiles }`；密钥仍写现有 `secrets.bin`，格式不变，条目键改为 key id。
+- `ProviderLibraryStore`：宽容读（丢弃坏条目、清空失效 key 引用）、严格写（重复 id / 缺失 key / 协议不匹配直接拒绝）、原子写；损坏文件备份为 `<file>.corrupt-<timestamp>.json` 后以空库继续；更高 `schemaVersion` 抛 `E_MIGRATION`，绝不覆盖。
+- **阶段一（M9.1，影子迁移）**：库文件不存在时，首次启动把 `AppConfig.providers` 转成 profile（保留 id），把旧 secrets 复制到 `key_<id>`；旧条目暂时保留，`AppConfig` 仍为 schemaVersion 1，旧设置页继续可用。
+- **阶段二（M9.3，UI 切换）**：新设置页接管后，`AppConfig` 升到 schemaVersion 2 并移除 `providers`；只有在库文件确认存在后才 `finalizeMigration()` 落盘，否则保留 v1 供下次重试；旧 secrets 镜像在新 key 的 secret 确认存在后删除。
+- 模型目录随 profile 持久化；`.fhws` 明确不包含 Provider 库与密钥；导入缺 profile 的工作流时按节点警告处理。
+
+**后果**
+
+- 两阶段迁移保证每个会话结束应用仍可运行，且旧 graph 不受影响。
+- 库文件损坏会丢失 profile/模型元数据（密钥仍在 `secrets.bin`），备份文件可用于人工恢复。
+- `AppConfig` v2 的落盘被推迟到 Provider 库可用之后；如果库写入失败，配置仍保持 v1，下次启动可以重新迁移，不会出现“v2 配置 + 空 Provider 库”。
+- M9.1 / M9.2 期间旧设置页的变更在 M9.3 切换时不再合并（旧页面已移除）；迁移以启动时读到的旧配置为准。
+- 未来把配置统一打包导出时，只需导出 `provider-library.json` 与加密 secrets 的受控副本，不影响工作区格式。
+
+**否决**
+
+- 一次性切到 v2 并删除 `providers`：M9.1 阶段旧设置页会失效，违反“每轮结束保持可运行”。
+- 把库塞进 `AppConfig`：模型目录与密钥元数据体积、更新频率和健康状态都不适合与主题 / 窗口配置混在一起，也不利于后续整体迁移。
+- 迁移时删除旧 secrets：一旦新库写入失败会同时丢失旧密钥；阶段一只复制不删除。
+- 迁移时改写 providerId：所有旧 graph 的 `core.model` 绑定会失效。
+
+---
+
+## ADR-031：Provider 节点与 provider 端口
+
+**背景**
+
+M9.4 的 Model 节点已能通过下拉选择 Provider，但同一 Provider 被多个 Model 复用时仍要重复选择；用户希望用 Provider 节点统一声明并连线到 Model。编码前评估过三种方案：
+
+- A：不新增节点，只用 Model + 预设；
+- B：`core.provider` 输出完整 `model` 绑定，直接接 Model Call；
+- C：`core.provider` 输出 provider 引用，Model 节点增加 provider 输入。
+
+**决定**
+
+采用 **C**。在 wireclaw Harness 层新增 `provider` 端口值类型与 `ProviderRef { providerId }`；`core.provider` 输出引用，`core.model` 增加可选 `provider` 输入；连接优先，`config.providerId` 作为未连接回退。Provider 节点只保存 providerId，不持有 Provider 实例、密钥或模型目录。
+
+**后果**
+
+- Provider 复用变成显式连线；Model 仍可独立使用下拉，不强制新增节点。
+- 旧 graph 不需要迁移：没有 provider 边时行为不变，config.providerId 继续生效。
+- `provider` 值是 JSON-safe 的 `HarnessValue`，沿用现有 run / checkpoint / 序列化；端口类型兼容由 `Graph.validate` 检查。
+- 设计期健康由 Provider 节点负责 profile / key；连接后的 Model 不再重复报同一 profile 问题，只检查 modelId / 目录。
+
+**否决**
+
+- A：无法表达“一个 Provider 被多个 Model 复用”的连线关系。
+- B：只能把 provider + model 整体绑定，Model 节点无法复用 Provider 节点；语义也比 C 更窄。
+- 把完整 Provider 配置 / 密钥塞进图值：违反“密钥只在 main、图只引用 id”的边界，并会让 checkpoint / 导出泄漏敏感信息。
 
 
 

@@ -23,7 +23,7 @@ RuntimeHost（main）
   └─ SessionService            每个已打开工作区一个 SessionStore + AttachmentFileManager
 ```
 
-> `RunRegistry` / `EventPipeline` 是目标角色名，当前运行表与节流内联在 `RuntimeHost`。Provider 由 `ProviderRegistry`（`main/services/provider-registry.ts`）从 AppConfig + SecretsStore 构造并缓存，`RuntimeHost.resolveProvider` 直接查询它；配置或密钥变化后 reload。
+> `RunRegistry` / `EventPipeline` 是目标角色名，当前运行表与节流内联在 `RuntimeHost`。Provider 由 `ProviderRegistry`（`main/services/provider-registry.ts`）从 Provider library + SecretsStore 构造并缓存，`RuntimeHost.resolveProvider` 直接查询它；配置或密钥变化后重建。
 
 ## 3. 运行生命周期
 
@@ -48,12 +48,12 @@ start → running → completed
 
 | wireclaw 字段 | FH 来源 | 说明 |
 | --- | --- | --- |
-| `resolveProvider(providerId)` | `ProviderRegistry`（AppConfig + SecretsStore） | 按 providerId 返回已构造的 `AIProvider`，密钥不出 main；配置/密钥变更后 reload |
+| `resolveProvider(providerId)` | `ProviderRegistry`（Provider library + SecretsStore） | 按 providerId（Provider Profile id）返回已构造的 `AIProvider`，密钥不出 main；库变更后重建 |
 | `tools` | 每工作区 ToolRegistry + LocalToolProvider | `workspace__readFile` / `workspace__writeFile`，写文件需审批；MCP 等更多 Provider 待接 |
 | `attachments` | SessionService → `AttachmentFileManager` → `WorkspaceFileHost` | 按 contentHash 读写 |
 | `onToolApproval(request, nodeId)` | IPC 往返到 renderer 审批对话框 | 超时默认拒绝；UI 已接 |
 | `onUserInput(request, nodeId)` | IPC 往返到 renderer 输入对话框 | 超时/取消返回取消结果；UI 已接 |
-| `parameters` | 工作台实例参数 + 运行入参 | 用于 `NodeRequirement(kind: "parameter")` 校验；静态校验支持 catalog 递归下传，M6.2 起由 DesignerView 从 `providers:list` 构造 catalog |
+| `parameters` | 工作台实例参数 + 运行入参 | 用于 `NodeRequirement(kind: "parameter")` 校验；静态校验支持 catalog 递归下传，M9.4 起由 DesignerView 从 Provider 库视图构造 catalog |
 | `log(level, message, data)` | Logging（脱敏） | 不写密钥、不写完整工具参数（当前走 `console`） |
 
 ## 5. 事件管道
@@ -132,8 +132,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | app | `app:getInfo` | ✅ | ❌（renderer 直接用 preload 注入的 versions/platform） |
 | window | `window:minimize` / `toggle-maximize` / `close` / `is-maximized` | ✅ | ✅ |
 | config | `config:get` / `config:update` / `config:reset` | ✅ | `get`/`update` ✅，`reset` ❌ |
-| secrets | `secrets:has` / `secrets:set` / `secrets:delete`（无 `get`） | ✅ | ✅ |
-| providers | `providers:list` / `providers:test` | ✅ | ✅ |
+| provider | `provider:library` / `provider:key:*` / `provider:profile:*` / `provider:models:refresh` | ✅ | ✅ |
 | workspace | `workspace:list` / `create` / `open` / `close` / `readDocument` / `saveDocument` / `listDocuments` / `deleteDocument` / `exportHarness` / `listWorkbenches` / `export` / `import` | ✅ | 前十个 ✅，`export`/`import` ❌ |
 | workspace | `workspace:applyCommands` | ❌（仅契约，见 ADR-012） | ❌ |
 | blob | `blob:stat` / `blob:delete` | ✅ | `stat` ✅，`delete` ❌ |

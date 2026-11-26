@@ -12,7 +12,22 @@ import type {
     WorkspaceSummary,
 } from "./domain";
 import type { WorkbenchSummary } from "./workbench";
-import type { ProviderStatus, ProviderTestResult } from "./provider";
+import type {
+    ApiKeyAddRequest,
+    ApiKeyAddResult,
+    ApiKeyDeleteRequest,
+    ApiKeyDeleteResult,
+    ApiKeyRevalidateRequest,
+    ApiKeyReplaceRequest,
+    ProviderCatalogRefreshResult,
+    ProviderLibraryView,
+    ProviderModelsRefreshRequest,
+    ProviderProfile,
+    ProviderProfileCreateRequest,
+    ProviderProfileDeleteRequest,
+    ProviderProfileDeleteResult,
+    ProviderProfileUpdateRequest,
+} from "./provider-library";
 import type {
     SessionCloseRequest,
     SessionCreateRequest,
@@ -70,12 +85,15 @@ export const IpcChannel = {
     ConfigUpdate: "config:update",
     ConfigReset: "config:reset",
 
-    SecretsHas: "secrets:has",
-    SecretsSet: "secrets:set",
-    SecretsDelete: "secrets:delete",
-
-    ProvidersList: "providers:list",
-    ProvidersTest: "providers:test",
+    ProviderLibrary: "provider:library",
+    ProviderKeyAdd: "provider:key:add",
+    ProviderKeyRevalidate: "provider:key:revalidate",
+    ProviderKeyReplace: "provider:key:replace",
+    ProviderKeyDelete: "provider:key:delete",
+    ProviderProfileCreate: "provider:profile:create",
+    ProviderProfileUpdate: "provider:profile:update",
+    ProviderProfileDelete: "provider:profile:delete",
+    ProviderModelsRefresh: "provider:models:refresh",
 
     WorkspaceList: "workspace:list",
     WorkspaceCreate: "workspace:create",
@@ -148,6 +166,7 @@ export const IpcEventTopic = {
     Window: "window",
     Approval: "approval",
     Input: "input",
+    Provider: "provider",
 } as const;
 
 export type IpcEventTopic = (typeof IpcEventTopic)[keyof typeof IpcEventTopic];
@@ -203,11 +222,6 @@ export type WorkspaceListWorkbenchesRequest = { workspaceId: string };
 export type BlobStatRequest = { workspaceId: string; hash: string };
 export type BlobDeleteRequest = { workspaceId: string; hash: string };
 
-export type SecretsHasRequest = { providerId: string };
-export type SecretsSetRequest = { providerId: string; value: string };
-export type SecretsDeleteRequest = { providerId: string };
-export type ProvidersTestRequest = { providerId: string };
-
 /** 已实现 invoke 通道的类型表；每接入一个通道就往这里加一行。 */
 export type IpcInvokeContracts = {
     [IpcChannel.AppGetInfo]: { request: void; response: AppInfo };
@@ -221,12 +235,39 @@ export type IpcInvokeContracts = {
     [IpcChannel.ConfigUpdate]: { request: AppConfigUpdate; response: AppConfig };
     [IpcChannel.ConfigReset]: { request: void; response: AppConfig };
 
-    [IpcChannel.SecretsHas]: { request: SecretsHasRequest; response: { has: boolean } };
-    [IpcChannel.SecretsSet]: { request: SecretsSetRequest; response: void };
-    [IpcChannel.SecretsDelete]: { request: SecretsDeleteRequest; response: { deleted: boolean } };
-
-    [IpcChannel.ProvidersList]: { request: void; response: ProviderStatus[] };
-    [IpcChannel.ProvidersTest]: { request: ProvidersTestRequest; response: ProviderTestResult };
+    [IpcChannel.ProviderLibrary]: { request: void; response: ProviderLibraryView };
+    [IpcChannel.ProviderKeyAdd]: {
+        request: ApiKeyAddRequest;
+        response: ApiKeyAddResult;
+    };
+    [IpcChannel.ProviderKeyRevalidate]: {
+        request: ApiKeyRevalidateRequest;
+        response: ApiKeyAddResult;
+    };
+    [IpcChannel.ProviderKeyReplace]: {
+        request: ApiKeyReplaceRequest;
+        response: ApiKeyAddResult;
+    };
+    [IpcChannel.ProviderKeyDelete]: {
+        request: ApiKeyDeleteRequest;
+        response: ApiKeyDeleteResult;
+    };
+    [IpcChannel.ProviderProfileCreate]: {
+        request: ProviderProfileCreateRequest;
+        response: ProviderProfile;
+    };
+    [IpcChannel.ProviderProfileUpdate]: {
+        request: ProviderProfileUpdateRequest;
+        response: ProviderProfile;
+    };
+    [IpcChannel.ProviderProfileDelete]: {
+        request: ProviderProfileDeleteRequest;
+        response: ProviderProfileDeleteResult;
+    };
+    [IpcChannel.ProviderModelsRefresh]: {
+        request: ProviderModelsRefreshRequest;
+        response: ProviderCatalogRefreshResult;
+    };
 
     [IpcChannel.WorkspaceList]: { request: void; response: WorkspaceSummary[] };
     [IpcChannel.WorkspaceCreate]: { request: WorkspaceCreateInput; response: WorkspaceSummary };

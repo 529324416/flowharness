@@ -500,41 +500,42 @@ try {
             await clickElement(`document.querySelector('button[aria-label="设置"]')`);
             await settle(250);
             await clickElement(
-                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('Provider 设置'))`,
+                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('Provider 与密钥'))`,
             );
             await settle(800);
 
-            const providers = await evaluateAsync(`(async () => {
-                const result = await window.flowharness.listProviders();
-                return result.ok ? result.data.map((item) => ({
-                    id: item.id,
-                    kind: item.kind,
-                    enabled: item.enabled,
-                    hasKey: item.hasKey,
-                    available: item.available,
-                    error: item.error ?? null,
-                })) : null;
+            const library = await evaluateAsync(`(async () => {
+                const result = await window.flowharness.getProviderLibrary();
+                return result.ok ? {
+                    keys: result.data.keys.map((item) => ({
+                        id: item.id,
+                        protocol: item.protocol,
+                        status: item.status,
+                    })),
+                    profiles: result.data.profiles.map((item) => ({
+                        id: item.profile.id,
+                        adapter: item.profile.adapter,
+                        enabled: item.profile.enabled,
+                        available: item.available,
+                        keyStatus: item.keyStatus ?? null,
+                    })),
+                } : null;
             })()`);
-            const dialog = await evaluateAsync(
+            const dialogText = await evaluateAsync(
                 `document.querySelector('[role="dialog"]')?.textContent?.slice(0, 240)`,
             );
-            console.log(`providers: ${JSON.stringify(providers.result?.value)}`);
-            console.log(`provider dialog: ${JSON.stringify(dialog.result?.value)}`);
+            console.log(`provider library: ${JSON.stringify(library.result?.value)}`);
+            console.log(`provider dialog: ${JSON.stringify(dialogText.result?.value)}`);
 
-            // 保存一次配置，验证 UI → config:update → providers:list 的闭环。
-            await evaluate(
-                `(() => { const cards = [...document.querySelectorAll('[role="dialog"] section')]; const card = cards.find((item) => item.textContent?.includes('deepseek')); const input = card?.querySelector('input[type="checkbox"]'); if (input && !input.checked) input.click(); })()`,
-            );
-            await settle(150);
+            // 切到 Provider 页，确认列表与模型目录都能渲染。
             await clickElement(
-                `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '保存配置')`,
+                `[...document.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent?.trim() === 'Provider')`,
             );
-            await settle(800);
-            const saved = await evaluateAsync(`(async () => {
-                const result = await window.flowharness.getConfig();
-                return result.ok ? result.data.providers.map((item) => ({ id: item.id, enabled: item.enabled })) : null;
-            })()`);
-            console.log(`providers saved: ${JSON.stringify(saved.result?.value)}`);
+            await settle(400);
+            const profileCards = await evaluateAsync(
+                `document.querySelectorAll('[role="dialog"] article').length`,
+            );
+            console.log(`provider cards: ${JSON.stringify(profileCards.result?.value)}`);
         }
 
         if (scenario === "designer-workbench-manage") {
@@ -1398,16 +1399,12 @@ try {
                 `(() => { const panel = document.querySelector('button[aria-label="切换运行日志"]'); if (panel && panel.getAttribute('aria-pressed') !== 'true') panel.click(); return true; })()`,
             );
             await settle(500);
-            await clickElement(
-                `[...document.querySelectorAll('[role="tab"]')].find((button) => button.textContent?.includes('问题'))`,
-            );
-            await settle(500);
+            // 问题已并入运行日志：没有页签，直接点击第一条问题定位。
             await clickElement(`document.querySelector('button[class*="problem"]')`);
             await settle(900);
 
-            const activeTab = await send("Runtime.evaluate", {
-                expression:
-                    "[...document.querySelectorAll('[role=\"tab\"]')].map((tab) => ({ text: tab.textContent, state: tab.getAttribute('data-state') }))",
+            const tabs = await send("Runtime.evaluate", {
+                expression: `document.querySelectorAll('[role="tab"]').length`,
                 returnByValue: true,
             });
             const total = await send("Runtime.evaluate", {
@@ -1415,7 +1412,7 @@ try {
                     "document.querySelectorAll('[class*=\"problemText\"]').length",
                 returnByValue: true,
             });
-            console.log(`tabs: ${JSON.stringify(activeTab.result?.value)}`);
+            console.log(`tabs in run log: ${JSON.stringify(tabs.result?.value)}`);
             console.log(`problem count: ${JSON.stringify(total.result?.value)}`);
         }
 

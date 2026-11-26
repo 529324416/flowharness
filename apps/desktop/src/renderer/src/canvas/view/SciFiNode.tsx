@@ -53,8 +53,10 @@ export function SciFiNode({
                 readOnly={data.readOnly}
                 onUpdateConfig={data.onUpdateConfig}
                 inputs={data.inputs}
-                showInputSlots={!data.readOnly}
+                // 运行期间也保留端口槽，节点结构与高度不随只读状态变化。
+                showInputSlots
                 minHeight={nodeMinHeight(data.inputs.length, data.outputs.length)}
+                notice={data.notice}
             />
 
             {data.inputs.map((port, index) => (

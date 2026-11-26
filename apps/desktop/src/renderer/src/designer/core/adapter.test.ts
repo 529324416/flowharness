@@ -96,4 +96,23 @@ describe("toCanvasDocument", () => {
         });
         expect(document.nodes[0]?.data.summary).toBe("value");
     });
+
+    it("summarizes a Provider node by its provider id", () => {
+        const graph = makeGraph();
+        graph.nodes.push({
+            id: "provider",
+            type: "core.provider",
+            typeVersion: 1,
+            config: { providerId: "deepseek" },
+            ui: { x: 0, y: 200 },
+        });
+
+        const document = toCanvasDocument(graph);
+        const provider = document.nodes.find((node) => node.id === "provider");
+
+        expect(provider?.data.title).toBe("Provider");
+        expect(provider?.data.inputs).toEqual([]);
+        expect(provider?.data.outputs[0]?.type).toBe("provider");
+        expect(provider?.data.summary).toBe("deepseek");
+    });
 });

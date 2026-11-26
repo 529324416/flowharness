@@ -13,6 +13,8 @@ export type NodeConfigFormProps = {
     schema: JsonObject;
     config: unknown;
     disabled?: boolean;
+    /** 运行时下拉覆盖：key 是字段名（如 providerId / modelId）。 */
+    fieldOptions?: Readonly<Record<string, readonly SelectOption[]>>;
     onChange: (config: JsonValue) => void;
 };
 
@@ -27,6 +29,7 @@ export function NodeConfigForm({
     schema,
     config,
     disabled = false,
+    fieldOptions,
     onChange,
 }: NodeConfigFormProps): ReactElement {
     const issues = useMemo(
@@ -74,6 +77,7 @@ export function NodeConfigForm({
                         required={required.has(key)}
                         issues={issues}
                         disabled={disabled}
+                        options={fieldOptions?.[key]}
                         onChange={(path, next) => {
                             onChange(writeConfigPath(config, path, next));
                         }}
@@ -92,6 +96,7 @@ type SchemaFieldProps = {
     required: boolean;
     issues: readonly NodeConfigIssue[];
     disabled: boolean;
+    options?: readonly SelectOption[] | undefined;
     onChange: (path: ConfigPath, value: JsonValue | undefined) => void;
 };
 
@@ -103,6 +108,7 @@ function SchemaField({
     required,
     issues,
     disabled,
+    options,
     onChange,
 }: SchemaFieldProps): ReactElement {
     const label = readString(schema.title) ?? name;
@@ -136,6 +142,27 @@ function SchemaField({
     }
 
     const type = types[0];
+
+    if (options !== undefined && options.length > 0 && type === "string") {
+        return (
+            <Field
+                label={label}
+                hint={description}
+                error={error}
+                required={required}
+                htmlFor={id}
+            >
+                <Select
+                    id={id}
+                    value={typeof value === "string" ? value : undefined}
+                    options={options}
+                    disabled={disabled}
+                    placeholder="请选择"
+                    onChange={(next) => onChange(path, next)}
+                />
+            </Field>
+        );
+    }
 
     if (enumOptions !== undefined) {
         return (

@@ -87,7 +87,7 @@ export function RibbonBar({
                         <MenuItem onSelect={() => onSelectView("styleguide")}>样式指南</MenuItem>
                         <MenuSeparator />
                         <MenuItem onSelect={onOpenSettings}>
-                            Provider 设置…
+                            Provider 与密钥…
                         </MenuItem>
                     </MenuContent>
                 </Menu>

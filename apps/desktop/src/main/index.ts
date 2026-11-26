@@ -32,7 +32,14 @@ import {
     type RunResumeInterruptedRequest,
     type RunResumeRequest,
     type RunStartRequest,
-    type ProvidersTestRequest,
+    type ApiKeyAddRequest,
+    type ApiKeyDeleteRequest,
+    type ApiKeyRevalidateRequest,
+    type ApiKeyReplaceRequest,
+    type ProviderModelsRefreshRequest,
+    type ProviderProfileCreateRequest,
+    type ProviderProfileDeleteRequest,
+    type ProviderProfileUpdateRequest,
     type SessionCreateRequest,
     type SessionDeleteRequest,
     type SessionAppendEntriesRequest,
@@ -50,11 +57,8 @@ import {
     type SessionSaveRunRequest,
     type SessionSetDraftFolderRequest,
     type SessionTreeRequest,
-    type SecretsDeleteRequest,
-    type SecretsHasRequest,
-    type SecretsSetRequest,
-    type UserInputRequestPayload,
     type UserInputResponseRequest,
+    type UserInputRequestPayload,
     type WindowMode,
     type WindowStatePayload,
     type WorkspaceCloseRequest,
@@ -81,8 +85,14 @@ import {
 import { registerAssetProtocol, registerAssetScheme } from "./platform/asset-protocol";
 import { registerHandler } from "./platform/ipc";
 import { RequestBroker } from "./platform/request-broker";
-import { AppConfigStore, createDefaultAppConfig } from "./services/app-config";
+import {
+    AppConfigStore,
+    createDefaultAppConfig,
+    defaultProviderConfigs,
+} from "./services/app-config";
 import { ProviderRegistry } from "./services/provider-registry";
+import { seedProviderLibraryFromLegacy } from "./services/provider-library-migration";
+import { ProviderLibraryStore } from "./services/provider-library-store";
 import { RunStore } from "./services/run-store";
 import { RuntimeHost } from "./services/runtime-host";
 import { SecretsStore, type SecretCipher } from "./services/secrets";
@@ -427,6 +437,11 @@ function broadcast(topic: IpcEventTopic, payload: unknown): void {
     }
 }
 
+/** Provider 库变更后广播只读视图（不含密钥）；M9.3 设置页与节点健康使用。 */
+function broadcastProviderLibrary(): void {
+    broadcast(IpcEventTopic.Provider, providers.view());
+}
+
 function runStoreFor(workspaceId: string): RunStore {
     const dir = workspaces.getWorkspaceDir(workspaceId);
     if (!dir) {
@@ -471,6 +486,10 @@ async function initialize(): Promise<void> {
     );
 
     const config = await appConfig.get();
+    const legacyProviders = appConfig.legacyProviders;
+    // 全新 v2 安装没有 legacy providers：仍用默认 4 条播种 Provider 库。
+    const initialProviders =
+        legacyProviders.length > 0 ? legacyProviders : defaultProviderConfigs();
     nativeTheme.themeSource = config.theme;
 
     windowState = new WindowStateStore(join(userData, "window-state.json"));
@@ -483,8 +502,49 @@ async function initialize(): Promise<void> {
     await workspaces.init();
 
     secrets = new SecretsStore(join(userData, "secrets.bin"), createSafeStorageCipher());
-    providers = new ProviderRegistry(secrets);
-    await providers.reload(config.providers);
+
+    // M9.1 影子迁移 + M9.2 运行时接管：库优先，旧 ProviderConfig 仅作为首次兜底。
+    const providerLibrary = new ProviderLibraryStore(
+        join(userData, "provider-library.json"),
+    );
+    try {
+        const seeded = await seedProviderLibraryFromLegacy({
+            store: providerLibrary,
+            secrets,
+            legacyProviders: initialProviders,
+        });
+        for (const warning of seeded.warnings) {
+            console.warn("[provider-library]", warning);
+        }
+    } catch (error) {
+        console.warn(
+            "[provider-library] seed failed:",
+            error instanceof Error ? error.message : String(error),
+        );
+    }
+
+    providers = new ProviderRegistry(providerLibrary, secrets);
+    await providers.init(initialProviders);
+    try {
+        await providers.removeLegacySecrets(legacyProviders);
+    } catch (error) {
+        console.warn(
+            "[provider-library] cannot remove legacy secrets:",
+            error instanceof Error ? error.message : String(error),
+        );
+    }
+
+    // 只有库文件确实存在时才把 AppConfig 落成 v2；否则保留 v1 供下次重试。
+    if (await providerLibrary.exists().catch(() => false)) {
+        try {
+            await appConfig.finalizeMigration();
+        } catch (error) {
+            console.warn(
+                "[config] cannot finalize v2 migration:",
+                error instanceof Error ? error.message : String(error),
+            );
+        }
+    }
 
     sessionService = new SessionService(
         (workspaceId) => workspaces.getBlobStore(workspaceId),
@@ -546,6 +606,19 @@ async function initialize(): Promise<void> {
             },
         },
         resolveProvider: (providerId) => providers.get(providerId),
+        onProviderHttpError: (providerId, httpStatus) => {
+            void providers
+                .recordRuntimeProviderError(providerId, httpStatus)
+                .then((changed) => {
+                    if (changed) broadcastProviderLibrary();
+                })
+                .catch((error: unknown) => {
+                    console.warn(
+                        "[provider-library] cannot persist provider error:",
+                        error instanceof Error ? error.message : String(error),
+                    );
+                });
+        },
         attachmentsFor: (workspaceId) => sessionService.attachmentsFor(workspaceId),
         toolsFor,
         storeFor: (workspaceId) => runStoreFor(workspaceId),
@@ -652,17 +725,12 @@ function registerIpcHandlers(): void {
             runStores.clear();
         }
 
-        if (JSON.stringify(next.providers) !== JSON.stringify(before.providers)) {
-            await providers.reload(next.providers);
-        }
-
         return next;
     });
 
     registerHandler(IpcChannel.ConfigReset, async () => {
         const next = await appConfig.reset();
         nativeTheme.themeSource = next.theme;
-        await providers.reload(next.providers);
         return next;
     });
 
@@ -1027,35 +1095,78 @@ function registerIpcHandlers(): void {
         },
     );
 
-    registerHandler(
-        IpcChannel.SecretsHas,
-        async ({ providerId }: SecretsHasRequest) => ({
-            has: await secrets.has(providerId),
-        }),
-    );
+    registerHandler(IpcChannel.ProviderLibrary, () => providers.view());
 
     registerHandler(
-        IpcChannel.SecretsSet,
-        async ({ providerId, value }: SecretsSetRequest) => {
-            await secrets.set(providerId, value);
-            await providers.reload((await appConfig.get()).providers);
+        IpcChannel.ProviderKeyAdd,
+        async (request: ApiKeyAddRequest) => {
+            const result = await providers.addKey(request);
+            broadcastProviderLibrary();
+            return result;
         },
     );
 
     registerHandler(
-        IpcChannel.SecretsDelete,
-        async ({ providerId }: SecretsDeleteRequest) => {
-            const deleted = await secrets.delete(providerId);
-            await providers.reload((await appConfig.get()).providers);
-            return { deleted };
+        IpcChannel.ProviderKeyRevalidate,
+        async (request: ApiKeyRevalidateRequest) => {
+            const result = await providers.revalidateKey(request.keyId);
+            broadcastProviderLibrary();
+            return result;
         },
     );
 
-    registerHandler(IpcChannel.ProvidersList, () => providers.list());
+    registerHandler(
+        IpcChannel.ProviderKeyReplace,
+        async (request: ApiKeyReplaceRequest) => {
+            const result = await providers.replaceKey(request.keyId, request.apiKey);
+            broadcastProviderLibrary();
+            return result;
+        },
+    );
 
     registerHandler(
-        IpcChannel.ProvidersTest,
-        ({ providerId }: ProvidersTestRequest) => providers.test(providerId),
+        IpcChannel.ProviderKeyDelete,
+        async (request: ApiKeyDeleteRequest) => {
+            const result = await providers.deleteKey(request.keyId);
+            broadcastProviderLibrary();
+            return result;
+        },
+    );
+
+    registerHandler(
+        IpcChannel.ProviderProfileCreate,
+        async (request: ProviderProfileCreateRequest) => {
+            const result = await providers.createProfile(request);
+            broadcastProviderLibrary();
+            return result;
+        },
+    );
+
+    registerHandler(
+        IpcChannel.ProviderProfileUpdate,
+        async (request: ProviderProfileUpdateRequest) => {
+            const result = await providers.updateProfile(request);
+            broadcastProviderLibrary();
+            return result;
+        },
+    );
+
+    registerHandler(
+        IpcChannel.ProviderProfileDelete,
+        async (request: ProviderProfileDeleteRequest) => {
+            const result = await providers.deleteProfile(request);
+            broadcastProviderLibrary();
+            return result;
+        },
+    );
+
+    registerHandler(
+        IpcChannel.ProviderModelsRefresh,
+        async (request: ProviderModelsRefreshRequest) => {
+            const result = await providers.refreshModels(request.profileId);
+            broadcastProviderLibrary();
+            return result;
+        },
     );
 
     registerHandler(IpcChannel.RunStart, (request: RunStartRequest) =>

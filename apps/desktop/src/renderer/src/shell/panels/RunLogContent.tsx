@@ -1,19 +1,11 @@
 import { useMemo, type ReactElement } from "react";
 import type { RunEventDto, RunSnapshot } from "@flowharness/contracts";
-import {
-    Badge,
-    EmptyState,
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger,
-    type BadgeVariant,
-} from "../../ui";
-import {
-    collectRunProblems,
-    type DesignerProblem,
-    type DesignerProblemSource,
+import { Badge, EmptyState, type BadgeVariant } from "../../ui";
+import type {
+    DesignerProblem,
+    DesignerProblemSource,
 } from "../../designer/core/problems";
+import { buildRunLogRows } from "../../designer/core/run-log";
 import styles from "./RunLogContent.module.css";
 
 function badgeFor(event: RunEventDto): BadgeVariant {
@@ -37,8 +29,9 @@ function detailFor(event: RunEventDto): string {
             return `status=${event.status}`;
         case "node:start":
         case "node:skipped":
-        case "node:error":
             return event.nodeId;
+        case "node:error":
+            return `${event.nodeId} · ${event.message}`;
         case "node:end":
             return `${event.nodeId} · ${outputKeys(event.outputs)}`;
         case "node:stream":
@@ -85,6 +78,7 @@ const SOURCE_LABEL: Record<DesignerProblemSource, string> = {
     validation: "校验",
     edge: "连线",
     run: "运行",
+    provider: "Provider",
 };
 
 function locationFor(problem: DesignerProblem): string {
@@ -103,96 +97,88 @@ export type RunLogContentProps = {
     onSelectProblem?: (problem: DesignerProblem) => void;
 };
 
-/** 运行日志面板内容；面板外框由 PanelFrame 提供。 */
+/**
+ * 运行日志面板内容；面板外框由 PanelFrame 提供。
+ *
+ * 校验 / 连线 / 运行问题与运行事件合并为一条日志，不再单独占一个页签；
+ * 问题行可点击定位到画布节点。
+ */
 export function RunLogContent({
     events,
     snapshot = null,
     problems = [],
     onSelectProblem,
 }: RunLogContentProps): ReactElement {
-    const visible = events.slice(-120);
-    const runProblems = useMemo(
-        () => collectRunProblems(events, snapshot),
-        [events, snapshot],
-    );
-    const allProblems = useMemo(
-        () => [...problems, ...runProblems],
-        [problems, runProblems],
+    const rows = useMemo(
+        () => buildRunLogRows(problems, events, snapshot),
+        [events, problems, snapshot],
     );
 
     return (
-        <Tabs defaultValue="log" className={styles.root}>
-            <TabsList className={styles.list}>
-                <TabsTrigger value="log">日志</TabsTrigger>
-                <TabsTrigger value="problems">
-                    问题{allProblems.length > 0 ? ` (${String(allProblems.length)})` : ""}
-                </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="log" className={styles.content}>
-                {visible.length === 0 ? (
-                    <EmptyState
-                        compact
-                        title="暂无运行事件"
-                        description="运行一个 Graph 后，事件流会显示在这里"
-                    />
-                ) : (
-                    <ul className={styles.log}>
-                        {visible.map((event, index) => (
-                            <li key={`${event.at}-${index}`} className={styles.row}>
-                                <span className={styles.time}>{formatTime(event.at)}</span>
-                                <Badge variant={badgeFor(event)}>{event.type}</Badge>
-                                <span className={styles.detail}>{detailFor(event)}</span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </TabsContent>
-
-            <TabsContent value="problems" className={styles.content}>
-                {allProblems.length === 0 ? (
-                    <EmptyState
-                        compact
-                        title="暂无问题"
-                        description="校验错误、失效连线与运行失败会显示在这里"
-                    />
-                ) : (
-                    <ul className={styles.problems}>
-                        {allProblems.map((problem) => {
-                            const selectable =
-                                onSelectProblem !== undefined &&
-                                (problem.nodeId !== undefined ||
-                                    problem.edgeId !== undefined);
+        <div className={styles.root}>
+            {rows.length === 0 ? (
+                <EmptyState
+                    compact
+                    title="暂无运行日志"
+                    description="运行事件与校验 / 运行问题会显示在这里"
+                />
+            ) : (
+                <ul className={styles.log}>
+                    {rows.map((row, index) => {
+                        if (row.kind === "event") {
+                            const { event } = row;
                             return (
-                                <li key={problem.id}>
-                                    <button
-                                        type="button"
-                                        className={styles.problem}
-                                        disabled={!selectable}
-                                        onClick={() => onSelectProblem?.(problem)}
-                                    >
-                                        <Badge
-                                            variant={
-                                                problem.severity === "error"
-                                                    ? "danger"
-                                                    : "warning"
-                                            }
-                                        >
-                                            {SOURCE_LABEL[problem.source]}
-                                        </Badge>
-                                        <span className={styles.problemText}>
-                                            {problem.message}
-                                        </span>
-                                        <span className={styles.problemMeta}>
-                                            {locationFor(problem)}
-                                        </span>
-                                    </button>
+                                <li
+                                    key={`${String(event.at)}-${String(index)}`}
+                                    className={styles.row}
+                                >
+                                    <span className={styles.time}>
+                                        {formatTime(event.at)}
+                                    </span>
+                                    <Badge variant={badgeFor(event)}>
+                                        {event.type}
+                                    </Badge>
+                                    <span className={styles.detail}>
+                                        {detailFor(event)}
+                                    </span>
                                 </li>
                             );
-                        })}
-                    </ul>
-                )}
-            </TabsContent>
-        </Tabs>
+                        }
+
+                        const { problem } = row;
+                        const selectable =
+                            onSelectProblem !== undefined &&
+                            (problem.nodeId !== undefined ||
+                                problem.edgeId !== undefined);
+                        return (
+                            <li key={problem.id}>
+                                <button
+                                    type="button"
+                                    className={styles.problem}
+                                    disabled={!selectable}
+                                    onClick={() => onSelectProblem?.(problem)}
+                                >
+                                    <Badge
+                                        variant={
+                                            problem.severity === "error"
+                                                ? "danger"
+                                                : "warning"
+                                        }
+                                    >
+                                        {SOURCE_LABEL[problem.source]}
+                                    </Badge>
+                                    <span className={styles.problemText}>
+                                        {problem.message}
+                                    </span>
+                                    <span className={styles.problemMeta}>
+                                        {locationFor(problem)}
+                                    </span>
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
+        </div>
     );
 }

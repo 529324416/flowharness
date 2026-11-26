@@ -64,7 +64,7 @@
 - `FloatingPanel`：拖动、右/下/右下缩放、z-index 聚焦、折叠、关闭；位置钳制在画布容器内；
 - `PanelLayer`：铺在 Main 之上，默认属性面板右上（280×432）、运行日志左下（448×224）；
 - 面板背景默认 78% 不透明（`--fh-panel-alpha`），底色用比节点更深的 `--fh-panel-bg`、头部 `--fh-panel-header-bg`，后续设置项只改 alpha；
-- 运行日志面板：「日志 / 问题」两个页签；问题页签汇总校验、失效连线与运行错误，点击条目选中并聚焦对应节点；
+- 运行日志面板：单一日志列表（无页签）；校验 / 失效连线 / 运行错误并入列表，点击问题条目选中并聚焦对应节点；
 - 开关：TitleBar 图标、命令中心、`Ctrl J`；首版不做 docking；
 - PanelLayer 由 `WorkbenchHost` 的 `panelLayer` 槽渲染（当前仅设计器传入）；面板开关要求「设计器 + 已打开工作区」，与会话选择无关；Diagnostics / Styleguide 不渲染 PanelLayer。
 
@@ -72,13 +72,15 @@
 
 - 位置：TitleBar 左区，显示当前工作台标题；菜单列出工作区实例与按注册表生成的新建项；
 - 当前类型：`harness-designer`（主工作台，画布）、`plan-runner`（批量运行，顺序独立 run）；原「节点清单」已由节点库取代，独立运行页已移除（ADR-027）；
-- 从模板新建为内置静态列表（5 条）；切换前 flush 当前文档；切换后由 `WorkbenchHost` 按实例 `type` 渲染对应 View。
+- 从模板新建为内置静态列表（3 条）；切换前 flush 当前文档；切换后由 `WorkbenchHost` 按实例 `type` 渲染对应 View。
 
-## 2.3 Provider 设置
+## 2.3 Provider 与 API 密钥
 
-- 入口：Ribbon 底部设置菜单 →「Provider 设置…」；
-- 每个 Provider 一张卡片：启用、显示名、Base URL、默认模型；云 Provider 有 API Key 保存/清除与测试连接；
-- 密钥输入只写 main，卡片只显示「已保存 / 缺少 API Key」，不显示明文；
+- 入口：Ribbon 底部设置菜单 →「Provider 与密钥…」；
+- 两区：**API 密钥**（协议 / 名称 / 密钥 / 可选 Base URL → 验证并保存；列表显示掩码指纹、状态、上次校验）与 **Provider**（适配器 / 密钥 / Base URL / 默认模型 / 启用 / 模型目录）；
+- 密钥只写 main，列表永远不回显明文；失效 / 额度 / 未验证用不同 Badge；
+- `core.model` 的 Provider / 模型为下拉；节点标题右侧用红色 / 黄色三角提示 Provider 健康问题；
+- 节点库含 `Provider`（`core.provider`）：检查器同样用 Provider 下拉，输出 `provider` 可连到 Model 的 `provider` 输入；连接优先、config 回退；
 - 运行中的审批与用户输入复用同一 Dialog 体系：审批展示工具名与参数 JSON；用户输入支持单选/多选/其他文本。
 
 ## 2.4 文档菜单

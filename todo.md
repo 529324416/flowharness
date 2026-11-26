@@ -1,6 +1,6 @@
 # TODO
 
-> 当前主线：**M8 — 模板、导入导出与多工作台**（M7 已完成）。
+> 当前主线：**M8 剩余 — 节点预设库文件导入 / 导出**；**M9 — Provider 与 API Key 库** M9.0–M9.6 已完成（2026-11-27）。
 > 原则：垂直切片；契约先行；工作台即视图；信息架构调整优先于新功能。
 
 ## 设计约束（M7 起）
@@ -225,7 +225,7 @@
 - [x] 跨重启 resume（checkpoint + graph 装载）
 - [x] wireclaw：checkpoint 的 graph hash / node type version（v2）
 
-## 当前里程碑：M8 — 模板、导入导出与多工作台（进行中）
+## 当前里程碑：M8 — 模板、导入导出与多工作台（收尾）
 
 - [x] 工作台模板：`workbench/templates.ts`，3 条模板（Harness 空白 / 当前、批量运行；原「节点清单」随 M8.4 退场、独立运行页随 M8.5 退场）
 - [x] 节点预设：内置 4 条（新增“图片生成”）
@@ -266,9 +266,52 @@
 
 - [ ] 节点预设库文件的独立导入 / 导出 UI（`.fhws` 已包含节点库）
 
+## 已完成里程碑：M9 — Provider 与 API Key 库（2026-11-27）
+
+### M9.0 / M9.1 决策、契约与数据层
+
+- [x] 决策：API Key 与 Provider Profile 分离；图只存 `providerId` + `modelId`，密钥只在 main；ADR-029 / ADR-030
+- [x] 契约：`ApiKeyRecord` / `ProviderProfile` / `ModelCatalogEntry` / 健康状态 / IPC DTO；移除旧 `secrets:*`、`providers:list/test`
+- [x] 应用级 `provider-library.json`：宽容读、严格写、原子写、损坏备份、`E_MIGRATION`
+- [x] 影子迁移：旧 `AppConfig.providers` / `secrets.bin` → 库；保留旧 id；两阶段 AppConfig v1 → v2
+- [x] 测试：库读写 / 迁移 / 指纹 / 旧 key 复制
+
+### M9.2 运行时、健康与 IPC
+
+- [x] wireclaw `SessionError.httpStatus`；`node:error` 回溯 `providerId` 与状态码
+- [x] `ProviderRegistry` 库驱动：profile + key + adapter；运行时解析 / 模型刷新 / 健康探测
+- [x] 401/403 → invalid；402/429 → quota；网络 / 未验证 → warning；持久化模型目录
+- [x] `ProviderLibraryView` / provider topic；真实 DeepSeek key 探测（2 模型 / 无效 key 401）
+
+### M9.3 设置页与 AppConfig v2
+
+- [x] `ProviderLibraryDialog`：API 密钥 / Provider 两区；添加验证、重新验证、替换、删除
+- [x] AppConfig v2 两阶段 finalize；库确认落盘后才移除 `providers`；旧 secrets 镜像清理；默认 4 条 Provider 播种
+- [x] 旧 ProviderSettingsDialog / 旧 IPC / preload 暴露移除
+
+### M9.4 节点下拉与健康提示
+
+- [x] `ProviderLibraryProvider` 上下文；`core.model` Provider / Model 下拉；无目录回退文本
+- [x] 节点摘要 `provider · model`；节点标题健康三角；provider 问题合并运行日志
+- [x] error 阻断运行并定位节点；key invalid / unverified 为 warning，允许尝试
+
+### M9.5 Provider 节点与连线（方案 C）
+
+- [x] wireclaw `provider` 值类型 / `ProviderRef` / 端口兼容；`ProviderNode`；Model 可选 `provider` 输入
+- [x] 连接优先、config 回退；Provider 节点负责 profile 健康，Model 不重复报错
+- [x] 检查器 Provider 下拉；摘要来源 Profile；右键添加节点按画布坐标落点
+- [x] 测试：wireclaw 68/68；FH 229 项
+
+### M9.6 收口与真实验收
+
+- [x] Model Call 能力校验：chat / generate / modality 对照目录 capabilities；旧目录无 capabilities 时不误报
+- [x] DeepSeek Live：Provider → Model → Model Call 完成（107 tokens）；目录刷新 2 模型；generate 不匹配被阻断
+- [x] 文档 / 视觉基线 / 兼容：README、architecture、ADR-029/030/031、devlog、6 张 UI 基线
+- [ ] 可搜索下拉（模型目录很大时再补）
+
 ## 后续里程碑
 
-### M9 — 可观测性与工程化（原 M8）
+### M10 — 可观测性与工程化（原 M9）
 
 - [ ] run 事件回放 / 诊断包导出
 - [ ] 日志分级、脱敏、traceId 展示
@@ -278,7 +321,7 @@
 - [ ] 亮色主题视觉走查
 - [ ] 真实桌面可读性 / 性能 / 窗口阴影 / 缩放验收
 
-### M10 — 打包与发布（原 M9）
+### M11 — 打包与发布（原 M10）
 
 - [ ] electron-builder / electron-forge 打包
 - [ ] 自动更新通道与签名
@@ -420,6 +463,12 @@
 - [x] 37 个测试文件 / 187 个测试通过（2026-11-27；节点库模型 + presetLibrary 文档）
 - [x] 37 个测试文件 / 188 个测试通过（2026-11-27；运行会话增量写入）
 - [x] 37 个测试文件 / 189 个测试通过（2026-11-27；运行视图引用稳定）
+- [x] 40 个测试文件 / 213 个测试通过（2026-11-27；运行错误 providerId/httpStatus 投影）
+- [x] 42 个测试文件 / 222 个测试通过（2026-11-27；Provider 设置 UI / 节点健康 / AppConfig v2）
+- [x] 42 个测试文件 / 224 个测试通过（2026-11-27；Modal 内下拉层级 / 密钥会话回退）
+- [x] 42 个测试文件 / 225 个测试通过（2026-11-27；Provider 编辑会话回退）
+- [x] 42 个测试文件 / 229 个测试通过（2026-11-27；M9.5 Provider 节点 / 连线 / 健康）
+- [x] 42 个测试文件 / 234 个测试通过（2026-11-27；M9.6 能力不匹配 / 真实 DeepSeek 调用）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
 

@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
     AssistantMessage,
     GraphNode,
+    SessionError,
+    SessionErrorType,
     createBuiltinNodeRegistry,
     type AIProvider,
     type ChatResult,
@@ -89,9 +91,45 @@ const SLOW_GRAPH = {
     ],
 } as const;
 
+const MODEL_CALL_GRAPH = {
+    version: 1,
+    id: "model-call-graph",
+    nodes: [
+        {
+            id: "model",
+            type: "core.model",
+            typeVersion: 1,
+            config: { providerId: "fake", modelId: "fake-model" },
+        },
+        {
+            id: "prompt",
+            type: "core.constant",
+            typeVersion: 1,
+            config: { value: { type: "text", text: "hello" } },
+        },
+        { id: "call", type: "core.model.call", typeVersion: 1, config: { mode: "chat" } },
+        { id: "output", type: "core.output", typeVersion: 1 },
+    ],
+    edges: [
+        {
+            from: { nodeId: "model", port: "model" },
+            to: { nodeId: "call", port: "model" },
+        },
+        {
+            from: { nodeId: "prompt", port: "value" },
+            to: { nodeId: "call", port: "prompt" },
+        },
+        {
+            from: { nodeId: "call", port: "text" },
+            to: { nodeId: "output", port: "text" },
+        },
+    ],
+} as const;
+
 function createRuntime(
     store?: RunStore,
     resolveProvider?: GraphProviderResolver,
+    onProviderHttpError?: (providerId: string, httpStatus: number) => void,
 ): {
     host: RuntimeHost;
     batches: RunEventBatch[];
@@ -122,6 +160,7 @@ function createRuntime(
         flushIntervalMs: 1,
         ...(store ? { storeFor: () => store } : {}),
         ...(resolveProvider ? { resolveProvider } : {}),
+        ...(onProviderHttpError ? { onProviderHttpError } : {}),
     });
 
     return { host, batches };
@@ -241,6 +280,45 @@ describe("RuntimeHost", () => {
                 text: { type: "text", text: "hello from fake" },
             },
         });
+    });
+
+    it("annotates node:error with providerId/httpStatus and reports auth failures", async () => {
+        const failure = new SessionError(
+            SessionErrorType.ProviderError,
+            "fake provider returned HTTP 401",
+            undefined,
+            401,
+        );
+        const fakeProvider = {
+            title: "Fake",
+            modelProvider: null,
+            async chat(): Promise<ChatResult> {
+                throw failure;
+            },
+        } as unknown as AIProvider;
+        const reported: Array<{ providerId: string; httpStatus: number }> = [];
+
+        const { host, batches } = createRuntime(
+            undefined,
+            (providerId) => (providerId === "fake" ? fakeProvider : undefined),
+            (providerId, httpStatus) => {
+                reported.push({ providerId, httpStatus });
+            },
+        );
+
+        const snapshot = await host.start({ graph: MODEL_CALL_GRAPH });
+        await waitFor(() => host.get(snapshot.runId)?.status === "failed");
+
+        const nodeError = batches
+            .flatMap((batch) => batch.events)
+            .find((event) => event.type === "node:error");
+        expect(nodeError).toMatchObject({
+            type: "node:error",
+            nodeId: "call",
+            providerId: "fake",
+            httpStatus: 401,
+        });
+        expect(reported).toEqual([{ providerId: "fake", httpStatus: 401 }]);
     });
 
     it("rejects an invalid graph document", async () => {

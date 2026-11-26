@@ -30,6 +30,12 @@ export type CanvasPortRef = {
     port: string;
 };
 
+/** 节点级健康提示；由设计期 Provider 问题投影，不参与运行状态。 */
+export type CanvasNodeNotice = {
+    severity: "warning" | "danger";
+    message: string;
+};
+
 /**
  * 节点渲染数据。
  *
@@ -47,6 +53,8 @@ export type CanvasNodeData = {
     config?: unknown;
     /** 节点类型无法解析时的降级原因；正常节点为 undefined。 */
     error?: string;
+    /** Provider / 配置健康提示；不改变运行状态。 */
+    notice?: CanvasNodeNotice;
 };
 
 export type CanvasNode = {

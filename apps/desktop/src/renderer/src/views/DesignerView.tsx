@@ -11,10 +11,11 @@ import {
     Button,
     EmptyState,
 } from "../ui";
-import type { CanvasEdgeStatus } from "../canvas/core/types";
+import type { CanvasEdgeStatus, CanvasNodeNotice } from "../canvas/core/types";
 import { edgeKeyFromPorts } from "../canvas/core/edge-key";
 import { CanvasView } from "../canvas/view/CanvasView";
-import { toCanvasDocument } from "../designer/core/adapter";
+import { toCanvasDocument, type CanvasPresentation } from "../designer/core/adapter";
+import { collectProviderProblems, resolveModelProvider } from "../designer/core/provider-problems";
 import { findInvalidEdges } from "../designer/core/edges";
 import {
     copyNodes,
@@ -34,8 +35,7 @@ import {
 } from "../designer/state/useDesignerDocument";
 import { useDesignerRun } from "../designer/state/useDesignerRun";
 import { useRecentNodes } from "../designer/state/useRecentNodes";
-import type { InspectorModel } from "../inspector/model";
-import type { RunControls } from "../run/run-controls";
+import type { InspectorFieldOption, InspectorModel } from "../inspector/model";import type { RunControls } from "../run/run-controls";
 import type { WorkbenchController } from "../workbench/types";
 import { onPresetUiEvent } from "../presets/bus";
 import {
@@ -45,6 +45,8 @@ import {
 import { usePresetLibrary } from "../presets/context";
 import { NODE_DRAG_MIME, parseNodeDragPayload } from "../presets/drag";
 import { toPresetDocument } from "../presets/model";
+import { useProviderLibrary } from "../providers/context";
+import { profileOptionLabel } from "../providers/model";
 import {
     NODE_LIBRARY_MAX_HEIGHT,
     NODE_LIBRARY_WIDTH,
@@ -122,6 +124,10 @@ export function DesignerView({
     const [libraryAnchor, setLibraryAnchor] = useState<{ x: number; y: number } | null>(
         null,
     );
+    const [libraryInsert, setLibraryInsert] = useState<{
+        x: number;
+        y: number;
+    } | null>(null);
     const [presetCapture, setPresetCapture] = useState<PresetCapture | null>(null);
     const { library, managerOpen } = usePresetLibrary();
     const [focusNode, setFocusNode] = useState<{
@@ -136,34 +142,22 @@ export function DesignerView({
         }));
     }, []);
     const { entries: recentNodes, record: recordRecentNode } = useRecentNodes();
-    const [requirementCatalog, setRequirementCatalog] = useState<
-        RequirementCatalog | undefined
-    >(undefined);
+    const { view: providerLibrary } = useProviderLibrary();
 
-    useEffect(() => {
-        let cancelled = false;
-        const load = async (): Promise<void> => {
-            const result = await window.flowharness.listProviders();
-            if (!result.ok || cancelled) return;
-            setRequirementCatalog({
-                providers: result.data
-                    .filter((provider) => provider.available)
-                    .map((provider) => provider.id),
-                models: result.data.flatMap((provider) =>
-                    provider.models.map((modelId) => ({
-                        providerId: provider.id,
-                        modelId,
-                    })),
-                ),
-            });
-        };
-        void load();
-        window.addEventListener("focus", load);
-        return () => {
-            cancelled = true;
-            window.removeEventListener("focus", load);
-        };
-    }, [workspace?.id]);
+    const requirementCatalog = useMemo<RequirementCatalog>(
+        () => ({
+            providers: providerLibrary.profiles
+                .filter((status) => status.available)
+                .map((status) => status.profile.id),
+            models: providerLibrary.profiles.flatMap((status) =>
+                status.profile.models.map((model) => ({
+                    providerId: status.profile.id,
+                    modelId: model.id,
+                })),
+            ),
+        }),
+        [providerLibrary],
+    );
 
     const {
         snapshot,
@@ -190,6 +184,7 @@ export function DesignerView({
         }));
         setLibraryOpen(false);
         setLibraryAnchor(null);
+        setLibraryInsert(null);
         setFocusNode(null);
         clipboardRef.current = null;
     }, [documentId]);
@@ -219,17 +214,99 @@ export function DesignerView({
         return merged;
     }, [invalidEdges, runEdgeStatuses]);
 
-    const canvas = useMemo(
-        () => (graph === null ? null : toCanvasDocument(graph, { edgeStatuses })),
-        [edgeStatuses, graph],
-    );
-
-    const problems = useMemo(
+    const baseProblems = useMemo(
         () =>
             graph === null
                 ? []
                 : collectDesignerProblems(graph, { invalidEdges }),
         [graph, invalidEdges],
+    );
+
+    const providerProblems = useMemo(
+        () =>
+            graph === null
+                ? []
+                : collectProviderProblems(graph, providerLibrary),
+        [graph, providerLibrary],
+    );
+
+    const providerErrors = useMemo(
+        () => providerProblems.filter((problem) => problem.severity === "error"),
+        [providerProblems],
+    );
+    const hasProviderErrors = providerErrors.length > 0;
+
+    const providerNotices = useMemo(() => {
+        const notices: Record<string, CanvasNodeNotice> = {};
+        for (const problem of providerProblems) {
+            if (problem.nodeId === undefined) continue;
+            const current = notices[problem.nodeId];
+            if (
+                current === undefined ||
+                (problem.severity === "error" && current.severity === "warning")
+            ) {
+                notices[problem.nodeId] = {
+                    severity: problem.severity === "error" ? "danger" : "warning",
+                    message: problem.message,
+                };
+            }
+        }
+        return notices;
+    }, [providerProblems]);
+
+    const providerPresentation = useMemo<Record<string, CanvasPresentation>>(() => {
+        const presentation: Record<string, CanvasPresentation> = {};
+        if (graph === null) return presentation;
+
+        for (const node of graph.nodes) {
+            const config = isRecord(node.config) ? node.config : {};
+            const modelId =
+                typeof config.modelId === "string" && config.modelId.length > 0
+                    ? config.modelId
+                    : undefined;
+
+            if (node.type === "core.provider") {
+                const providerId =
+                    typeof config.providerId === "string"
+                        ? config.providerId
+                        : undefined;
+                const status = providerLibrary.profiles.find(
+                    (item) => item.profile.id === providerId,
+                );
+                const label = status?.profile.label ?? providerId;
+                if (label !== undefined) presentation[node.id] = { summary: label };
+                continue;
+            }
+
+            if (node.type !== "core.model") continue;
+            const binding = resolveModelProvider(graph, node);
+            if (!binding.connected) continue;
+            const status = providerLibrary.profiles.find(
+                (item) => item.profile.id === binding.providerId,
+            );
+            const label = status?.profile.label ?? binding.providerId;
+            const summary = [label, modelId].filter(Boolean).join(" · ");
+            if (summary.length > 0) presentation[node.id] = { summary };
+        }
+
+        return presentation;
+    }, [graph, providerLibrary]);
+
+    const canvas = useMemo(
+        () =>
+            graph === null
+                ? null
+                : toCanvasDocument(graph, {
+                      edgeStatuses,
+                      notices: providerNotices,
+                      presentation: providerPresentation,
+                  }),
+        [edgeStatuses, graph, providerNotices, providerPresentation],
+    );
+
+    const problems = useMemo(
+        () => [...baseProblems, ...providerProblems],
+        [baseProblems, providerProblems],
     );
 
     const selectProblem = useCallback(
@@ -282,48 +359,56 @@ export function DesignerView({
 
     const handleRun = useCallback(async (): Promise<void> => {
         if (graph === null || workspace === null) return;
+        if (hasProviderErrors) return;
 
         const started = await start(graph, workspace.id, onRunWillStart);
         if (started !== null) onRunStarted(started);
-    }, [graph, onRunStarted, onRunWillStart, start, workspace]);
+    }, [graph, hasProviderErrors, onRunStarted, onRunWillStart, start, workspace]);
 
     const handleCancel = useCallback((): void => {
         void cancel();
     }, [cancel]);
 
-    /** 打开插入菜单；position 是视口坐标（右键 / 总线请求可缺省）。 */
-    const openNodeLibrary = useCallback((position?: { x: number; y: number }): void => {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (rect === undefined) {
-            setLibraryAnchor(null);
-            setLibraryOpen(true);
-            return;
-        }
+    /** 打开插入菜单；screen 是视口坐标（用于锚点），flow 是画布落点。 */
+    const openNodeLibrary = useCallback(
+        (
+            screen?: { x: number; y: number },
+            flow?: { x: number; y: number },
+        ): void => {
+            setLibraryInsert(flow ?? null);
+            const rect = canvasRef.current?.getBoundingClientRect();
+            if (rect === undefined) {
+                setLibraryAnchor(null);
+                setLibraryOpen(true);
+                return;
+            }
 
-        if (position === undefined) {
+            if (screen === undefined) {
+                setLibraryAnchor({
+                    x: Math.max(12, rect.width / 2 - NODE_LIBRARY_WIDTH / 2),
+                    y: 16,
+                });
+                setLibraryOpen(true);
+                return;
+            }
+
+            const panelWidth = NODE_LIBRARY_WIDTH;
+            const panelHeight = NODE_LIBRARY_MAX_HEIGHT;
+            const edge = 12;
             setLibraryAnchor({
-                x: Math.max(12, rect.width / 2 - NODE_LIBRARY_WIDTH / 2),
-                y: 16,
+                x: Math.min(
+                    Math.max(edge, screen.x - rect.left),
+                    Math.max(edge, rect.width - panelWidth - edge),
+                ),
+                y: Math.min(
+                    Math.max(edge, screen.y - rect.top),
+                    Math.max(edge, rect.height - panelHeight - edge),
+                ),
             });
             setLibraryOpen(true);
-            return;
-        }
-
-        const panelWidth = NODE_LIBRARY_WIDTH;
-        const panelHeight = NODE_LIBRARY_MAX_HEIGHT;
-        const edge = 12;
-        setLibraryAnchor({
-            x: Math.min(
-                Math.max(edge, position.x - rect.left),
-                Math.max(edge, rect.width - panelWidth - edge),
-            ),
-            y: Math.min(
-                Math.max(edge, position.y - rect.top),
-                Math.max(edge, rect.height - panelHeight - edge),
-            ),
-        });
-        setLibraryOpen(true);
-    }, []);
+        },
+        [],
+    );
 
     const handleAddNode = useCallback(
         (type: string, position?: { x: number; y: number }): void => {
@@ -398,6 +483,7 @@ export function DesignerView({
 
             setLibraryOpen(false);
             setLibraryAnchor(null);
+            setLibraryInsert(null);
 
             if (payload.kind === "type") {
                 handleAddNode(payload.type, position);
@@ -424,6 +510,7 @@ export function DesignerView({
         if (!managerOpen) return;
         setLibraryOpen(false);
         setLibraryAnchor(null);
+        setLibraryInsert(null);
     }, [managerOpen]);
 
     const undoEdit = useCallback((): void => {
@@ -505,6 +592,53 @@ export function DesignerView({
                 ? undefined
                 : findNodeCatalogEntry(selectedGraphNode.type);
 
+        const selectedConfig = isRecord(selectedGraphNode?.config)
+            ? selectedGraphNode.config
+            : {};
+        const selectedProviderId =
+            typeof selectedConfig.providerId === "string"
+                ? selectedConfig.providerId
+                : undefined;
+        const selectedModelId =
+            typeof selectedConfig.modelId === "string"
+                ? selectedConfig.modelId
+                : undefined;
+        const providerOptions: InspectorFieldOption[] =
+            providerLibrary.profiles.map((status) => ({
+                value: status.profile.id,
+                label: profileOptionLabel(status),
+            }));
+        const selectedProfile = providerLibrary.profiles.find(
+            (status) => status.profile.id === selectedProviderId,
+        );
+        const modelOptionList: InspectorFieldOption[] =
+            selectedProfile?.profile.models.map((model) => ({
+                value: model.id,
+                label: model.name || model.id,
+            })) ?? [];
+        const selectedType = selectedGraphNode?.type;
+        const isModelNode = selectedType === "core.model";
+        const isProviderNode = selectedType === "core.provider";
+        const fieldOptions =
+            isModelNode || isProviderNode
+                ? {
+                      providerId: withCurrentOption(
+                          providerOptions,
+                          selectedProviderId,
+                          "缺失的 Provider",
+                      ),
+                      ...(isModelNode
+                          ? {
+                                modelId: withCurrentOption(
+                                    modelOptionList,
+                                    selectedModelId,
+                                    "不在目录中的模型",
+                                ),
+                            }
+                          : {}),
+                  }
+                : undefined;
+
         const node =
             selectedGraphNode !== null && selectedCanvasNode !== null
                 ? {
@@ -522,6 +656,7 @@ export function DesignerView({
                       ...(selectedCanvasNode.data.error === undefined
                           ? {}
                           : { error: selectedCanvasNode.data.error }),
+                      ...(fieldOptions === undefined ? {} : { fieldOptions }),
                       ...(entry?.configSchema === undefined
                           ? {}
                           : { configSchema: entry.configSchema }),
@@ -554,6 +689,7 @@ export function DesignerView({
         editingDisabled,
         graph,
         nodeStatuses,
+        providerLibrary,
         selectedCanvasNode,
         selectedGraphNode,
         status,
@@ -576,6 +712,7 @@ export function DesignerView({
                 !isRunning &&
                 !isPaused &&
                 !runBusy &&
+                !hasProviderErrors &&
                 saveState.status !== "conflict",
             canPause: isRunning && !runBusy,
             canResume: isPaused && !runBusy,
@@ -596,6 +733,7 @@ export function DesignerView({
         graph,
         handleCancel,
         handleRun,
+        hasProviderErrors,
         isPaused,
         isRunning,
         pause,
@@ -761,6 +899,7 @@ export function DesignerView({
         (error !== null && error !== undefined) ||
         invalidEdges.length > 0 ||
         issues.length > 0 ||
+        hasProviderErrors ||
         displayError !== null ||
         saveState.status === "conflict" ||
         saveState.status === "error";
@@ -790,11 +929,16 @@ export function DesignerView({
                     recent={recentNodes}
                     anchor={libraryAnchor ?? undefined}
                     disabled={editingDisabled}
-                    onAddType={handleAddNode}
-                    onAddPreset={handleAddPreset}
+                    onAddType={(type) =>
+                        handleAddNode(type, libraryInsert ?? undefined)
+                    }
+                    onAddPreset={(preset) =>
+                        handleAddPreset(preset, libraryInsert ?? undefined)
+                    }
                     onClose={() => {
                         setLibraryOpen(false);
                         setLibraryAnchor(null);
+                        setLibraryInsert(null);
                     }}
                 />
             ) : null}
@@ -837,6 +981,30 @@ export function DesignerView({
                             <div className={styles.actions}>
                                 <Button size="sm" onClick={clearMessages}>
                                     关闭
+                                </Button>
+                            </div>
+                        </Alert>
+                    ) : null}
+
+                    {hasProviderErrors ? (
+                        <Alert tone="danger" title="无法运行：Provider 配置存在问题">
+                            <ul className={styles.issues}>
+                                {providerErrors.slice(0, 4).map((problem) => (
+                                    <li key={problem.id}>{problem.message}</li>
+                                ))}
+                                {providerErrors.length > 4 ? (
+                                    <li>还有 {providerErrors.length - 4} 项问题…</li>
+                                ) : null}
+                            </ul>
+                            <div className={styles.actions}>
+                                <Button
+                                    size="sm"
+                                    onClick={() => {
+                                        const first = providerErrors[0];
+                                        if (first !== undefined) selectProblem(first);
+                                    }}
+                                >
+                                    定位第一个问题
                                 </Button>
                             </div>
                         </Alert>
@@ -887,6 +1055,20 @@ export function DesignerView({
             ) : null}
         </div>
     );
+}
+
+function withCurrentOption(
+    options: readonly InspectorFieldOption[],
+    value: string | undefined,
+    missingLabel: string,
+): InspectorFieldOption[] {
+    if (value === undefined || value.length === 0) return [...options];
+    if (options.some((option) => option.value === value)) return [...options];
+    return [{ value, label: `${value}（${missingLabel}）` }, ...options];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function formatRequirement(requirement: NodeRequirement): string {

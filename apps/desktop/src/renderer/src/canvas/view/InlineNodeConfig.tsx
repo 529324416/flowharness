@@ -9,7 +9,12 @@ export type InlineNodeConfigProps = {
     onChange?: (config: unknown) => void;
 };
 
-/** 节点内联编辑：高频节点的常用参数直接在节点 Body 上修改。 */
+/**
+ * 节点内联编辑：高频节点的常用参数直接在节点 Body 上修改。
+ *
+ * 只读期间（运行 / 冲突）仍然渲染同一套控件并禁用，而不是退化成摘要：
+ * 节点高度与端口结构保持不变，运行开始不会让画布布局跳动。
+ */
 export function InlineNodeConfig({
     kind,
     config,
@@ -17,12 +22,18 @@ export function InlineNodeConfig({
     readOnly = false,
     onChange,
 }: InlineNodeConfigProps): ReactElement {
-    if (readOnly || onChange === undefined) {
+    if (onChange === undefined) {
         return <>{summary ? <span className={styles.summary}>{summary}</span> : null}</>;
     }
 
     if (kind === "core.constant") {
-        return <ConstantInline config={config} onChange={onChange} />;
+        return (
+            <ConstantInline
+                config={config}
+                readOnly={readOnly}
+                onChange={onChange}
+            />
+        );
     }
 
     if (kind === "core.model.call") {
@@ -38,6 +49,7 @@ export function InlineNodeConfig({
                 <select
                     className={`${styles.select} nodrag nowheel`}
                     value={mode}
+                    disabled={readOnly}
                     aria-label="模型调用模式"
                     onChange={(event) =>
                         onChange({
@@ -57,6 +69,7 @@ export function InlineNodeConfig({
                     max={2}
                     step={0.1}
                     value={temperature ?? ""}
+                    disabled={readOnly}
                     aria-label="Temperature"
                     placeholder="temp"
                     onChange={(event) => {
@@ -87,6 +100,7 @@ export function InlineNodeConfig({
                 <input
                     className={`${styles.input} nodrag nowheel`}
                     value={name}
+                    disabled={readOnly}
                     aria-label="参数名"
                     placeholder="参数名"
                     onChange={(event) =>
@@ -102,6 +116,7 @@ export function InlineNodeConfig({
                         type="checkbox"
                         className="nodrag"
                         checked={required}
+                        disabled={readOnly}
                         aria-label="必填"
                         onChange={(event) =>
                             onChange({
@@ -130,6 +145,7 @@ export function InlineNodeConfig({
                 <select
                     className={`${styles.select} nodrag nowheel`}
                     value={permission}
+                    disabled={readOnly}
                     aria-label="Agent 权限"
                     onChange={(event) =>
                         onChange({
@@ -149,6 +165,7 @@ export function InlineNodeConfig({
                     min={1}
                     step={1}
                     value={maxSteps}
+                    disabled={readOnly}
                     aria-label="最大步数"
                     onChange={(event) => {
                         const parsed = Number(event.target.value);
@@ -176,6 +193,7 @@ export function InlineNodeConfig({
                 min={1}
                 step={1}
                 value={maxIterations}
+                disabled={readOnly}
                 aria-label="最大迭代"
                 onChange={(event) => {
                     const parsed = Number(event.target.value);
@@ -199,6 +217,7 @@ export function InlineNodeConfig({
             <input
                 className={`${styles.input} nodrag nowheel`}
                 value={resultPort}
+                disabled={readOnly}
                 aria-label="结果端口"
                 placeholder="text"
                 onChange={(event) =>
@@ -220,6 +239,7 @@ export function InlineNodeConfig({
             <select
                 className={`${styles.select} nodrag nowheel`}
                 value={level}
+                disabled={readOnly}
                 aria-label="日志级别"
                 onChange={(event) =>
                     onChange({
@@ -249,9 +269,11 @@ export function InlineNodeConfig({
  */
 function ConstantInline({
     config,
+    readOnly,
     onChange,
 }: {
     config: unknown;
+    readOnly: boolean;
     onChange: (config: unknown) => void;
 }): ReactElement {
     const value = isRecord(config) && isRecord(config.value) ? config.value : {};
@@ -301,6 +323,7 @@ function ConstantInline({
         <input
             className={`${styles.input} nodrag nowheel`}
             value={draft}
+            disabled={readOnly}
             aria-label="常量文本"
             placeholder="常量文本"
             onFocus={() => {

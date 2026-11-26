@@ -85,7 +85,11 @@ export function PanelLayer({
                               containerHeight={size.height}
                               title="运行日志"
                               icon={<Terminal size={16} aria-hidden="true" />}
-                              badge={<Badge variant="neutral">{events.length}</Badge>}
+                              badge={
+                                  <Badge variant="neutral">
+                                      {events.length + problems.length}
+                                  </Badge>
+                              }
                               footer={
                                   <>
                                       <span>{snapshot?.runId ?? "尚无运行"}</span>

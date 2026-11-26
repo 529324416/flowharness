@@ -345,3 +345,105 @@ type RunResultEntry =
 - 删除 graph 时解除实例引用（ADR-025）；删除后实例可保留空绑定；
 - 运行模式的 Session 树是 workspace 级，不按实例隔离。
 - M8.6：点击运行自动在草稿目录创建 conversation 会话，运行中按 `RunResult` entries 增量追加消息，结束时追加输出摘要（system 消息）；run session 仍只保存 `RunResult`，实例只记录 `sessionId`，不内联消息（ADR-028）。
+
+## 13. Provider 与 API Key 库（M9.1 数据层）
+
+> 目标：把「Provider 配置 + 手填 providerId/modelId」升级为「ApiKeyRecord + ProviderProfile + 持久化模型目录」。密钥只在 main，图只引用 profile id。
+> 契约见 `packages/contracts/src/provider-library.ts`；服务见 `apps/desktop/src/main/services/provider-library-*.ts`；决策见 ADR-029 / ADR-030。
+
+### 13.1 应用级文件
+
+```text
+%APPDATA%/FlowHarness/
+  config.json              # AppConfig；M9.1 仍保留 legacy providers，M9.3 才移除
+  secrets.bin              # apiKeyId -> base64(ciphertext)
+  provider-library.json    # schemaVersion 1：keys + profiles（含模型目录）
+```
+
+- 三者都是**应用级**数据，不进入 workspace / `.fhws`；
+- `provider-library.json` 不含明文密钥，只含 key id、不可逆指纹（SHA-256 前 12 位）与健康状态；
+- 库模块保持独立，后续“用户配置统一打包导出”只需包含该文件与受控的 secrets 副本。
+
+### 13.2 ApiKeyRecord
+
+```json
+{
+  "id": "key_deepseek",
+  "protocol": "deepseek",
+  "label": "DeepSeek",
+  "status": "active",
+  "fingerprint": "0123456789ab",
+  "lastCheckedAt": "2026-11-27T00:00:00.000Z",
+  "createdAt": "2026-11-27T00:00:00.000Z",
+  "updatedAt": "2026-11-27T00:00:00.000Z"
+}
+```
+
+- `protocol`：`deepseek | qwen | minimax | ollama`；
+- `status`：`unverified | active | invalid | quota | network`；只有 401/403 进入 `invalid`；
+- `lastError`：`{ kind: auth | quota | network | unknown, message, httpStatus?, at }`；
+- key id 同时是 `secrets.bin` 的条目键；明文只在 main 读取，不暴露 IPC。
+
+### 13.3 ProviderProfile 与适配器
+
+```json
+{
+  "id": "deepseek",
+  "label": "DeepSeek",
+  "adapter": "deepseek.chat",
+  "apiKeyId": "key_deepseek",
+  "enabled": true,
+  "models": [
+    {
+      "id": "deepseek-chat",
+      "name": "DeepSeek Chat",
+      "capabilities": { "chat": true, "tools": true, "inputs": ["text"], "outputs": ["text"] }
+    }
+  ],
+  "modelsFetchedAt": "2026-11-27T00:00:00.000Z",
+  "modelsSource": "api",
+  "createdAt": "2026-11-27T00:00:00.000Z",
+  "updatedAt": "2026-11-27T00:00:00.000Z"
+}
+```
+
+- `id` 就是 `GraphDocument` 里的 `providerId`；迁移保留旧 id；
+- `adapter` 把协议与能力分开：`deepseek.chat` / `qwen.chat` / `qwen.image` / `minimax.chat` / `minimax.image` / `minimax.video` / `ollama.chat`；adapter 与 key 的 protocol 必须匹配；
+- `models` 是持久化的模型目录快照，重启后下拉仍可用；刷新是显式动作，启动不联网；
+- `apiKeyId` 可空（Ollama 本地）；缺失或 key 状态异常时的 health 由 UI 投影为警告，不在这里伪造。
+
+### 13.4 迁移与兼容（M9.1 → M9.3）
+
+- 库文件不存在时，首次启动执行**影子迁移**：`AppConfig.providers`（或全新 v2 安装的默认 4 条）→ profiles（保留 id / label / enabled / baseUrl / defaultModelId），旧 secrets 复制到 `key_<providerId>`；
+- 迁移两阶段：AppConfig v1 先只在内存转 v2；main 确认 `provider-library.json` 已存在后才 `finalizeMigration()` 写入 v2，避免库写失败导致旧配置丢失；
+- 旧 `secrets.bin` 条目在新 key 的 secret 确认存在后删除；library 中的 key id 与指纹保留；
+- 幂等：已存在的 profile / key 不覆盖；单条密钥复制失败只记录 warning；
+- `.fhws` 不包含 Provider 库或密钥；导入后缺 profile 的工作流由节点健康警告提示。
+
+### 13.5 校验与错误
+
+- 写入使用严格校验：重复 id、缺失 key 引用、adapter / key 协议不匹配、非法状态都会拒绝（`E_INVALID_ARGUMENT`）；
+- 读取宽容：坏条目丢弃，失效 key 引用清空，损坏文件备份为 `.corrupt-<timestamp>.json` 后以空库继续；
+- 更高 `schemaVersion` 抛 `E_MIGRATION`，不覆盖未来版本数据。
+
+### 13.6 运行时健康（M9.2）
+
+- 启动只读库，不联网；`refreshModels` / key 验证才访问 Provider；
+- `SessionError.httpStatus` 由 Provider 层保留（401/403/402/429 等），`node:error` 通过失败节点的 `model` 输入边回溯 `providerId` 并带 `httpStatus`；
+- 401/403 把 key 置 `invalid`，402/429 置 `quota`；其它 HTTP / 网络错误不把 key 判失效；
+- 运行期标记走 `ProviderRegistry.recordRuntimeProviderError`，保存后广播 `provider` topic；
+- M9.3 起旧 `providers:list` / `secrets:*` IPC 已移除；设置页与节点统一走 `provider:*` 通道。
+
+### 13.7 Provider 节点与值（M9.5）
+
+```ts
+type ProviderRef = { providerId: string };
+
+// wireclaw HarnessValue 新增
+{ type: "provider"; provider: ProviderRef }
+```
+
+- `core.provider` 的 config 只有 `providerId`；输出 `provider` 值，不写入 Provider 实例、密钥或模型目录；
+- Model 节点新增可选 `provider` 输入；有边时以 `provider.providerId` 为准，否则回退 `config.providerId`；
+- `provider` 值是 JSON-safe 的，随 run 结果 / checkpoint 现有序列化路径流动；图文档不新增字段；
+- 旧 graph 的 `core.model.config.providerId` 保持不变，不需要迁移；新 graph 可省略它并用 Provider 节点连线。

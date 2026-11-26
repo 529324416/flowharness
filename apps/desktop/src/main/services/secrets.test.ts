@@ -70,4 +70,21 @@ describe("SecretsStore", () => {
             code: "E_INVALID_ARGUMENT",
         });
     });
+
+    it("keeps a session-only secret when the file cannot be written", async () => {
+        const dir = await makeDir();
+        const store = new SecretsStore(join(dir, "secrets.bin"), fakeCipher);
+        (
+            store as unknown as { persist: () => Promise<void> }
+        ).persist = async () => {
+            throw new Error("read-only volume");
+        };
+
+        const result = await store.set("deepseek", "sk-session-only");
+
+        expect(result.persisted).toBe(false);
+        expect(result.error).toContain("read-only");
+        expect(await store.has("deepseek")).toBe(true);
+        expect(await store.get("deepseek")).toBe("sk-session-only");
+    });
 });

@@ -2,7 +2,7 @@
 
 > 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化、M4 文档生命周期与编辑体验、M5 Workbench Framework、M6 Session / Provider 闭环、M7.1 工作台导航宿主 / M7.2 Session 树存储、M7.3 Session 树导航 / 历史面板、M7.4 RunResult 与运行结果会话、M7.4.1 双区导航、M7.4.2 消息写入，以及 M7.5 运行模式 / 动画运行页；进度见文末。
 >
-> 当前阶段：**M8 — 模板、导入导出与多工作台（进行中）**；M7 已完成（2026-11-26）。M8 已交付工作台模板、第 4 条内置节点预设、`.fhws` 导入导出 UI 与副本冲突策略（ADR-024）、UI 打磨 3（ADR-025）、工作区节点库与「节点清单」退场（ADR-026）、独立运行页移除（ADR-027），以及运行自动会话与逐步写入（ADR-028）。
+> 当前阶段：**M8 — 模板、导入导出与多工作台（进行中）**；M7 已完成（2026-11-26）。M8 已交付工作台模板、第 4 条内置节点预设、`.fhws` 导入导出 UI 与副本冲突策略（ADR-024）、UI 打磨 3/4（ADR-025）、工作区节点库与「节点清单」退场（ADR-026）、独立运行页移除（ADR-027）、运行自动会话与逐步写入（ADR-028），以及 M9.0–M9.5 Provider 与 API Key 库的决策、数据层、迁移、运行时、健康、设置页、节点下拉与 Provider 节点（ADR-029/030/031）。
 > 术语：FH = FlowHarness。
 
 ## 阅读顺序
@@ -10,9 +10,10 @@
 1. [overview.md](./overview.md) — 分层、依赖规则、进程模型
 2. [modules.md](./modules.md) — 每个模块的职责与契约
 3. [data-model.md](./data-model.md) — 工作区数据、文档、导入导出
-4. [runtime.md](./runtime.md) — 执行、事件、IPC、安全
-5. [ui.md](./ui.md) — React、画布、工作台框架、设计器
-6. [decisions.md](./decisions.md) — 架构决策记录（ADR-001 ~ ADR-028）
+4. [providers.md](./providers.md) — Provider Profile、API Key 库、模型目录与健康状态
+5. [runtime.md](./runtime.md) — 执行、事件、IPC、安全
+6. [ui.md](./ui.md) — React、画布、工作台框架、设计器
+7. [decisions.md](./decisions.md) — 架构决策记录（ADR-001 ~ ADR-031）
 
 ## 六个已定稿的关键决策
 
@@ -78,6 +79,13 @@
 | M8.4 节点库：工作区预设库 / 管理 Modal / 插入菜单 / 从节点创建 | ✅ 已实现（M8.4，ADR-026） |
 | M8.5 移除独立运行页 / 旧 flow-runner 实例迁移 | ✅ 已实现（M8.5，ADR-027） |
 | M8.6 运行自动创建会话 / 逐步写入 / 移除结果页签 | ✅ 已实现（M8.6，ADR-028） |
+| M9.0 Provider / API Key 决策与契约 | ✅ 已实现（2026-11-27，ADR-029/030） |
+| M9.1 Provider 库数据层 / 影子迁移 | ✅ 已实现（2026-11-27；运行时与设置 UI 待 M9.2/M9.3） |
+| M9.2 Provider 运行时 / 健康 / IPC | ✅ 已实现（2026-11-27） |
+| M9.3 Provider 设置页 / AppConfig v2 | ✅ 已实现（2026-11-27） |
+| M9.4 Model 节点下拉 / 健康标记 | ✅ 已实现（2026-11-27） |
+| M9.5 Provider 节点 / 连线 | ✅ 已实现（2026-11-27，ADR-031） |
+| M9.6 Provider 收口 / 真实调用 / 能力校验 | ✅ 已验收（DeepSeek Live，2026-11-27） |
 | M6.2 wireclaw checkpoint v2（graphHash + nodeVersions） | ✅ 已实现（M6.2） |
 | M6.2 工作区文件工具 / 运行前 requirements catalog | ✅ 已实现（M6.2） |
 | SessionService（AttachmentFileManager / SessionStore 装配） | ✅ 已实现（Phase 2 附件；M6.2 会话） |
@@ -86,6 +94,7 @@
 | 中性黑配色 + 真透明窗口（桌面清晰、无 blur） | ✅ 已实现（Step 4） |
 | UI 打磨：去饱和色板 / 125% 字号 / 节点双层 / Session+Canvas 面板化 | ✅ 已实现（2026-11-25） |
 | UI 打磨 3：标题栏手势 / 删除工作流回退 / Session 树缩进 / Ribbon 宽度 | ✅ 已实现（2026-11-27） |
+| UI 打磨 4：运行期节点结构保持 / 运行日志问题合并 | ✅ 已实现（2026-11-27） |
 | 内部浮动 Panel（运行日志 / 属性检查） | ✅ 已实现（Phase 2.6 step 2） |
 | 窗口 bounds 持久化（多显示器/DPI） | ✅ 已实现（step 2） |
 | Session 生命周期（创建 / 列表 / 读取 / 保存） | ✅ M6.2 / M6.3（历史回放） |

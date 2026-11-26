@@ -32,7 +32,17 @@ export type RunEventDto =
       }
     | { type: "node:end"; runId: string; nodeId: string; outputs: unknown; at: number }
     | { type: "node:skipped"; runId: string; nodeId: string; at: number }
-    | { type: "node:error"; runId: string; nodeId: string; message: string; at: number }
+    | {
+          type: "node:error";
+          runId: string;
+          nodeId: string;
+          message: string;
+          /** 失败节点解析到的 Provider Profile id（可用时）。 */
+          providerId?: string;
+          /** 底层 Provider 的 HTTP 状态码；用于区分凭据失效与额度/限流。 */
+          httpStatus?: number;
+          at: number;
+      }
     | {
           type: "custom";
           runId: string;

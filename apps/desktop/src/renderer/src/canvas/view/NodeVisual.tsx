@@ -1,8 +1,8 @@
 import type { ReactElement } from "react";
-import { Box, GitBranch, LogIn, LogOut, ScrollText, Sparkles } from "lucide-react";
+import { Box, GitBranch, LogIn, LogOut, ScrollText, Sparkles, TriangleAlert } from "lucide-react";
 import { StatusDot, type StatusTone } from "../../ui";
 import { cx } from "../../ui/cx";
-import type { CanvasPort, CanvasStatus } from "../core/types";
+import type { CanvasNodeNotice, CanvasPort, CanvasStatus } from "../core/types";
 import { InlineNodeConfig } from "./InlineNodeConfig";
 import styles from "./NodeVisual.module.css";
 
@@ -22,6 +22,8 @@ export type NodeVisualProps = {
     showInputSlots?: boolean;
     /** 端口较多的节点需要最小高度，避免 Handle 挤在 header 里。 */
     minHeight?: number;
+    /** Provider / 配置健康提示；显示在标题右侧，不改变节点尺寸。 */
+    notice?: CanvasNodeNotice;
 };
 
 const ICONS = {
@@ -68,6 +70,7 @@ export function NodeVisual({
     inputs = [],
     showInputSlots = false,
     minHeight,
+    notice,
 }: NodeVisualProps): ReactElement {
     const Icon = iconFor(kind);
 
@@ -80,6 +83,20 @@ export function NodeVisual({
             <header className={styles.header}>
                 <Icon size={15} className={styles.icon} aria-hidden="true" />
                 <span className={styles.title}>{title}</span>
+                {notice === undefined ? null : (
+                    <span
+                        className={cx(
+                            styles.notice,
+                            notice.severity === "danger"
+                                ? styles.noticeDanger
+                                : styles.noticeWarning,
+                        )}
+                        title={notice.message}
+                        aria-label={notice.message}
+                    >
+                        <TriangleAlert size={13} aria-hidden="true" />
+                    </span>
+                )}
                 <StatusDot
                     tone={status as StatusTone}
                     pulse={status === "running"}
@@ -102,9 +119,16 @@ export function NodeVisual({
                         {inputs.map((port) => (
                             <div
                                 key={port.name}
-                                className={styles.slot}
+                                className={cx(
+                                    styles.slot,
+                                    readOnly && styles.slotReadOnly,
+                                )}
                                 data-input-port={port.name}
-                                title={`拖拽连线到输入端口 ${port.name}`}
+                                title={
+                                    readOnly
+                                        ? `输入端口 ${port.name}`
+                                        : `拖拽连线到输入端口 ${port.name}`
+                                }
                             >
                                 <span className={styles.slotDot} aria-hidden="true" />
                                 <span className={styles.slotName}>{port.name}</span>

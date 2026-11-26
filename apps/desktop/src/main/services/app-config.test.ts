@@ -29,13 +29,65 @@ describe("AppConfigStore", () => {
         const store = makeStore(dir);
         const config = await store.get();
 
-        expect(config.schemaVersion).toBe(1);
+        expect(config.schemaVersion).toBe(2);
         expect(config.theme).toBe("dark");
         expect(config.workspaceRoot).toBe(join(dir, "workspaces"));
-        expect(config.providers.map((provider) => provider.id)).toContain("ollama");
+        expect("providers" in config).toBe(false);
 
         const persisted = JSON.parse(await readFile(join(dir, "config.json"), "utf8"));
         expect(persisted.theme).toBe("dark");
+        expect("providers" in persisted).toBe(false);
+    });
+
+    it("migrates a v1 config and exposes legacy providers once", async () => {
+        const dir = await makeDir();
+        await writeFile(
+            join(dir, "config.json"),
+            JSON.stringify({
+                schemaVersion: 1,
+                theme: "light",
+                workspaceRoot: join(dir, "workspaces"),
+                recentWorkspaces: [],
+                language: "zh-CN",
+                devtools: true,
+                providers: [
+                    {
+                        id: "deepseek",
+                        kind: "deepseek",
+                        label: "DeepSeek",
+                        enabled: true,
+                        model: "deepseek-chat",
+                    },
+                    { id: "bad id", kind: "deepseek", label: "bad", enabled: true },
+                ],
+            }),
+        );
+
+        const store = makeStore(dir);
+        const config = await store.get();
+
+        expect(config.schemaVersion).toBe(2);
+        expect("providers" in config).toBe(false);
+        expect(store.legacyProviders).toEqual([
+            {
+                id: "deepseek",
+                kind: "deepseek",
+                label: "DeepSeek",
+                enabled: true,
+                model: "deepseek-chat",
+            },
+        ]);
+
+        const beforeFinalize = JSON.parse(
+            await readFile(join(dir, "config.json"), "utf8"),
+        );
+        // 库尚未确认落盘前，磁盘仍是 v1，保证下次启动还能重试迁移。
+        expect(beforeFinalize.schemaVersion).toBe(1);
+
+        await store.finalizeMigration();
+        const persisted = JSON.parse(await readFile(join(dir, "config.json"), "utf8"));
+        expect(persisted.schemaVersion).toBe(2);
+        expect("providers" in persisted).toBe(false);
     });
 
     it("persists updates and reloads them", async () => {
@@ -59,48 +111,6 @@ describe("AppConfigStore", () => {
         await expect(store.update({ workspaceRoot: "" })).rejects.toMatchObject({
             code: "E_INVALID_ARGUMENT",
         });
-        await expect(
-            store.update({
-                providers: [
-                    {
-                        id: "bad id",
-                        kind: "deepseek",
-                        label: "bad",
-                        enabled: true,
-                    },
-                ],
-            }),
-        ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
-    });
-
-    it("persists provider configuration", async () => {
-        const dir = await makeDir();
-        const store = makeStore(dir);
-
-        await store.update({
-            providers: [
-                {
-                    id: "deepseek",
-                    kind: "deepseek",
-                    label: "DeepSeek 备用",
-                    enabled: true,
-                    baseUrl: "https://example.test/v1",
-                    model: "deepseek-chat",
-                },
-            ],
-        });
-
-        const reloaded = await makeStore(dir).get();
-        expect(reloaded.providers).toEqual([
-            {
-                id: "deepseek",
-                kind: "deepseek",
-                label: "DeepSeek 备用",
-                enabled: true,
-                baseUrl: "https://example.test/v1",
-                model: "deepseek-chat",
-            },
-        ]);
     });
 
     it("backs up and rebuilds a corrupt config file", async () => {

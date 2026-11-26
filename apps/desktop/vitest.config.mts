@@ -8,6 +8,7 @@ export default defineConfig({
             "src/renderer/src/canvas/core/**/*.test.ts",
             "src/renderer/src/designer/**/*.test.ts",
             "src/renderer/src/presets/**/*.test.ts",
+            "src/renderer/src/providers/**/*.test.ts",
             "src/renderer/src/workbench/**/*.test.ts",
         ],
         testTimeout: 15_000,

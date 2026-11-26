@@ -8,7 +8,7 @@ import { edgeKeyFromPorts } from "../../canvas/core/edge-key";
 import { findInvalidEdges, type InvalidEdge } from "./edges";
 import { validateGraphDocument } from "./validate";
 
-export type DesignerProblemSource = "validation" | "edge" | "run";
+export type DesignerProblemSource = "validation" | "edge" | "run" | "provider";
 
 export type DesignerProblemSeverity = "error" | "warning";
 

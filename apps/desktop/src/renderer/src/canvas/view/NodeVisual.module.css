@@ -40,6 +40,21 @@
   white-space: nowrap;
 }
 
+.notice {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.noticeWarning {
+  color: var(--fh-warning);
+}
+
+.noticeDanger {
+  color: var(--fh-danger);
+}
+
 .body {
   display: flex;
   flex-direction: column;
@@ -86,6 +101,16 @@
 
 .slot:hover {
   border-color: var(--fh-border-strong);
+}
+
+/* 只读期间保留同一套端口槽，仅去掉可拖拽的视觉暗示。 */
+.slotReadOnly {
+  border-style: solid;
+  cursor: default;
+}
+
+.slotReadOnly:hover {
+  border-color: var(--fh-border);
 }
 
 .slotDot {

@@ -368,17 +368,10 @@ export class WorkspaceStore {
     async deleteDocument(id: string, ref: DocumentRef): Promise<boolean> {
         const workspace = this.requireOpen(id);
 
+        // 删除工作流时先解除工作台引用：正在打开或被工作台绑定的工作流也应能删除，
+        // 工作台随后回退到其它图或显示空态（ADR-025）。
         if (ref.kind === "harness") {
-            const referencedBy = await findWorkbenchReferences(
-                workspace.dir,
-                ref.id,
-            );
-            if (referencedBy.length > 0) {
-                throw new FhError(
-                    "E_CONFLICT",
-                    `graph is referenced by workbench: ${referencedBy.join(", ")}`,
-                );
-            }
+            await detachGraphFromWorkbenches(workspace.dir, ref.id);
         }
 
         const file = documentPath(workspace.dir, ref);
@@ -662,36 +655,28 @@ function summary(dir: string, manifest: WorkspaceManifest): WorkspaceSummary {
     };
 }
 
-async function findWorkbenchReferences(
+async function detachGraphFromWorkbenches(
     workspaceDir: string,
     graphId: string,
-): Promise<string[]> {
+): Promise<void> {
     const dir = join(workspaceDir, "documents", "workbenches");
     let entries;
     try {
         entries = await fs.readdir(dir, { withFileTypes: true });
     } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
         throw error;
     }
 
-    const references: string[] = [];
     for (const entry of entries) {
         if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
 
-        const id = entry.name.slice(0, -5);
-        const raw = await readJsonFile<unknown>(join(dir, entry.name)).catch(
-            () => undefined,
-        );
+        const file = join(dir, entry.name);
+        const raw = await readJsonFile<unknown>(file).catch(() => undefined);
         if (!isRecord(raw) || !referencesGraph(raw, graphId)) continue;
 
-        const title =
-            typeof raw.title === "string" && raw.title.trim().length > 0
-                ? raw.title
-                : id;
-        references.push(`${title} (${id})`);
+        await writeJsonFile(file, detachGraphReferences(raw, graphId));
     }
-    return references;
 }
 
 function referencesGraph(
@@ -717,18 +702,74 @@ function referencesGraph(
     );
 }
 
+/**
+ * 从工作台实例里移除对已删除图的引用：
+ * `graphs` 绑定与 `plan.graphs` / `plan.bindings` 一并清理；计划为空时置 null。
+ */
+function detachGraphReferences(
+    value: Record<string, unknown>,
+    graphId: string,
+): Record<string, unknown> {
+    const graphs = Array.isArray(value.graphs)
+        ? value.graphs.filter(
+              (item) => !(isRecord(item) && item.graphId === graphId),
+          )
+        : value.graphs;
+
+    let plan = value.plan;
+    if (isRecord(plan)) {
+        const planGraphs = Array.isArray(plan.graphs)
+            ? plan.graphs.filter(
+                  (item) => !(isRecord(item) && item.graphId === graphId),
+              )
+            : plan.graphs;
+        const bindings = Array.isArray(plan.bindings)
+            ? plan.bindings.filter((item) => !bindingReferencesGraph(item, graphId))
+            : plan.bindings;
+
+        plan =
+            Array.isArray(planGraphs) && planGraphs.length === 0
+                ? null
+                : { ...plan, graphs: planGraphs, bindings };
+    }
+
+    return {
+        ...value,
+        graphs,
+        plan,
+        updatedAt: new Date().toISOString(),
+    };
+}
+
+function bindingReferencesGraph(value: unknown, graphId: string): boolean {
+    if (!isRecord(value)) return false;
+    const from = isRecord(value.from) ? value.from.graphId : undefined;
+    const to = isRecord(value.to) ? value.to.graphId : undefined;
+    return from === graphId || to === graphId;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function documentPath(dir: string, ref: DocumentRef): string {
     assertDocumentRef(ref);
-    const sub = ref.kind === "harness" ? "harness" : "workbenches";
+    const sub =
+        ref.kind === "harness"
+            ? "harness"
+            : ref.kind === "workbench"
+              ? "workbenches"
+              : "presets";
     return join(dir, "documents", sub, `${ref.id}.json`);
 }
 
 function assertDocumentRef(ref: DocumentRef): void {
-    if (!ref || (ref.kind !== "harness" && ref.kind !== "workbench")) {
+    if (
+        !ref ||
+        (ref.kind !== "harness" &&
+            ref.kind !== "workbench" &&
+            ref.kind !== "presetLibrary")
+    ) {
         throw new FhError("E_INVALID_ARGUMENT", "invalid document ref");
     }
     assertSafeId(ref.id);

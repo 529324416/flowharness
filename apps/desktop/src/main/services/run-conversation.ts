@@ -14,6 +14,7 @@ import type {
     Message,
     MessageContent,
     RunResult,
+    RunResultEntry,
 } from "wireclaw";
 
 /**
@@ -24,9 +25,16 @@ import type {
  * - 只写消息，不把 `RunResult` 或运行状态混进 conversation session。
  */
 export function conversationMessagesFromRun(result: RunResult): Message[] {
+    return conversationMessagesFromEntries(result.entries);
+}
+
+/** 按条目增量转换；运行中可分批追加而不重复整次运行。 */
+export function conversationMessagesFromEntries(
+    entries: readonly RunResultEntry[],
+): Message[] {
     const messages: Message[] = [];
 
-    for (const entry of result.entries) {
+    for (const entry of entries) {
         if (entry.kind === "session") {
             const history = SessionSerializer.deserialize(entry.session);
             messages.push(...history.messages);

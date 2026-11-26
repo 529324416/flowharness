@@ -19,8 +19,11 @@ import {
     type RunStartRequest,
     type RunResumeInterruptedRequest,
     type RunResultRequest,
+    type RunEntriesRequest,
     type SessionCreateRequest,
     type SessionDeleteRequest,
+    type SessionAppendEntriesRequest,
+    type SessionAppendMessageRequest,
     type SessionAppendRunRequest,
     type SessionFolder,
     type SessionFolderCreateRequest,
@@ -203,6 +206,14 @@ const bridge = {
         request: SessionAppendRunRequest,
     ): Promise<IpcResult<SessionRecord>> =>
         invoke(IpcChannel.SessionAppendRun, request),
+    appendRunEntries: (
+        request: SessionAppendEntriesRequest,
+    ): Promise<IpcResult<SessionRecord>> =>
+        invoke(IpcChannel.SessionAppendEntries, request),
+    appendSessionMessage: (
+        request: SessionAppendMessageRequest,
+    ): Promise<IpcResult<SessionRecord>> =>
+        invoke(IpcChannel.SessionAppendMessage, request),
     setDraftSessionFolder: (
         request: SessionSetDraftFolderRequest,
     ): Promise<IpcResult<SessionTree>> =>
@@ -226,6 +237,10 @@ const bridge = {
         request: RunResultRequest,
     ): Promise<IpcResult<unknown | null>> =>
         invoke(IpcChannel.RunResult, request),
+    getRunEntries: (
+        request: RunEntriesRequest,
+    ): Promise<IpcResult<unknown>> =>
+        invoke(IpcChannel.RunEntries, request),
     listRuns: (workspaceId?: string): Promise<IpcResult<RunSnapshot[]>> =>
         invoke(IpcChannel.RunList, { workspaceId }),
     resumeInterrupted: (

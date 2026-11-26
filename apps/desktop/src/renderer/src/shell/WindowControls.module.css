@@ -26,6 +26,11 @@
   color: var(--fh-text);
 }
 
+.glyph {
+  display: block;
+  shape-rendering: crispEdges;
+}
+
 .close:hover {
   background: #c42b1c;
   color: #ffffff;

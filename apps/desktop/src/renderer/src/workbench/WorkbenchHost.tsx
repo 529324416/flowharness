@@ -13,6 +13,26 @@ export function WorkbenchHost({
     panelLayer,
     ...props
 }: WorkbenchHostProps): ReactElement {
+    // 独立运行页已移除：运行直接在主设计器的画布上进行，运行时只读。
+    if (props.instance.type === "flow-runner") {
+        return (
+            <EmptyState
+                title="运行页已移除"
+                description="运行直接在设计器画布中进行，运行期间自动禁止编辑。请切换到主工作台，或从工作台菜单删除此实例。"
+            />
+        );
+    }
+
+    // 旧「节点清单」工作台已由全局节点库取代；保留旧实例的说明与退出路径。
+    if (props.instance.type === "graph-table") {
+        return (
+            <EmptyState
+                title="节点清单已由节点库取代"
+                description="在画布中右键节点可创建预设，或用「视图 → 节点库」打开插入菜单。此实例可以从工作台菜单删除。"
+            />
+        );
+    }
+
     const definition = getWorkbench(props.instance.type);
 
     if (definition === undefined) {

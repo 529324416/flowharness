@@ -300,7 +300,7 @@ export const planRunnerWorkbench: WorkbenchDefinition = {
     type: "plan-runner",
     title: "批量运行",
     description: "把多张图作为独立 run 顺序执行，验证 WorkbenchPlan",
-    canOpen: (instance) => instance.graphs.length > 0,
+    canOpen: () => true,
     navigation: { design: PlanNavigation },
     View: PlanRunnerWorkbench,
 };

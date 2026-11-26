@@ -189,4 +189,32 @@ describe("designer run edge projection", () => {
         ]);
         expect(view.edgeStatuses[edgeId]).toBe("idle");
     });
+
+    it("keeps the same view object when stream events do not change status", () => {
+        let view = createRunView(wiredGraph);
+        view = applyRunEventsToView(wiredGraph, view, [
+            event({ type: "node:start", runId: "run", nodeId: "a", at: 1 }),
+        ]);
+
+        const afterStream = applyRunEventsToView(wiredGraph, view, [
+            event({
+                type: "node:stream",
+                runId: "run",
+                nodeId: "a",
+                port: "text",
+                chunk: "he",
+                at: 2,
+            }),
+            event({
+                type: "node:stream",
+                runId: "run",
+                nodeId: "a",
+                port: "text",
+                chunk: "llo",
+                at: 3,
+            }),
+        ]);
+
+        expect(afterStream).toBe(view);
+    });
 });

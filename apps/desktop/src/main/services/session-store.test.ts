@@ -401,6 +401,52 @@ describe("SessionStore", () => {
         expect((read.history as { messages: unknown[] }).messages).toHaveLength(4);
     });
 
+    it("appends partial run entries and summary messages", async () => {
+        const { store } = await makeStoreIn();
+        const conversation = await store.create({ title: "运行" });
+        const entries = [
+            {
+                kind: "model-call",
+                id: "entry-1",
+                nodeId: "call",
+                nodeType: "core.model.call",
+                providerId: "fake",
+                modelId: "echo",
+                mode: "chat",
+                status: "completed",
+                startedAt: 10,
+                endedAt: 20,
+                input: { prompt: "hello" },
+                output: { text: "hi" },
+            },
+        ];
+
+        const updated = await store.appendRunEntries(
+            conversation.id,
+            entries,
+        );
+        expect(updated.messageCount).toBe(2);
+
+        const withSummary = await store.appendMessage(
+            conversation.id,
+            "system",
+            "运行完成 · 输出",
+        );
+        expect(withSummary.messageCount).toBe(3);
+
+        const read = await store.read(conversation.id);
+        const messages = (read.history as { messages: unknown[] }).messages;
+        expect(messages).toHaveLength(3);
+        expect(messages.at(-1)).toMatchObject({
+            role: "system",
+            content: "运行完成 · 输出",
+        });
+
+        await expect(
+            store.appendRunEntries(conversation.id, "not-entries"),
+        ).rejects.toMatchObject({ code: "E_INVALID_ARGUMENT" });
+    });
+
     it("rejects appending run messages to a run session", async () => {
         const store = await makeStore();
         const runSession = await store.createRunSession({

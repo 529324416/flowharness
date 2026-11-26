@@ -420,7 +420,7 @@ M6.3 之后，左侧栏仍是全局 Session 列表，而设计器画布承载的
   - folder id 作目录名，用户标题只放元数据，避免标题进路径；
   - 旧 `sessions/<id>` 迁移到根；
   - 草稿目录由 `manifest.settings.draftSessionFolderId` 配置。
-- `WorkbenchInstance.graphs` 是权威绑定：切换文档时同步 primaryGraph；删除 graph 前检查被实例引用的关系。
+- `WorkbenchInstance.graphs` 是权威绑定：切换文档时同步 primaryGraph；删除 graph 时解除实例引用（M8 UI 打磨 3 / ADR-025 修订）。
 - 工作台运行阶段是「固定工作流 + 动画」的运行页；设计 → 运行是同一实例的 `design` / `run` 模式切换，不是新的全局页面。
 - 浮动面板透明度 `--fh-panel-alpha` 从 0.95 调整为 0.78；固定 TitleBar / StatusBar 不变。
 
@@ -468,7 +468,7 @@ M6.3 之后，左侧栏仍是全局 Session 列表，而设计器画布承载的
 - 不在 FH 侧用 `node:end` 事件拼 RunResult；不把 RunResult 改写成 wireclaw `SessionData`。
 - FH 持久化前把 `RunResult.runId` 改写为自身稳定 `runId`（wireclaw 引擎 runId 只留在事件与日志中），使 `runs/<runId>/result.json`、run session 与 UI 引用一致。
 
-**状态**：M7.4 已实现（wireclaw `RunResult` v1 / 序列化 / 采集，FH result.json / 运行结果面板 / run 会话保存与回放）。
+**状态**：M7.4 已实现（wireclaw `RunResult` v1 / 序列化 / 采集，FH result.json / run 会话回放）；运行结果面板与手动保存入口已由 ADR-028 的自动运行会话取代，`result.json` 继续保留。
 
 **后果**
 
@@ -515,6 +515,8 @@ M7.3 把左栏改为按 `(workbench type, mode)` 切换：设计模式只显示�
 
 ## ADR-022：运行消息写入 conversation 会话
 
+> 状态：自动写入目标已由 ADR-028 调整为“运行开始时自动创建会话并逐步写入”；本 ADR 的 entries → 消息转换规则继续有效。
+
 **背景**
 
 M6.3 完成后，conversation 会话只有读取 / 回放能力，没有任何生产写入路径：Agent / ModelCall 节点在 wireclaw 内部创建临时 Session，消息只随 RunResult 的 `session` / `model-call` entries 暂存。用户在会话树里打开 conversation 会话时仍是空的；「保存到会话」也只生成 run session（RunResult），消息语义没有落到 conversation session。
@@ -549,6 +551,8 @@ M6.3 完成后，conversation 会话只有读取 / 回放能力，没有任何�
 ---
 
 ## ADR-023：运行页与动画原语
+
+> 状态：独立 `flow-runner` 运行页已由 ADR-027 移除；`RunView` 仅保留给 `harness-designer` 的运行阶段（同一画布 + 运行上下文条）。
 
 **背景**
 
@@ -606,4 +610,140 @@ M8 需要让新建工作台不止是“空实例 + 当前图”，同时把长�
 - 导入时按名称合并 / 覆盖：与单写者、无迁移表的现状冲突，容易静默丢数据；
 - `.fhws` 包含 runs / sessions：体积与敏感数据风险高，且当前没有完整迁移约定；
 - 模板保存为独立文件格式：当前模板只是创建参数，复用现有文档 API 足够。
+
+---
+
+## ADR-025：删除工作流时解除工作台引用
+
+**背景**
+
+M7.1 起 `deleteDocument` 会检查 `documents/workbenches` 引用：只要有任何工作台实例绑定该图（包括当前正在打开的工作台），删除就返回 `E_CONFLICT`。实际使用中这挡住了最常见的操作——删除当前正在编辑的工作流。工作台实例在 ADR-019 里只是“视图 + 绑定”，不是数据所有者，不应因为一份展示绑定而阻止数据删除。
+
+**决定**
+
+- main 的 `WorkspaceStore.deleteDocument(harness)` 在删除前**解除引用**：
+  - 从实例 `graphs` 移除该 graphId；
+  - 从 `plan.graphs` 与 `plan.bindings` 移除相关条目；计划为空时 `plan = null`；
+  - 更新实例 `updatedAt`，不删除实例本身。
+- renderer 删除成功后重新读取文档列表与当前工作台实例；若删除的是当前打开的图，按以下顺序回退：
+  1. 本次会话中上一条渲染过的工作流（切换历史）；
+  2. 工作台实例仍绑定（已解除后）的第一条图；
+  3. 文档列表第一条；
+  4. 都没有时保持 `null`，设计器显示空态，**不再自动新建**。
+- 工作台 `canOpen` 允许空 `graphs`，由各视图显示空态；空态提供「新建工作流」，创建后按现有 primaryGraph 绑定逻辑重新绑定。
+- `WorkbenchInstance.graphs` 的权威绑定语义不变：选中工作流仍会同步 primaryGraph。
+
+**后果**
+
+- 删除当前工作流不再报错；删除最后一个工作流后进入空态而非隐式重建。
+- 删除会修改其他工作台实例文档（仅移除引用），因此 renderer 在删除后刷新工作台列表与实例 revision。
+- `plan-runner` 的计划可能因删除而变空，需要重新选择图。
+- 视觉 / 交互回归由 `designer-doc-flow` 场景与单测覆盖（workspace-store 引用解除用例）。
+
+**否决**
+
+- 保留 `E_CONFLICT`，由 UI 先询问“解除全部绑定？”：多一步确认，且用户意图已是删除，绑定只是展示状态。
+- 删除时静默删除整个工作台实例：会丢失实例标题、布局、mode 与会话绑定。
+- 删除后自动新建 `main` 工作流：用户看到的是“刚删掉的东西又回来了”，与明确删除的意图冲突。
+
+---
+
+## ADR-026：工作区级节点库、插入菜单与「节点清单」退场
+
+**背景**
+
+M2 的节点库只有 4 条写死在 `designer/core/presets.ts` 的内置预设，插入入口是画布右键的临时浮层；用户无法保存自己的节点组合，也无法整理。M5 为验证框架复用做过一个 `graph-table`「节点清单」工作台，它只是表格演示，与节点预设无关，名称也和“节点库”混淆。
+
+**决定**
+
+- 节点库改为**工作区级数据**：`documents/presets/library.json`，通过 `DocumentRef { kind: "presetLibrary", id: "library" }` 复用 WorkspaceStore 的 read/save（revision、原子写、4 MB 上限），不新增 main 服务与 IPC。
+- 库文档结构：`{ schemaVersion: 1, folders: PresetFolder[], presets: PresetRecord[] }`；预设记录保存 `id / name / description / type / typeVersion / config / tags / folderId / 时间戳`，`id` 即 wireclaw `NodePresetDocument.presetId`。文件夹只有稳定 id + 标题 + parentId，类似 Session 树。
+- 内置 4 条预设继续用代码维护，插入菜单里作为「内置预设」展示；用户库独立，管理 UI 只编辑用户库。
+- 创建路径：画布节点右键「创建预设节点」→ 命名 / 简介 / 文件夹 Modal → 捕获当前节点 `type / typeVersion / config` 写入工作区库；创建后打开管理模式并定位到新预设。
+- 两套 UI：
+  - **插入菜单**（`NodeLibraryPalette`）：最近使用 → 用户库（按文件夹分组）→ 内置预设 → 节点类型；支持搜索、↑↓ + Enter、条目拖拽到画布（HTML5 DnD + `CanvasView` 屏幕→画布坐标换算）。
+  - **管理模式**（`PresetManagerDialog`）：左右结构，左侧文件夹 / 预设树，右侧编辑名称、简介、所属文件夹与按 `configSchema` 渲染的默认参数；支持新建文件夹、重命名、删除（删除文件夹时内容上移）。
+- 全局入口：标题栏「视图 → 节点库 / 管理节点库…」与 `Ctrl+Shift+N` / `Ctrl+Shift+M`；画布右键「添加节点」仍打开插入菜单并锚定光标。
+- `graph-table` 工作台与对应模板删除；旧实例在 `WorkbenchHost` 显示“已由节点库取代”的说明，不再注册新类型。
+
+**后果**
+
+- `.fhws` 导出自动包含 `documents/presets/library.json`；导入副本也会带上节点库。
+- 节点库大小受 4 MB 文档上限约束；预设 config 需保持 JSON-safe。
+- 全局快捷键与标题栏菜单通过 `presets/bus.ts` 通知工作台 View，不引入新的全局状态库。
+- 暂不提供独立于 `.fhws` 的节点库导入 / 导出 UI（M8 剩余项），也不提供文件夹拖拽排序。
+- 旧 `graph-table` 实例需要用户手动删除或切换工作台。
+
+**否决**
+
+- 放 AppConfig / userData（应用级）：与“工作区级预设库”的 M8 目标冲突，且无法随 `.fhws` 迁移。
+- 新增 `PresetStore` + IPC：预设库就是一份 JSON 文档，复用 `readDocument / saveDocument` 的 revision 与原子写更简单。
+- 把内置预设写进每个工作区的库：升级预设置时需要迁移，且用户删除后无法恢复；内置与用户库分离更可控。
+- 保留 `graph-table` 工作台：表格只读演示价值低，名称与节点库冲突。
+
+---
+
+## ADR-027：移除独立运行页，运行复用设计器画布
+
+**背景**
+
+M7.5 引入了 `flow-runner` 工作台作为“固定只读运行页”的参考实现：进入运行是另一个工作台实例，靠是否可编辑、是否有时间线来区分。实际使用中，用户点击运行后最终仍回到设计器画布；独立运行页只是同一张图、同一套运行控制的另一种外壳，增加了工作台类型、模板与导航分支，却没有带来新的运行能力。
+
+**决定**
+
+- 删除 `flow-runner` 工作台及其 2 条模板；`WorkbenchHost` 不再注册该类型；`workbench/templates.ts` 收敛为 3 条模板（Harness 空白 / 当前、批量运行）。
+- 运行统一在 `harness-designer` 内完成：`design` / `run` 仍是同一实例的模式切换，`RunView` 只保留运行上下文条（运行 / 暂停 / 继续 / 取消 + 返回设计），主视图仍是同一张画布与浮动面板。
+- 运行期间由现有 `editingDisabled` 逻辑把画布设为只读（执行中 / 暂停中 / 控制中 / 保存冲突），结束或返回设计后恢复编辑；不再需要单独的只读工作台来禁止编辑。
+- 旧 `flow-runner` 实例在打开工作区时迁移为 `harness-designer`：保留 graph 绑定与标题（标题为“运行页”时改为“主工作台”），`mode = design`、`runId = null`；`WorkbenchHost` 仍保留兜底说明，避免迁移失败时进入未知工作台。
+- 移除 `designer-flow-runner` 截图场景；M7.5 的视觉基线不再保留该场景。
+
+**后果**
+
+- 工作台类型收敛为 `harness-designer` / `plan-runner` 两种（加旧的 `graph-table` 兜底说明）；模板从 5 条减到 3 条。
+- 运行时的画布只读、动画（节点 pulse / 活跃边）与运行日志 / 问题面板仍可用，但不再提供独立运行工作台的“固定工作流 + 时间线”外壳。
+- 设计 → 运行的模式与 `mode / runId / sessionId` 持久化不变；`flow-runner` 实例迁移是一次性文档写入。
+
+**否决**
+
+- 保留 `flow-runner` 但隐藏入口：仍要维护第二套运行页面与模板，收益为零。
+- 删除 `RunView` / `mode`：设计器运行阶段的上下文条与实例 `mode` 恢复仍需要它们。
+- 迁移时把旧实例改成 `plan-runner` 或删除：会丢失 graph 绑定和标题。
+
+---
+
+## ADR-028：运行即自动创建会话并逐步写入
+
+**背景**
+
+M7.4 / M7.4.2 的运行结果是临时的：结果页签只在运行结束后汇总 `RunResult`，「保存到会话」和「写入对话」要用户手动点；选中 conversation 会话时才自动追加消息。实际使用中用户更希望“点运行就得到一条会话”，运行过程本身也应该在会话面板里逐步可见，而不是等结束后再决定保存。
+
+**决定**
+
+- 点击运行时自动在**工作区草稿目录**创建一条空 conversation 会话（无草稿目录时放根目录），标题为「运行 · <工作流> · HH:mm」；立即选中并自动打开「会话历史」浮动面板。
+- 运行过程按 `RunResult` entries 增量写入该会话：
+  - wireclaw `GraphRun` 暴露只读 `resultEntries`（RunResultCollector 快照）；
+  - main 新增 `run:entries` 读取当前 / 已完成的 entries；
+  - renderer 运行中每 450ms 轮询，按 entry `id` 去重，通过 `session:appendEntries` 追加消息；运行结束再补最后一批；
+  - ModelCall / Agent entry 仍走 ADR-022 的消息转换规则（system / user / assistant / tool）。
+- 运行结束时再把输出摘要（每个输出端口的文本 / JSON / 附件标记）作为 system 消息通过 `session:appendMessage` 写入，保证 Constant → Output 这类没有模型条目的工作流也有结果可查。
+- 移除运行日志的「结果」页签和「保存到会话 / 写入对话」按钮；`RunResult` 仍持久化到 `runs/<runId>/result.json`，run session（`kind: "run"`）与 `session:saveRun` / `session:appendRun` 接口保留给旧数据与后续导出，但不再有 UI 入口。
+- 进入运行模式不再自动创建「运行对话」会话；会话只在真正点击运行时创建。
+
+**后果**
+
+- 每次运行都会在草稿目录产生一条会话，Session 树计数与历史面板随之刷新；同一 run 的条目按完成顺序出现，粒度为节点完成，不是 token 级流式。
+- `session:appendEntries` 会校验 entries（复用 RunResultSerializer 的合成结果），无效数据返回 `E_INVALID_ARGUMENT`。
+- 输出摘要以 system 消息呈现；附件展示仍通过 `[附件 <hash>]` 文本标记，不内联二进制。
+- 运行中关闭 / 重载 renderer 会丢失轮询，但已写入的会话消息与 `runs/<runId>/result.json` 保留；重新打开会话仍可查看已写入部分。
+
+**否决**
+
+- 只在运行结束后写入一次：会话面板在长时间运行中始终为空，不符合“逐步弹出”。
+- 仅从 `node:end` / `node:stream` 事件重建消息：缺少 system prompt、usage、thinking 与 Agent 工具调用，且与 RunResult 双轨。
+- 自动创建 `kind: "run"` 会话存 RunResult：需要实时更新整个 RunResult 文档，且会话历史以结果视图为主，不符合“逐条消息”的交互。
+- 保留结果页签：与自动会话重复，且用户明确要求移除。
+
+
+
+
 

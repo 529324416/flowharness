@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DocumentRef } from "@flowharness/contracts";
-import { applyPresetParameters, type GraphDocument } from "wireclaw";
-import type { CanvasCommand } from "../../canvas/core/types";
+import {
+    applyPresetParameters,
+    type GraphDocument,
+    type NodePresetDocument,
+} from "wireclaw";
+import type { CanvasCommand, Vec2 } from "../../canvas/core/types";
 import {
     addNode,
     applyCanvasCommand,
@@ -12,7 +16,6 @@ import {
 import {
     defaultConfigOf,
     findNodeCatalogEntry,
-    NODE_PRESETS,
 } from "../core/catalog";
 import {
     createGraphTemplate,
@@ -56,8 +59,8 @@ export type UseDesignerDocumentResult = DesignerDocumentState & {
     redo: () => void;
     reload: () => void;
     applyCommand: (command: CanvasCommand) => void;
-    addNode: (type: string) => void;
-    addNodeFromPreset: (presetId: string) => void;
+    addNode: (type: string, position?: Vec2) => void;
+    addNodeFromPreset: (preset: NodePresetDocument, position?: Vec2) => void;
     updateNodeConfig: (nodeId: string, config: unknown) => void;
     replaceDocument: (next: GraphDocument, options?: CommitOptions) => void;
     flush: () => Promise<SaveState>;
@@ -313,7 +316,7 @@ export function useDesignerDocument(
     );
 
     const addNodeByType = useCallback(
-        (type: string) => {
+        (type: string, position?: Vec2) => {
             const current = documentRef.current;
             if (current === null) return;
 
@@ -324,7 +327,7 @@ export function useDesignerDocument(
                 id: createNodeId(current),
                 type: entry.type,
                 typeVersion: entry.version,
-                position: nextNodePosition(current),
+                position: position ?? nextNodePosition(current),
                 config: defaultConfigOf(entry),
             });
             commit(next);
@@ -333,18 +336,15 @@ export function useDesignerDocument(
     );
 
     const addNodeFromPreset = useCallback(
-        (presetId: string) => {
+        (preset: NodePresetDocument, position?: Vec2) => {
             const current = documentRef.current;
             if (current === null) return;
-
-            const preset = NODE_PRESETS.find((item) => item.presetId === presetId);
-            if (preset === undefined) return;
 
             const next = addNode(current, {
                 id: createNodeId(current),
                 type: preset.type,
                 typeVersion: preset.typeVersion,
-                position: nextNodePosition(current),
+                position: position ?? nextNodePosition(current),
                 config: applyPresetParameters(preset, {}),
             });
             commit(next);

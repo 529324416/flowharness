@@ -12,6 +12,7 @@ import {
     type RunViewState,
 } from "../core/run-events";
 import type { RequirementCatalog } from "wireclaw";
+import { sameRunSnapshot } from "../../run/run-snapshot";
 import { validateGraphDocument } from "../core/validate";
 
 export type UseDesignerRunResult = {
@@ -26,7 +27,7 @@ export type UseDesignerRunResult = {
     start: (
         graph: GraphDocument,
         workspaceId: string,
-        onWillStart?: () => void,
+        onWillStart?: () => void | Promise<void>,
     ) => Promise<RunSnapshot | null>;
     pause: () => Promise<void>;
     resume: () => Promise<void>;
@@ -60,7 +61,9 @@ export function useDesignerRun(
     const graphRef = useRef<GraphDocument | null>(null);
 
     const applyBatch = useCallback((batch: RunEventBatch) => {
-        setSnapshot(batch.snapshot);
+        setSnapshot((current) =>
+            sameRunSnapshot(current, batch.snapshot) ? current : batch.snapshot,
+        );
         const graph = graphRef.current;
         if (graph === null) return;
         setView((current) => applyRunEventsToView(graph, current, batch.events));
@@ -88,7 +91,7 @@ export function useDesignerRun(
         async (
             graph: GraphDocument,
             workspaceId: string,
-            onWillStart?: () => void,
+            onWillStart?: () => void | Promise<void>,
         ): Promise<RunSnapshot | null> => {
             const validationIssues = validateGraphDocument(
                 graph,
@@ -103,7 +106,7 @@ export function useDesignerRun(
                 return null;
             }
 
-            onWillStart?.();
+            await onWillStart?.();
 
             activeRunIdRef.current = null;
             pendingRef.current = [];

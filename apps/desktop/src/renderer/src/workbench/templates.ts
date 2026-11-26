@@ -37,33 +37,11 @@ export const WORKBENCH_TEMPLATES: readonly WorkbenchTemplate[] = [
         instanceTitle: "设计器副本",
     },
     {
-        id: "graph-table",
-        title: "节点清单",
-        description: "以表格查看当前工作流的节点与配置",
-        type: "graph-table",
-        instanceTitle: "节点清单",
-    },
-    {
         id: "plan-runner",
         title: "批量运行",
         description: "选择多条工作流顺序运行",
         type: "plan-runner",
         instanceTitle: "批量运行",
-    },
-    {
-        id: "flow-runner-blank",
-        title: "运行页 · 空白工作流",
-        description: "新建固定工作流并用带动画的只读运行页展示",
-        type: "flow-runner",
-        instanceTitle: "运行页",
-        createGraph: (graphId) => createGraphTemplate(graphId, "运行工作流"),
-    },
-    {
-        id: "flow-runner-current",
-        title: "运行页 · 当前工作流",
-        description: "为当前工作流创建固定只读运行页",
-        type: "flow-runner",
-        instanceTitle: "运行页",
     },
 ];
 

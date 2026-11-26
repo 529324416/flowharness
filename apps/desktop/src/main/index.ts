@@ -25,6 +25,7 @@ import {
     type BlobStatRequest,
     type RunCancelRequest,
     type RunGetRequest,
+    type RunEntriesRequest,
     type RunListRequest,
     type RunPauseRequest,
     type RunResultRequest,
@@ -34,6 +35,8 @@ import {
     type ProvidersTestRequest,
     type SessionCreateRequest,
     type SessionDeleteRequest,
+    type SessionAppendEntriesRequest,
+    type SessionAppendMessageRequest,
     type SessionAppendRunRequest,
     type SessionFolderCreateRequest,
     type SessionFolderDeleteRequest,
@@ -94,6 +97,72 @@ registerAssetScheme();
 const isSmokeRun = process.env.FLOWHARNESS_SMOKE === "1";
 const APPROVAL_TIMEOUT_MS = 5 * 60_000;
 const WINDOW_MODE = (process.env.FLOWHARNESS_WINDOW_MODE ?? "transparent") as WindowMode;
+const WM_SYSCOMMAND = 0x0112;
+const WM_NCLBUTTONDBLCLK = 0x00a3;
+const SC_MOVE = 0xf010;
+const SC_MAXIMIZE = 0xf030;
+
+/**
+ * 透明无边框窗口会丢掉 DefWindowProc 的标题栏手势：
+ * Electron 对 transparent 窗口的 SC_MAXIMIZE 直接返回 true（见 native_window_views_win.cc），
+ * 所以双击标题栏不会最大化/还原。这里通过 hookWindowMessage 在 Electron 吞掉消息前处理。
+ */
+function hookTransparentTitleBar(window: BrowserWindow): void {
+    let lastToggleAt = 0;
+
+    const toggleMaximized = (): void => {
+        // 同一个双击可能同时到达 WM_NCLBUTTONDBLCLK 与 WM_SYSCOMMAND，去重一次。
+        const now = Date.now();
+        if (now - lastToggleAt < 250) return;
+        lastToggleAt = now;
+
+        // 最大化状态下的双击仍发送 SC_MAXIMIZE（不是 SC_RESTORE），因此按切换处理。
+        if (window.isMaximized()) window.unmaximize();
+        else window.maximize();
+    };
+
+    window.hookWindowMessage(WM_SYSCOMMAND, (wParam) => {
+        const command = readWindowMessageWord(wParam) & 0xfff0;
+
+        if (command === SC_MAXIMIZE) {
+            toggleMaximized();
+            return;
+        }
+
+        if (command === SC_MOVE && window.isMaximized()) {
+            restoreForTitleBarDrag(window);
+        }
+    });
+
+    // 兜底：个别 Windows/Electron 组合仍会把非客户区双击派发上来。
+    window.hookWindowMessage(WM_NCLBUTTONDBLCLK, () => {
+        toggleMaximized();
+    });
+}
+
+/** 拖动最大化窗口的标题栏：还原到普通状态，并让标题栏回到光标下方。 */
+function restoreForTitleBarDrag(window: BrowserWindow): void {
+    const normal = window.getNormalBounds();
+    const maximized = window.getBounds();
+    const cursor = screen.getCursorScreenPoint();
+    const ratio =
+        maximized.width > 0
+            ? Math.min(1, Math.max(0, (cursor.x - maximized.x) / maximized.width))
+            : 0.5;
+
+    window.unmaximize();
+    window.setBounds({
+        width: normal.width,
+        height: normal.height,
+        x: Math.round(cursor.x - ratio * normal.width),
+        y: Math.round(cursor.y - 20),
+    });
+}
+
+/** hookWindowMessage 的 wParam 是原始消息字（小端）。 */
+function readWindowMessageWord(buffer: Buffer): number {
+    return buffer.length >= 4 ? buffer.readUInt32LE(0) : 0;
+}
 
 /**
  * 开发/受限环境可把工作区根目录指到可写位置；正常启动仍以 AppConfig 为准。
@@ -300,7 +369,19 @@ function createWindow(saved: SavedWindowState | null = savedWindowState): void {
         persistTimer = setTimeout(persistWindowState, 400);
     };
 
-    window.on("resize", schedulePersist);
+    // 最大化状态可能在窗口显示 / 聚焦后变化（例如启动时恢复最大化、
+    // Windows 吸附、Aero Snap）。除 maximize/unmaximize 外再做一次兜底广播，
+    // 避免自绘按钮图标与真实窗口状态不一致。
+    let stateTimer: NodeJS.Timeout | null = null;
+    const scheduleWindowState = (): void => {
+        if (stateTimer) clearTimeout(stateTimer);
+        stateTimer = setTimeout(sendWindowState, 80);
+    };
+
+    window.on("resize", () => {
+        schedulePersist();
+        scheduleWindowState();
+    });
     window.on("move", schedulePersist);
 
     window.on("maximize", () => {
@@ -311,14 +392,22 @@ function createWindow(saved: SavedWindowState | null = savedWindowState): void {
         sendWindowState();
         persistWindowState();
     });
+    window.on("restore", sendWindowState);
+    window.on("focus", sendWindowState);
+    window.webContents.on("did-finish-load", sendWindowState);
     window.on("close", persistWindowState);
 
     window.on("closed", () => {
         if (persistTimer) clearTimeout(persistTimer);
+        if (stateTimer) clearTimeout(stateTimer);
         if (mainWindow === window) mainWindow = null;
         approvalBroker.settleAll("deny");
         inputBroker.settleAll({ requestId: "", answers: [], cancelled: true });
     });
+
+    if (process.platform === "win32" && WINDOW_MODE === "transparent") {
+        hookTransparentTitleBar(window);
+    }
 
     if (saved?.maximized && !isSmokeRun) {
         window.maximize();
@@ -523,7 +612,10 @@ function registerIpcHandlers(): void {
         const window = windowFromEvent(event);
         if (window.isMaximized()) window.unmaximize();
         else window.maximize();
-        return { maximized: window.isMaximized() };
+
+        const payload = { maximized: window.isMaximized() } satisfies WindowStatePayload;
+        broadcast(IpcEventTopic.Window, payload);
+        return payload;
     });
 
     registerHandler(IpcChannel.WindowClose, (_request, event) => {
@@ -733,6 +825,31 @@ function registerIpcHandlers(): void {
                 RunResultSerializer.deserialize(raw),
             );
         },
+    );
+
+    registerHandler(
+        IpcChannel.SessionAppendEntries,
+        async ({
+            workspaceId,
+            sessionId,
+            entries,
+        }: SessionAppendEntriesRequest) =>
+            requireSessionStore(workspaceId).appendRunEntries(sessionId, entries),
+    );
+
+    registerHandler(
+        IpcChannel.SessionAppendMessage,
+        async ({
+            workspaceId,
+            sessionId,
+            role,
+            content,
+        }: SessionAppendMessageRequest) =>
+            requireSessionStore(workspaceId).appendMessage(
+                sessionId,
+                role,
+                content,
+            ),
     );
 
     registerHandler(
@@ -966,6 +1083,10 @@ function registerIpcHandlers(): void {
         IpcChannel.RunResult,
         ({ runId, workspaceId }: RunResultRequest) =>
             runtime.getResult(runId, workspaceId),
+    );
+
+    registerHandler(IpcChannel.RunEntries, ({ runId }: RunEntriesRequest) =>
+        runtime.getEntries(runId),
     );
 
     registerHandler(

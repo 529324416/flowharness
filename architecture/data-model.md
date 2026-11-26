@@ -12,7 +12,8 @@
 
 - `GraphDocument` 由 wireclaw 序列化/反序列化，FH **不修改其字段语义**；
 - 工作台实例只**引用** graph（`graphId`），不内联 graph 内容；
-- 删除引用的检查：M7.1 起 `deleteDocument` 会扫描 `documents/workbenches`，仍被实例引用的 graph 返回 `E_CONFLICT`；删除工作台实例本身不反向检查。
+- 节点预设库是工作区文档（`documents/presets/library.json`，`DocumentRef.kind = "presetLibrary"`）：文件夹树 + 预设记录，保存节点类型、默认 config 与 folderId；随 `.fhws` 导出；
+- 删除引用：M8 UI 打磨 3 起（ADR-025），`deleteDocument` 会先解除 `documents/workbenches` 里的引用（`graphs` / `plan`），再删除文件；删除工作台实例本身不反向检查。
 
 ## 2. 工作区目录
 
@@ -25,6 +26,8 @@
       <documentId>.json       # GraphDocument；M4 起一个工作区可有多份
     workbenches/
       <instanceId>.json       # WorkbenchInstanceDocument（M5 起）
+    presets/
+      library.json            # 工作区节点预设库（M8.4）
   objects/
     <hash[0:2]>/<hash>        # BlobStore 内容文件
     index.json                # 元数据 + 引用（可重建）
@@ -233,7 +236,7 @@ objects/**             # 默认包含；ExportOptions.includeObjects=false 可�
 
 ## 12. M7 目标：Session 树与 RunResult（已完成）
 
-> M7.2 已实现递归目录、`SessionRecord` v2、草稿目录与迁移；M7.4 已实现 RunResult 采集 / 校验 / 持久化、运行结果面板、run 会话保存与回放；草稿目录可在 Session 树文件夹右键切换。
+> M7.2 已实现递归目录、`SessionRecord` v2、草稿目录与迁移；M7.4 已实现 RunResult 采集 / 校验 / 持久化与 run 会话回放；M8.6 起运行自动创建草稿会话并逐步写入（ADR-028）；草稿目录可在 Session 树文件夹右键切换。
 
 ### 12.1 Session 目录树
 
@@ -339,6 +342,6 @@ type RunResultEntry =
 ### 12.4 文档绑定
 
 - `WorkbenchInstance.graphs` 是权威绑定；左栏切换文档时同步 primaryGraph；
-- 删除 graph 前检查实例引用；
+- 删除 graph 时解除实例引用（ADR-025）；删除后实例可保留空绑定；
 - 运行模式的 Session 树是 workspace 级，不按实例隔离。
-- M7.4.2：运行结束后 Agent / ModelCall 消息可追加到当前选中的 conversation 会话（`session:appendRun`）；run session 仍只保存 `RunResult`，实例只记录 `sessionId`，不内联消息。
+- M8.6：点击运行自动在草稿目录创建 conversation 会话，运行中按 `RunResult` entries 增量追加消息，结束时追加输出摘要（system 消息）；run session 仍只保存 `RunResult`，实例只记录 `sessionId`，不内联消息（ADR-028）。

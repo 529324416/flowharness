@@ -29,7 +29,7 @@ export type WorkbenchController = {
 
 /** 工作台向 Shell 汇报的 UI 模型；由 App 提供并转交 TitleBar / PanelLayer。 */
 export type WorkbenchShell = {
-    onRunWillStart: () => void;
+    onRunWillStart: () => void | Promise<void>;
     onRunStarted: (snapshot: RunSnapshot) => void;
     onRunControlsChange: (controls: RunControls | null) => void;
     onSaveStatusChange: (status: "saved" | "saving" | "conflict" | "error" | null) => void;
@@ -53,6 +53,8 @@ export type WorkbenchViewProps = {
     busy: boolean;
     error: string | null;
     shell: WorkbenchShell;
+    /** 新建工作流（空态 CTA 等使用）；由 App 提供。 */
+    onCreateDocument: () => void;
     /** 只在实例字段变化时调用；由 Host/App 负责持久化。 */
     onUpdateInstance: (
         mutate: (current: WorkbenchInstanceDocument) => WorkbenchInstanceDocument,

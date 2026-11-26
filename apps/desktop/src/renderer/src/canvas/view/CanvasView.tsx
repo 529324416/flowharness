@@ -1,10 +1,12 @@
 import {
+    memo,
     useCallback,
     useEffect,
     useMemo,
     useRef,
     useState,
     type CSSProperties,
+    type DragEvent as ReactDragEvent,
     type ReactElement,
 } from "react";
 import {
@@ -63,6 +65,15 @@ export type CanvasViewProps = {
     nodeStatuses?: Readonly<Record<string, CanvasStatus>>;
     /** 右键菜单「添加节点」；位置是视口坐标（clientX / clientY）。 */
     onAddNode?: (position: { x: number; y: number }) => void;
+    /** 右键节点菜单「创建预设节点」。 */
+    onCreatePreset?: (nodeId: string) => void;
+    /**
+     * 节点库拖拽落点。payload 是拖拽源写入的原始字符串；
+     * 画布只负责把屏幕坐标换算成画布坐标，不解析业务载荷。
+     */
+    onDropNode?: (payload: string, position: { x: number; y: number }) => void;
+    /** 允许落到画布上的拖拽 MIME；缺省不接受拖拽。 */
+    dropMimeType?: string;
     /**
      * 程序化选中（问题面板定位 / 粘贴后选中）。
      * 普通框选/点选由 React Flow 本地管理，绝不回灌，避免选中反馈循环。
@@ -119,7 +130,13 @@ function toFlowEdges(document: CanvasDocument): FlowEdge[] {
     }));
 }
 
-export function CanvasView({
+/**
+ * 受控画布视图。
+ *
+ * `memo`：运行事件 / 运行日志面板会高频更新 App 状态，但画布只在
+ * document / nodeStatuses / 选中等 props 真正变化时才需要重渲染。
+ */
+export const CanvasView = memo(function CanvasView({
     document,
     title,
     selectedNodeIds = [],
@@ -129,6 +146,9 @@ export function CanvasView({
     readOnly = false,
     nodeStatuses,
     onAddNode,
+    onCreatePreset,
+    onDropNode,
+    dropMimeType,
     focusNode,
     onUpdateNodeConfig,
 }: CanvasViewProps): ReactElement {
@@ -438,6 +458,40 @@ export function CanvasView({
         setMenu(null);
     };
 
+    const createPreset = (): void => {
+        if (!menu?.nodeId || readOnly) return;
+        onCreatePreset?.(menu.nodeId);
+        setMenu(null);
+    };
+
+    const acceptsDrop = (event: ReactDragEvent): boolean =>
+        !readOnly &&
+        dropMimeType !== undefined &&
+        onDropNode !== undefined &&
+        Array.from(event.dataTransfer.types).includes(dropMimeType);
+
+    const handleDragOver = (event: ReactDragEvent): void => {
+        if (!acceptsDrop(event)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+    };
+
+    const handleDrop = (event: ReactDragEvent): void => {
+        if (!acceptsDrop(event)) return;
+        event.preventDefault();
+
+        const payload = event.dataTransfer.getData(dropMimeType ?? "");
+        if (payload.length === 0) return;
+
+        const position =
+            instance?.screenToFlowPosition({
+                x: event.clientX,
+                y: event.clientY,
+            }) ?? { x: 0, y: 0 };
+        onDropNode?.(payload, position);
+        setMenu(null);
+    };
+
     const fitView = (): void => {
         void instance?.fitView({ padding: 0.22, duration: 300 });
         setMenu(null);
@@ -450,6 +504,8 @@ export function CanvasView({
             onMouseDown={handleRootMouseDown}
             onMouseMove={handleRootMouseMove}
             onMouseUp={handleRootMouseUp}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
             style={
                 {
                     "--fh-node-width": `${String(CANVAS_METRICS.nodeWidth)}px`,
@@ -557,6 +613,16 @@ export function CanvasView({
                                 type="button"
                                 className={styles.menuItem}
                                 role="menuitem"
+                                onClick={createPreset}
+                            >
+                                创建预设节点
+                            </button>
+                        ) : null}
+                        {menu.nodeId && !readOnly ? (
+                            <button
+                                type="button"
+                                className={styles.menuItem}
+                                role="menuitem"
                                 onClick={deleteNode}
                             >
                                 删除节点
@@ -576,4 +642,4 @@ export function CanvasView({
             ) : null}
         </div>
     );
-}
+});

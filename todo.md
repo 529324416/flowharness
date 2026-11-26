@@ -24,7 +24,7 @@
 - [x] 确认运行阶段形态：同一 `WorkbenchInstance` 的 `design` / `run` 模式（不是独立全局页面）
 - [x] 确认 Session 树存储：真实目录 `sessions/<folderId>/<sessionId>/session.json` + `folder.json`；folder id 作目录名
 - [x] 确认 run session 模型：`SessionRecord.kind: "conversation" | "run"`，run session 保存 wireclaw `RunResult`
-- [x] 确认文档绑定语义：`WorkbenchInstance.graphs` 为权威绑定；切换文档同步 primaryGraph；删除 graph 前检查引用
+- [x] 确认文档绑定语义：`WorkbenchInstance.graphs` 为权威绑定；切换文档同步 primaryGraph；删除 graph 时解除引用（ADR-025 修订）
 - [x] 面板材质：`--fh-panel-alpha` 0.95 → 0.78
 - [x] 同步 architecture/ui.md、data-model.md、modules.md、decisions.md
 
@@ -36,8 +36,8 @@
 - [x] 移除顶层 `sessions` 视图与 Ctrl+4；会话历史面板归 M7.3
 - [x] `PanelLayer` 通过 `WorkbenchHost.panelLayer` 槽提升到工作台壳层，供运行页与导航复用
 - [x] 浮动面板 `--fh-panel-alpha` 改为 0.78，更新 design/tokens 文档
-- [x] 文档选择同步 `WorkbenchInstance.graphs` 的 primaryGraph；删除 graph 前检查工作台引用
-- [x] 测试：导航解析（type + mode）、文档绑定、删除引用（`E_CONFLICT`）
+- [x] 文档选择同步 `WorkbenchInstance.graphs` 的 primaryGraph；删除 graph 时解除工作台引用（ADR-025 修订）
+- [x] 测试：导航解析（type + mode）、文档绑定、删除时解除引用（`E_CONFLICT` 检查由 ADR-025 取代）
 
 ### M7.2 Session 树存储（main）
 
@@ -59,7 +59,7 @@
 
 ### M7.4 运行结果 → 草稿 Session（2026-11-26 已完成）
 
-- [x] 运行结果面板（扩展运行日志）：输出 / 结果条目 / 问题；日志页签渲染 `node:end` 输出键、`node:stream` 文本与附件，结果页签汇总 `RunResult`
+- [x] 运行结果面板（扩展运行日志）：输出 / 结果条目 / 问题；日志页签渲染 `node:end` 输出键、`node:stream` 文本与附件，结果页签汇总 `RunResult`（结果页签已由 M8.6 / ADR-028 移除）
 - [x] wireclaw：`RunResult` / `RunResultEntry` 类型、JSON 校验 / 序列化（`RunResultSerializer`）
 - [x] wireclaw：ModelCall / AgentRun 采集 entries；Subgraph / Loop / ForEach 带 `graphPath` 冒泡
 - [x] FH：RunStore 写 `runs/<runId>/result.json`，RuntimeHost 暴露结果（`run:result`，跨重启可读）
@@ -68,7 +68,7 @@
 - [x] run session 回放：结果面板 / 会话面板按 `kind` 渲染；引用 runId / graphId / status / outputs
 - [x] 草稿目录配置：Session 树文件夹右键「设为草稿目录」，持久化到 workspace settings
 - [x] 测试：run→session 往返、草稿目录、输出投影（FH 34 文件 / 171 项；wireclaw 67 项）
-- [x] Agent / ModelCall 的消息写入（conversation session）：run 的 entries 解析为真实消息，追加到选中的 conversation 会话；运行模式自动写入，结果面板提供「写入对话」；run session 仍只存 RunResult
+- [x] Agent / ModelCall 的消息写入（conversation session）：run 的 entries 解析为真实消息，追加到选中的 conversation 会话；运行模式自动写入，结果面板提供「写入对话」；run session 仍只存 RunResult（已由 M8.6 / ADR-028 改为运行开始自动建会话并逐步写入）
 
 ### M7.4.1 双区导航（2026-11-26 已完成）
 
@@ -83,7 +83,7 @@
 - [x] `WorkbenchDefinition` 增加 `RunView`；`WorkbenchHost` 按 `mode` 选择主视图
 - [x] `harness-designer` 运行模式：画布 + 运行上下文条 + 运行结果面板 + Session 导航；无独立运行页
 - [x] 实例持久化 `mode` / `runId` / `sessionId`；设计 ↔ 运行入口（导航与运行条）
-- [x] 自定义运行页参考实现：新增 `flow-runner` 工作台（固定只读画布 + 运行控制 + 节点时间线 + 返回配置）
+- [x] 自定义运行页参考实现：新增 `flow-runner` 工作台（固定只读画布 + 运行控制 + 节点时间线 + 返回配置）（已于 M8.5 移除，ADR-027）
 - [x] 最小动画原语：运行节点 pulse（CSS）、活跃边 flow（既有流动虚线）、视口 focus（CanvasView.focusNode 跟随 running 节点），遵守 `prefers-reduced-motion`
 - [x] 视觉基线：设计 → 运行 → 保存草稿会话；运行页 `designer-flow-runner`
 
@@ -207,7 +207,7 @@
 - [x] `WorkbenchDefinition` / 工作台实例文档 / controller / 命令栈 / 自动保存
 - [x] 模块注册表与视图宿主
 - [x] `WorkbenchPlan`（独立多 run 顺序执行；优先 subgraph 的约束保留）
-- [x] 第二 / 第三个工作台（节点清单 / 批量运行）验证框架复用性
+- [x] 第二 / 第三个工作台（节点清单 / 批量运行）验证框架复用性（节点清单已于 M8.4 退场）
 - [x] 高频节点内联编辑：Constant / Model Call / Log / Value / Agent / Loop / ForEach
 - [x] 拖拽传入：输出端口可落在 Body 输入端口槽，或使用左侧 Handle
 
@@ -227,15 +227,44 @@
 
 ## 当前里程碑：M8 — 模板、导入导出与多工作台（进行中）
 
-- [x] 工作台模板：`workbench/templates.ts`，6 条模板（Harness 空白 / 当前、节点清单、批量运行、运行页空白 / 当前）
-- [x] 节点预设：内置 4 条（新增“图片生成”）；用户预设库导入导出留后续
+- [x] 工作台模板：`workbench/templates.ts`，3 条模板（Harness 空白 / 当前、批量运行；原「节点清单」随 M8.4 退场、独立运行页随 M8.5 退场）
+- [x] 节点预设：内置 4 条（新增“图片生成”）
 - [x] `.fhws` 导入导出 UI：文件菜单 + 系统对话框；导入总是创建新工作区副本，不覆盖
-- [x] 更多工作台类型 / 模板化入口：`flow-runner` + 所有已注册类型均可从模板创建
+- [x] 更多工作台类型 / 模板化入口：已注册类型均可从模板创建（`flow-runner` 已于 M8.5 移除）
 - [x] 测试与视觉基线：模板解析 / 导入副本、文件菜单、模板菜单
+
+### M8.4 节点库重构（2026-11-27）
+
+- [x] 工作区预设库：`documents/presets/library.json`（`DocumentRef.kind = "presetLibrary"`），复用 WorkspaceStore revision / 原子写；`.fhws` 自动包含
+- [x] 数据模型：`PresetFolder`（id / title / parentId）+ `PresetRecord`（type / typeVersion / config / folderId）
+- [x] 管理模式 Modal：左文件夹 / 预设树 + 右属性编辑（名称 / 简介 / 文件夹 / configSchema 参数）；新建文件夹、重命名、删除（内容上移）、保存
+- [x] 插入菜单：最近使用 → 用户库文件夹 → 内置预设 → 节点类型；搜索、↑↓ + Enter、拖拽到画布
+- [x] 画布节点右键「创建预设节点」：命名 Modal（名称 / 简介 / 文件夹）+ 捕获 type / typeVersion / config，创建后打开管理 Modal
+- [x] 全局入口：标题栏视图菜单、`Ctrl+Shift+N` / `Ctrl+Shift+M`；插入菜单与模态互斥
+- [x] 「节点清单」`graph-table` 工作台与模板删除；旧实例显示迁往节点库的说明
+- [x] 测试：预设库模型（文件夹 / 移动 / 删除 / 序列化）+ workspace presetLibrary 文档
+
+### M8.5 移除独立运行页（2026-11-27）
+
+- [x] 删除 `flow-runner` 工作台、2 条模板与注册；模板收敛为 3 条
+- [x] 运行复用在 `harness-designer` 画布上：执行 / 暂停 / 控制中自动只读，结束后恢复编辑
+- [x] 旧 `flow-runner` 实例打开工作区时迁移为 `harness-designer`（保留 graph 绑定与标题）
+- [x] 移除 `designer-flow-runner` 截图场景；ADR-027 记录决策与迁移
+- [x] 测试 / 文档同步
+
+### M8.6 运行自动会话（2026-11-27）
+
+- [x] 运行开始自动在草稿目录创建 conversation 会话（标题「运行 · 工作流 · 时间」），选中并自动打开「会话历史」面板
+- [x] wireclaw `GraphRun.resultEntries` + `run:entries`：运行中读取已采集 entries
+- [x] `session:appendEntries` / `session:appendMessage`：entries 增量写为消息，结束追加输出摘要
+- [x] renderer 每 450ms 轮询、按 entry id 去重，结束后补最后一批
+- [x] 流式修复：运行事件投影在状态未变化时保持同一对象，`CanvasView` 使用 `memo`；token 流不再触发整张画布重渲染
+- [x] 移除运行日志「结果」页签与「保存到会话 / 写入对话」按钮；进入运行模式不再自动建「运行对话」
+- [x] 测试：appendEntries / appendMessage 用例；37 文件 / 188 项
 
 ### M8 剩余
 
-- [ ] 用户节点预设库的导入 / 导出 UI 与工作区级存储
+- [ ] 节点预设库文件的独立导入 / 导出 UI（`.fhws` 已包含节点库）
 
 ## 后续里程碑
 
@@ -364,6 +393,16 @@
 - [x] 节点库限高 380px + 内部滚动、最近使用、右键位置锚定
 - [x] 画布几何 / 面板 / 侧栏尺寸收口（24px 网格、10px 端口、1.4px 边、280 面板、260 侧栏）
 
+### UI 打磨 3（2026-11-27）
+
+> 外围优化：Windows 标题栏手势、删除当前工作流、Session 树缩进、Ribbon 宽度。
+
+- [x] 标题栏与 Windows 对齐：透明无边框下恢复双击最大化 / 还原、拖动最大化标题栏先还原；最大化状态在 maximize / unmaximize / resize / focus 广播，renderer 兜底查询，修复图标不同步
+- [x] 删除当前 / 被引用工作流：main 解除工作台引用（ADR-025），renderer 回退到上一条渲染图或空态；空态提供「新建工作流」入口
+- [x] Session 树文件行比同层文件夹行多缩进一个展开箭头位，会话图标与文件夹图标对齐
+- [x] Ribbon 宽度 52 → 46，左右留白收窄
+- [x] 验证：typecheck / test（36 文件 / 181 项）/ build / smoke
+
 ### 质量
 
 - [x] 18 个测试文件 / 85 个测试通过（M0 + M1.1 ~ M1.5）
@@ -377,6 +416,10 @@
 - [x] 33 个测试文件 / 155 个测试通过（M6.2；wireclaw 66/66）
 - [x] 33 个测试文件 / 157 个测试通过（M6.3；新增 session-history 投影与 session-store 历史校验）
 - [x] wireclaw：66 项离线测试通过（新增 `harness-nested-validation`）
+- [x] 36 个测试文件 / 181 个测试通过（2026-11-27；工作流引用解除用例）
+- [x] 37 个测试文件 / 187 个测试通过（2026-11-27；节点库模型 + presetLibrary 文档）
+- [x] 37 个测试文件 / 188 个测试通过（2026-11-27；运行会话增量写入）
+- [x] 37 个测试文件 / 189 个测试通过（2026-11-27；运行视图引用稳定）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
 

@@ -135,7 +135,6 @@ try {
         scenario === "designer" ||
         scenario === "designer-split-nav" ||
         scenario === "designer-run-mode" ||
-        scenario === "designer-flow-runner" ||
         scenario === "file-menu" ||
         scenario === "canvas" ||
         scenario === "canvas-zoom" ||
@@ -1441,25 +1440,6 @@ try {
                 `document.querySelector('button[aria-label="进入运行"]')?.click()`,
             );
             await settle(1200);
-        }
-
-        if (scenario === "designer-flow-runner") {
-            await clickElement(
-                `document.querySelector('button[aria-label="切换或新建工作台"]')`,
-            );
-            await settle(400);
-            await clickElement(
-                `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('运行页'))`,
-            );
-            await settle(1200);
-            await clickElement(
-                `[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('进入运行'))`,
-            );
-            await settle(900);
-            await evaluate(
-                `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '运行')?.click()`,
-            );
-            await settle(900);
         }
 
         if (scenario === "file-menu") {

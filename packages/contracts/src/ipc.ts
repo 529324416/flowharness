@@ -17,6 +17,8 @@ import type {
     SessionCloseRequest,
     SessionCreateRequest,
     SessionDeleteRequest,
+    SessionAppendEntriesRequest,
+    SessionAppendMessageRequest,
     SessionAppendRunRequest,
     SessionFolder,
     SessionFolderCreateRequest,
@@ -41,6 +43,7 @@ import type {
     RunEventBatch,
     RunGetRequest,
     RunListRequest,
+    RunEntriesRequest,
     RunPauseRequest,
     RunResultRequest,
     RunResumeInterruptedRequest,
@@ -108,6 +111,8 @@ export const IpcChannel = {
     SessionDeleteFolder: "session:deleteFolder",
     SessionSaveRun: "session:saveRun",
     SessionAppendRun: "session:appendRun",
+    SessionAppendEntries: "session:appendEntries",
+    SessionAppendMessage: "session:appendMessage",
     SessionSetDraftFolder: "session:setDraftFolder",
 
     RunStart: "run:start",
@@ -117,6 +122,7 @@ export const IpcChannel = {
     RunGet: "run:get",
     RunList: "run:list",
     RunResult: "run:result",
+    RunEntries: "run:entries",
     RunResumeInterrupted: "run:resume-interrupted",
 
     ApprovalRespond: "approval:respond",
@@ -325,6 +331,14 @@ export type IpcInvokeContracts = {
         request: SessionAppendRunRequest;
         response: SessionRecord;
     };
+    [IpcChannel.SessionAppendEntries]: {
+        request: SessionAppendEntriesRequest;
+        response: SessionRecord;
+    };
+    [IpcChannel.SessionAppendMessage]: {
+        request: SessionAppendMessageRequest;
+        response: SessionRecord;
+    };
     [IpcChannel.SessionSetDraftFolder]: {
         request: SessionSetDraftFolderRequest;
         response: SessionTree;
@@ -337,6 +351,10 @@ export type IpcInvokeContracts = {
     [IpcChannel.RunGet]: { request: RunGetRequest; response: RunSnapshot | null };
     [IpcChannel.RunList]: { request: RunListRequest; response: RunSnapshot[] };
     [IpcChannel.RunResult]: { request: RunResultRequest; response: unknown | null };
+    [IpcChannel.RunEntries]: {
+        request: RunEntriesRequest;
+        response: unknown;
+    };
     [IpcChannel.RunResumeInterrupted]: {
         request: RunResumeInterruptedRequest;
         response: RunSnapshot;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import type { RunSnapshot, WorkspaceSummary } from "@flowharness/contracts";
 import type {
     GraphDocument,
+    NodePresetDocument,
     NodeRequirement,
     RequirementCatalog,
 } from "wireclaw";
@@ -20,7 +21,8 @@ import {
     pasteNodes,
     type NodeClipboard,
 } from "../designer/core/commands";
-import { findNodeCatalogEntry, NODE_CATALOG, NODE_PRESETS } from "../designer/core/catalog";
+import { findNodeCatalogEntry } from "../designer/core/catalog";
+import { BUILTIN_PRESETS } from "../designer/core/presets";
 import {
     collectDesignerProblems,
     type DesignerProblem,
@@ -35,11 +37,20 @@ import { useRecentNodes } from "../designer/state/useRecentNodes";
 import type { InspectorModel } from "../inspector/model";
 import type { RunControls } from "../run/run-controls";
 import type { WorkbenchController } from "../workbench/types";
+import { onPresetUiEvent } from "../presets/bus";
+import {
+    CreatePresetDialog,
+    type PresetCapture,
+} from "../presets/CreatePresetDialog";
+import { usePresetLibrary } from "../presets/context";
+import { NODE_DRAG_MIME, parseNodeDragPayload } from "../presets/drag";
+import { toPresetDocument } from "../presets/model";
 import {
     NODE_LIBRARY_MAX_HEIGHT,
     NODE_LIBRARY_WIDTH,
-    NodeLibraryPanel,
-} from "./NodeLibraryPanel";import styles from "./DesignerView.module.css";
+    NodeLibraryPalette,
+} from "../presets/NodeLibraryPalette";
+import styles from "./DesignerView.module.css";
 
 export type DesignerSaveStatus = "saved" | "saving" | "conflict" | "error";
 
@@ -51,7 +62,9 @@ export type DesignerViewProps = {
     /** 工作区 / 文档操作失败的错误；文档加载错误在内部处理。 */
     error?: string | null;
     onCreateWorkspace: () => void;
-    onRunWillStart: () => void;
+    /** 空态 CTA：新建一条工作流。 */
+    onCreateDocument: () => void;
+    onRunWillStart: () => void | Promise<void>;
     onRunStarted: (snapshot: RunSnapshot) => void;
     onRunControlsChange: (controls: RunControls | null) => void;
     onSaveStatusChange: (status: DesignerSaveStatus | null) => void;
@@ -70,6 +83,7 @@ export function DesignerView({
     busy = false,
     error,
     onCreateWorkspace,
+    onCreateDocument,
     onRunWillStart,
     onRunStarted,
     onRunControlsChange,
@@ -108,6 +122,8 @@ export function DesignerView({
     const [libraryAnchor, setLibraryAnchor] = useState<{ x: number; y: number } | null>(
         null,
     );
+    const [presetCapture, setPresetCapture] = useState<PresetCapture | null>(null);
+    const { library, managerOpen } = usePresetLibrary();
     const [focusNode, setFocusNode] = useState<{
         nodeId: string;
         seq: number;
@@ -275,11 +291,20 @@ export function DesignerView({
         void cancel();
     }, [cancel]);
 
-    /** 右键菜单「添加节点」：把视口坐标换算成画布内坐标，并钳制在可视区域内。 */
-    const openNodeLibrary = useCallback((position: { x: number; y: number }): void => {
+    /** 打开插入菜单；position 是视口坐标（右键 / 总线请求可缺省）。 */
+    const openNodeLibrary = useCallback((position?: { x: number; y: number }): void => {
         const rect = canvasRef.current?.getBoundingClientRect();
         if (rect === undefined) {
             setLibraryAnchor(null);
+            setLibraryOpen(true);
+            return;
+        }
+
+        if (position === undefined) {
+            setLibraryAnchor({
+                x: Math.max(12, rect.width / 2 - NODE_LIBRARY_WIDTH / 2),
+                y: 16,
+            });
             setLibraryOpen(true);
             return;
         }
@@ -301,17 +326,17 @@ export function DesignerView({
     }, []);
 
     const handleAddNode = useCallback(
-        (type: string): void => {
-            addNode(type);
+        (type: string, position?: { x: number; y: number }): void => {
+            addNode(type, position);
             recordRecentNode({ kind: "type", id: type });
         },
         [addNode, recordRecentNode],
     );
 
     const handleAddPreset = useCallback(
-        (presetId: string): void => {
-            addNodeFromPreset(presetId);
-            recordRecentNode({ kind: "preset", id: presetId });
+        (preset: NodePresetDocument, position?: { x: number; y: number }): void => {
+            addNodeFromPreset(preset, position);
+            recordRecentNode({ kind: "preset", id: preset.presetId });
         },
         [addNodeFromPreset, recordRecentNode],
     );
@@ -338,6 +363,68 @@ export function DesignerView({
     const runBusy = starting || controlling;
     const editingDisabled =
         isRunning || isPaused || runBusy || saveState.status === "conflict";
+
+    const resolvePreset = useCallback(
+        (presetId: string): NodePresetDocument | null => {
+            const user = library.presets.find((item) => item.id === presetId);
+            if (user !== undefined) return toPresetDocument(user);
+            return (
+                BUILTIN_PRESETS.find((item) => item.presetId === presetId) ?? null
+            );
+        },
+        [library.presets],
+    );
+
+    const handleCreatePreset = useCallback(
+        (nodeId: string): void => {
+            const node = graph?.nodes.find((candidate) => candidate.id === nodeId);
+            if (node === undefined) return;
+            setPresetCapture({
+                type: node.type,
+                typeVersion: node.typeVersion,
+                ...(node.config === undefined
+                    ? {}
+                    : { config: structuredClone(node.config) }),
+            });
+        },
+        [graph],
+    );
+
+    const handleDropNode = useCallback(
+        (raw: string, position: { x: number; y: number }): void => {
+            if (editingDisabled) return;
+            const payload = parseNodeDragPayload(raw);
+            if (payload === null) return;
+
+            setLibraryOpen(false);
+            setLibraryAnchor(null);
+
+            if (payload.kind === "type") {
+                handleAddNode(payload.type, position);
+                return;
+            }
+            const preset = resolvePreset(payload.presetId);
+            if (preset !== null) handleAddPreset(preset, position);
+        },
+        [editingDisabled, handleAddNode, handleAddPreset, resolvePreset],
+    );
+
+    // 标题栏 / 快捷键请求打开插入菜单。
+    useEffect(
+        () =>
+            onPresetUiEvent((event) => {
+                if (event.type !== "open-insert") return;
+                if (editingDisabled) return;
+                openNodeLibrary(event.anchor);
+            }),
+        [editingDisabled, openNodeLibrary],
+    );
+
+    useEffect(() => {
+        if (!managerOpen) return;
+        setLibraryOpen(false);
+        setLibraryAnchor(null);
+    }, [managerOpen]);
 
     const undoEdit = useCallback((): void => {
         if (editingDisabled || !canUndo) return;
@@ -615,6 +702,31 @@ export function DesignerView({
         );
     }
 
+    if (documentId === null) {
+        return (
+            <div className={styles.state}>
+                <EmptyState
+                    title="还没有打开的工作流"
+                    description="从左侧工作流列表选择一条，或新建一条开始编排。"
+                    action={
+                        <Button
+                            variant="primary"
+                            disabled={busy}
+                            onClick={onCreateDocument}
+                        >
+                            新建工作流
+                        </Button>
+                    }
+                />
+                {error ? (
+                    <Alert tone="danger" title="工作流操作失败" className={styles.alert}>
+                        {error}
+                    </Alert>
+                ) : null}
+            </div>
+        );
+    }
+
     if (status === "error") {
         return (
             <div className={styles.state}>
@@ -666,18 +778,19 @@ export function DesignerView({
                 nodeStatuses={nodeStatuses}
                 readOnly={editingDisabled}
                 onAddNode={openNodeLibrary}
+                onCreatePreset={handleCreatePreset}
+                onDropNode={handleDropNode}
+                dropMimeType={NODE_DRAG_MIME}
                 focusNode={focusNode}
                 onUpdateNodeConfig={updateNodeConfig}
             />
 
             {libraryOpen && !editingDisabled ? (
-                <NodeLibraryPanel
-                    entries={NODE_CATALOG}
-                    presets={NODE_PRESETS}
+                <NodeLibraryPalette
                     recent={recentNodes}
                     anchor={libraryAnchor ?? undefined}
                     disabled={editingDisabled}
-                    onAdd={handleAddNode}
+                    onAddType={handleAddNode}
                     onAddPreset={handleAddPreset}
                     onClose={() => {
                         setLibraryOpen(false);
@@ -685,6 +798,14 @@ export function DesignerView({
                     }}
                 />
             ) : null}
+
+            <CreatePresetDialog
+                open={presetCapture !== null}
+                capture={presetCapture}
+                onOpenChange={(open) => {
+                    if (!open) setPresetCapture(null);
+                }}
+            />
 
             {hasBanners ? (
                 <div className={styles.banners}>

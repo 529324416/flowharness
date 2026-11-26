@@ -12,12 +12,14 @@ import type {
 } from "@flowharness/contracts";
 import { FhError } from "@flowharness/contracts";
 import {
+    assistant,
     collectAttachmentHashes,
     collectRunResultAttachmentHashes,
     isContentHash,
     RunResultSerializer,
     SessionHistory,
     SessionSerializer,
+    system,
     type RunResult,
 } from "wireclaw";
 import { readJsonFile, writeJsonFile } from "./atomic-file";
@@ -397,6 +399,79 @@ export class SessionStore {
         const nextHistory = new SessionHistory(
             history.id,
             [...history.messages, ...messages],
+            history.isArchived,
+        );
+        const next: SessionRecord = {
+            ...record,
+            updatedAt: new Date().toISOString(),
+            messageCount: nextHistory.messages.length,
+            entryCount: 0,
+            history: SessionSerializer.serialize(nextHistory),
+            attachments: collectAttachmentHashes(nextHistory.messages).filter(
+                isContentHash,
+            ),
+        };
+
+        await this.writeSession(entry.dir, next);
+        return next;
+    }
+
+    /**
+     * 运行中增量追加已采集的 RunResult entries。
+     * entries 由 main 的 RunResultCollector 产出，仍用 RunResultSerializer 校验。
+     */
+    async appendRunEntries(
+        sessionId: string,
+        entries: unknown,
+    ): Promise<SessionRecord> {
+        const now = Date.now();
+        let result: RunResult;
+        try {
+            result = RunResultSerializer.deserialize({
+                version: 1,
+                runId: "run_partial",
+                graphId: "partial",
+                status: "completed",
+                startedAt: now,
+                endedAt: now,
+                outputs: {},
+                entries,
+            });
+        } catch (cause) {
+            throw new FhError(
+                "E_INVALID_ARGUMENT",
+                `invalid run entries: ${cause instanceof Error ? cause.message : String(cause)}`,
+            );
+        }
+        return this.appendRunMessages(sessionId, result);
+    }
+
+    /** 向 conversation 会话追加一条纯文本消息（运行摘要等）。 */
+    async appendMessage(
+        sessionId: string,
+        role: "assistant" | "system",
+        content: string,
+    ): Promise<SessionRecord> {
+        assertSessionId(sessionId);
+        const entry = await this.findSession(sessionId);
+        if (entry === undefined) {
+            throw new FhError("E_NOT_FOUND", `session not found: ${sessionId}`);
+        }
+
+        const record = await this.readSessionAt(entry);
+        if (record.kind !== "conversation") {
+            throw new FhError(
+                "E_CONFLICT",
+                "messages can only be appended to a conversation session",
+            );
+        }
+        if (content.length === 0) return record;
+
+        const history = SessionSerializer.deserialize(record.history);
+        const message = role === "system" ? system(content) : assistant(content);
+        const nextHistory = new SessionHistory(
+            history.id,
+            [...history.messages, message],
             history.isArchived,
         );
         const next: SessionRecord = {

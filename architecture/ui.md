@@ -28,7 +28,8 @@ renderer/src/
   ui/                      # 组件原语（Button/Menu/Dialog/Tabs/...）
   shell/                   # TitleBar / WorkbenchMenu / Ribbon / navigation / StatusBar / panels
   workbench/               # WorkbenchDefinition / Controller / registry / WorkbenchHost
-  workbenches/             # harness-designer / graph-table 工作台实现
+  workbenches/             # harness-designer / plan-runner 工作台实现
+  presets/                 # 节点库：Provider / 插入菜单 / 管理 Modal / 从节点创建
   views/                   # Designer / SessionHistory / Diagnostics / Styleguide（HeroView 存在但未接入）
   canvas/core/             # 纯 TS：几何、边 key、类型
   canvas/view/             # React Flow 受控视图、节点/边 renderer
@@ -127,7 +128,7 @@ interface CanvasAnimationApi {
 }
 ```
 
-> **目标，未实现**：当前没有 `CanvasAnimationApi`。运行态只用 `CanvasView` 的 `nodeStatuses` 换节点状态色、CSS 流动虚线表示活跃边；M7.5 的 `flow-runner` 运行页额外用 `focusNode` 让视口跟随 running 节点（ADR-023）。
+> **目标，未实现**：当前没有 `CanvasAnimationApi`。运行态只用 `CanvasView` 的 `nodeStatuses` 换节点状态色、CSS 流动虚线表示活跃边；`harness-designer` 的运行阶段可用 `focusNode` 让视口跟随 running 节点（ADR-023；独立运行页已移除）。
 
 - 由 CSS class + `requestAnimationFrame` 实现，不引入动画库；
 - 事件到动画的映射在**工作台层**完成（见 5.4），Canvas 只提供原语。
@@ -180,9 +181,9 @@ interface WorkbenchController {
 ```
 
 - 当前 View 自持 hooks（设计器复用现有 document/run/undo），通过 View 收到的 `shell.onControllerChange` 上报 controller；框架级统一工具栏/命令栈注入待后续；
-- 已有四个工作台：`harness-designer`（画布）、`graph-table`（节点清单）、`plan-runner`（批量运行）、`flow-runner`（固定只读运行页），共用实例文档与 `WorkbenchHost`；
+- 已有两个工作台：`harness-designer`（画布）、`plan-runner`（批量运行）；原 `graph-table`「节点清单」已删除（ADR-026），独立 `flow-runner` 运行页已删除（ADR-027）；
 - `plan-runner` 以 `WorkbenchPlan` 顺序运行多个独立图；当前在 renderer 侧调用 `run:start`，尚未下沉 RuntimeHost；
-- 标题栏 WorkbenchMenu 切换 / 新建 / 重命名 / 删除实例；实例存 `documents/workbenches`；M8.1 起“从模板新建”提供 6 条模板（Harness 空白 / 当前、节点清单、批量运行、运行页空白 / 当前），模板可创建起始工作流。
+- 标题栏 WorkbenchMenu 切换 / 新建 / 重命名 / 删除实例；实例存 `documents/workbenches`；M8.1 起“从模板新建”提供 3 条模板（Harness 空白 / 当前、批量运行），模板可创建起始工作流。
 
 ### 5.3 多图组合：WorkbenchPlan
 
@@ -234,8 +235,8 @@ type WorkbenchPlan = {
 - 当前：`createEditorCatalog(registry, { presets: designerPresetLibrary })` → `{ version: 2, nodeTypes, presets }`（`designer/core/catalog.ts`）；
 - `NodeCatalogEntry` 提供 `type / title / description / builtIn / category / keywords / inputs / outputs / requirements / configSchema / defaultConfig / error`；
 - **动态端口**：wireclaw 的 `describeNodeType(registry, type, { config })` 支持按 config 试创建并取端口，adapter 每次投影也按节点 config 调用；但 16 个内建节点的端口目前都是**静态**的（`get inputs/outputs` 不读 config），该能力尚未被任何节点使用；
-- 预设通过 `NodePresetLibrary` 实例化：FH 内置 3 条（文本常量 / 聊天模型调用 / 只读 Agent），节点库面板可直接插入；
-- 节点库是画布内浮层（`views/NodeLibraryPanel.tsx`），顺序为「最近使用（≤6 条，localStorage）→ 预设 → 分类」，支持标题/类型/关键词搜索；不是 PanelLayer 面板。
+- 用户节点库（M8.4）：工作区 `documents/presets/library.json`；插入菜单是画布内浮层（`presets/NodeLibraryPalette.tsx`），顺序为「最近使用（≤6 条，localStorage）→ 用户库（按文件夹）→ 内置预设 → 节点类型」，支持搜索、↑↓ + Enter、拖拽到画布；管理模式是独立 Modal（`PresetManagerDialog`，左文件夹树 / 右属性与参数表单），从标题栏「视图 → 管理节点库…」或插入菜单进入；
+- 画布节点右键「创建预设节点」捕获 `type / typeVersion / config`，命名后写入工作区库并打开管理 Modal；内置 4 条预设仍来自 `designer/core/presets.ts`。
 
 ### 6.2 Adapter 与命令
 
@@ -281,8 +282,9 @@ CanvasCommand → GraphDocument
 - run 期间：审批走 `shell/InteractionDialogs.tsx` 的 ApprovalDialog，用户输入走 UserInputDialog；main 发 `approval` / `input` topic，renderer 回 `approval:respond` / `input:respond`；
 - Diagnostics 提供「运行恢复」面板：列出 paused / interrupted run，使用 `run:resume-interrupted` 从 checkpoint + graph 快照恢复；
 - 工作台左栏由 `WorkbenchDefinition.navigation` 提供；`harness-designer` 声明 `splitNavigation: { top: "design", bottom: "run" }`，左栏为上下两区：上半区工作流列表（`DocumentNavigation`），下半区 Session 树（`SessionNavigation`），共用 `SplitSidebar` 宿主，横向分隔条可拖动比例；`plan-runner` 仍为单一 Plan 步骤列表；
+- Session 树按文件树缩进：文件夹按层级缩进，会话（文件）行比同层文件夹行多缩进一个展开箭头位，会话图标与文件夹图标对齐；
 - 会话历史已迁入 Canvas 浮动面板（`PanelLayer` 的 `session-history`），点击 Session 树节点即打开；M6.3 的 `SessionSerializer` 回放逻辑复用；M7.4 起 run 会话用 `RunResultView` 展示输出与条目；
-- 运行日志面板的「结果」页签展示 `RunResult`（输出 / 模型调用 / Agent 会话），可在其中「保存到会话」或「写入对话」；运行模式下若选中 conversation 会话，run 结束会自动追加 Agent / ModelCall 消息并刷新会话历史面板；
+- 点击运行会在草稿目录自动创建一条 conversation 会话，自动打开「会话历史」面板；运行中 ModelCall / Agent entries 逐步追加为消息，结束时追加输出摘要；运行日志不再有「结果」页签，也没有手动保存按钮；
 - 对外 UI 统一称 **工作流（workflow）**；`GraphDocument` 仅保留为 wireclaw / 契约内部类型名。
 - 文件菜单提供 `.fhws` 导入 / 导出：导入经系统打开对话框并创建新工作区副本，导出经系统保存对话框写档；不覆盖现有工作区。
 
@@ -308,7 +310,7 @@ CanvasCommand → GraphDocument
 | --- | --- |
 | tokens | `styles/tokens.css`：表面 / 文本 / 边框 / 主色（去饱和青绿）/ 状态 / 画布 / 阴影 / 圆角 / 间距 / 字体 / 动效 / 尺寸 / 层级；深色默认、亮色覆盖 |
 | 密度 | 非画布文字 125% 基准（16.25px 正文）、控件 32px（sm 28）、节点 220px、4px 间距基线；图标同步放大 |
-| 外壳 | TitleBar 40（不透明，无底边框）/ Ribbon 52 / 工作台导航 Panel 200–360（默认 260，可收起/拖宽；token 兜底 280）/ StatusBar 26（全宽不透明 Chrome 层，仅底部圆角）；导航与 Canvas 面板化（各 1px 外框 + 6px 圆角，间隙 4px），中间 Body 统一 95% 半透；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
+| 外壳 | TitleBar 40（不透明，无底边框）/ Ribbon 46 / 工作台导航 Panel 200–360（默认 260，可收起/拖宽；token 兜底 280）/ StatusBar 26（全宽不透明 Chrome 层，仅底部圆角）；导航与 Canvas 面板化（各 1px 外框 + 6px 圆角，间隙 4px），中间 Body 统一 95% 半透；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
 | 会话入口 | 设计器左栏为上下双区：上半区工作流列表（`DocumentNavigation`，支持右键菜单），下半区 Session 树（`SessionNavigation`，草稿目录 / 右键菜单）；会话历史是 Canvas 浮动 Panel |
 | 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Field、Select、Checkbox、NumberField、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
 | 画布视觉 | 商务扁平节点：6px 圆角、纯色不透明底、HeaderBar 30 + Body 两层、无 Footer；描边通过 `--fh-canvas-zoom` 反向缩放，屏幕恒为 1px；选中仅换 accent 边框；网格线 24px/低亮度，拖拽吸附同为 24px；边 1.4px 贝塞尔，活跃边用主色流动虚线、失败 danger 虚线；缩放工具栏已移除；节点宽、Header、端口、边宽、网格、小地图与缩放范围全部来自 `canvas/metrics.ts`，并通过 CSS 变量下发 |
@@ -342,6 +344,7 @@ Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布�
 | 节点 | 任何窗口模式下都使用不透明 `--fh-node-bg`，不随窗口材质变透明 |
 | 截图 | `capture:ui` 默认以 opaque frameless 抓 renderer；真透明截图需要 GPU + 屏幕抓取 |
 | 窗口状态 | bounds 持久化见 `WindowStateStore`；透明窗口没有原生阴影，使用 1px inset 边框 |
+| 标题栏手势 | Windows 透明无边框窗口会被 Electron 吞掉 `SC_MAXIMIZE`，main 用 `hookWindowMessage(WM_SYSCOMMAND)` 恢复双击最大化 / 还原；`SC_MOVE` 时先还原并让标题栏回到光标下方；最大化状态在 maximize / unmaximize / resize / focus 后广播，renderer 另在 focus / resize / visibilitychange 兜底查询 |
 
 ## 10. 测试策略
 
@@ -355,19 +358,20 @@ Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布�
 
 ## 11. M7 工作台导航与运行面板（已完成）
 
-- **M7.1 已实现**：`NavigationPanel` / `DocumentNavigation` / `PlanNavigation`；`WorkbenchDefinition.navigation`（design）；`WorkbenchHost.panelLayer`；App 按工作台渲染左栏；移除全局 SessionSidebar、顶层 `sessions` 视图与 `Ctrl+4`；文档选择同步 primaryGraph；删除 graph 前检查引用；`--fh-panel-alpha` 0.78。
+- **M7.1 已实现**：`NavigationPanel` / `DocumentNavigation` / `PlanNavigation`；`WorkbenchDefinition.navigation`（design）；`WorkbenchHost.panelLayer`；App 按工作台渲染左栏；移除全局 SessionSidebar、顶层 `sessions` 视图与 `Ctrl+4`；文档选择同步 primaryGraph；删除 graph 时解除引用（ADR-025）；`--fh-panel-alpha` 0.78。
 - **M7.2 已实现存储**：Session 递归文件夹、`SessionRecord` v2、草稿目录、IPC。
 - **M7.3 已实现导航/面板**：`SessionNavigation` 递归树（搜索、文件夹/会话 CRUD、移动、草稿标识、右键菜单）；`SessionHistoryView` 嵌入 `session-history` 浮动面板；设计/运行模式切换；工作流列表右键菜单与“工作流”对外文案。
-- **M7.4 已实现运行结果**：运行日志新增「结果」页签，渲染 `RunResult` 输出、模型调用 / Agent 会话条目与附件；运行结束自动拉取 `run:result`；「保存到会话」写入草稿目录并打开历史面板；`SessionHistoryView` 按 `kind` 回放 conversation / run；Session 树文件夹右键可设草稿目录。
+- **M7.4 已实现运行结果**：运行日志新增「结果」页签，渲染 `RunResult` 输出、模型调用 / Agent 会话条目与附件；运行结束自动拉取 `run:result`；「保存到会话」写入草稿目录并打开历史面板；`SessionHistoryView` 按 `kind` 回放 conversation / run；Session 树文件夹右键可设草稿目录。（结果页签与手动保存入口已由 M8.6 / ADR-028 移除。）
 - **M7.4.1 已实现双区导航**：`WorkbenchDefinition.splitNavigation` + `SplitSidebar`；`harness-designer` 上半区工作流、下半区 Session 树，共享侧栏宽度、横向拖动比例并写入 `localStorage`；`NavigationPanel` 增加 `section` 变体，收起按钮只保留在上半区（ADR-021）。
-- **M7.4.2 已实现消息写入**：运行模式选中 conversation 会话时，run 结束自动把 Agent / ModelCall 消息追加到该会话；结果面板提供「写入对话」，写入后历史面板与 Session 树计数刷新；run session 仍只存 RunResult（ADR-022）。
-- **M7.5 已实现**：`WorkbenchDefinition.RunView` + `WorkbenchHost` 按 mode 选择主视图；`harness-designer` 运行阶段显示「运行模式」上下文条与「返回设计」，复用画布 / 浮动面板 / Session 导航；实例持久化 `mode / runId / sessionId`；新增 `flow-runner` 参考运行页（只读固定画布 + 运行控制 + 节点时间线）；动画原语为运行节点 pulse、活跃边 flow、视口 focus（ADR-023）。
+- **M7.4.2 已实现消息写入**：运行模式选中 conversation 会话时，run 结束自动把 Agent / ModelCall 消息追加到该会话；结果面板提供「写入对话」，写入后历史面板与 Session 树计数刷新；run session 仍只存 RunResult（ADR-022）。（已由 M8.6 / ADR-028 改为运行开始自动建会话并逐步写入。）
+- **M7.5 已实现**：`WorkbenchDefinition.RunView` + `WorkbenchHost` 按 mode 选择主视图；`harness-designer` 运行阶段显示「运行模式」上下文条与「返回设计」，复用画布 / 浮动面板 / Session 导航；实例持久化 `mode / runId / sessionId`；动画原语为运行节点 pulse、活跃边 flow、视口 focus（ADR-023；独立 flow-runner 运行页已由 ADR-027 移除）。
+- 运行事件投影保持引用稳定：`node:stream` 等不改变节点 / 边状态的事件返回同一个 `RunViewState`；`CanvasView` 以 `memo` 渲染，token 流只更新运行日志 / 会话面板，不触发整张画布重渲染；
 - **左栏 = Panel 宿主**：Shell 只提供容器与尺寸；PanelContent 默认由 `activeWorkbench.type` + `mode` 提供；声明 `splitNavigation` 的工作台改为固定上下双区（harness-designer：上工作流 / 下会话）。
 - **设计模式**：`harness-designer` 左栏 = GraphDocument 列表（新建 / 最近 / 重命名 / 复制 / 删除 / 导入导出），选中同步 `WorkbenchInstance.graphs` 的 primaryGraph。
-- **运行模式**：同一实例切到 `run`，主视图进入带动画的运行页；Session 树位于左栏下半区，不再替换整个左栏。
-- **工作台定义**：`WorkbenchDefinition` 增加 `navigation`（design / run）与 `RunView`；`WorkbenchHost` 渲染导航与对应 View。工作台运行页是“固定工作流 + 动画”的载体，不再有独立全局运行页面。
+- **运行模式**：同一实例切到 `run`，主视图显示运行上下文条并保持同一张画布（运行时只读）；Session 树位于左栏下半区，不再替换整个左栏。
+- **工作台定义**：`WorkbenchDefinition` 增加 `navigation`（design / run）与 `RunView`；`WorkbenchHost` 渲染导航与对应 View。运行复用工作台画布，不提供独立全局运行页面（ADR-027）。
 - **面板**：
-  - 运行结果面板：输出 / 事件 / 问题，渲染 `node:end` / `run:end` outputs、`node:stream`、附件；
+  - 运行日志面板：日志 / 问题；渲染 `node:end` / `run:end` outputs、`node:stream`、附件（结果页签已移除）；
   - 会话历史面板：由 `SessionHistoryView` 迁移而来，按 `kind` 渲染 conversation / run；
   - 现有属性检查、运行日志保留。
 - **移除**：顶层 `sessions` 视图与 `Ctrl+4`；`SessionSidebar` 不再作为全局左栏。

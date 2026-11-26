@@ -79,6 +79,11 @@ import {
 import { WorkbenchHost } from "./workbench/WorkbenchHost";
 import { getWorkbench } from "./workbench/registry";
 import { getWorkbenchTemplate } from "./workbench/templates";
+import { sameRunSnapshot } from "./run/run-snapshot";
+import {
+    openNodeLibrary,
+    openPresetManager,
+} from "./presets/bus";
 import {
     createWorkbenchId,
     createWorkbenchInstance,
@@ -101,6 +106,81 @@ const bootGraph = new Graph([], [], {
     title: "FlowHarness renderer boot",
 });
 
+/**
+ * 自动创建的运行会话标题：工作流名 + 本地时间，便于在 Session 树里区分。
+ */
+function runSessionTitle(title: string | undefined): string {
+    const base = title?.trim() ?? "";
+    const now = new Date();
+    const time = `${String(now.getHours()).padStart(2, "0")}:${String(
+        now.getMinutes(),
+    ).padStart(2, "0")}`;
+    return base.length > 0 ? `运行 · ${base} · ${time}` : `运行 · ${time}`;
+}
+
+const RUN_STATUS_LABEL: Record<RunResult["status"], string> = {
+    running: "运行中",
+    paused: "已暂停",
+    completed: "完成",
+    failed: "失败",
+    cancelled: "已取消",
+};
+
+/** 运行结束时追加到会话的输出摘要；没有输出且成功时返回 null。 */
+function formatRunSummary(result: RunResult): string | null {
+    const lines: string[] = [];
+    const outputs = result.outputs as Record<string, unknown>;
+
+    for (const [port, value] of Object.entries(outputs)) {
+        const text = harnessValueText(value);
+        if (text !== null) lines.push(`- ${port}: ${text}`);
+    }
+
+    if (
+        lines.length === 0 &&
+        result.status === "completed" &&
+        result.error === undefined
+    ) {
+        return null;
+    }
+
+    const parts = [
+        `运行${RUN_STATUS_LABEL[result.status]} · ${result.graphId} · ${result.runId}`,
+    ];
+    if (lines.length > 0) parts.push("输出", ...lines);
+    if (result.error !== undefined) parts.push("错误", result.error);
+    return parts.join("\n");
+}
+
+function harnessValueText(value: unknown): string | null {
+    if (typeof value === "string") return value;
+    if (typeof value !== "object" || value === null) return null;
+
+    const record = value as Record<string, unknown>;
+    if (record.type === "text" && typeof record.text === "string") {
+        return record.text;
+    }
+    if (record.type === "attachment" && typeof record.contentHash === "string") {
+        return `[附件 ${record.contentHash.slice(0, 12)}]`;
+    }
+    if (record.type === "attachments" && Array.isArray(record.attachments)) {
+        return `[${String(record.attachments.length)} 个附件]`;
+    }
+    if (record.type === "json") {
+        try {
+            return JSON.stringify(record.value ?? null);
+        } catch {
+            return null;
+        }
+    }
+
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return null;
+    }
+}
+
 const SIDEBAR_OPEN_KEY = "fh.sidebar.open";
 const SIDEBAR_WIDTH_KEY = "fh.sidebar.width";
 
@@ -110,6 +190,22 @@ type DataSnapshot = {
     workspaceCount: number;
     error: string | null;
 };
+
+/**
+ * 删除当前工作流后的回退顺序：
+ * 上一条渲染过的图 → 当前工作台仍绑定的图 → 列表第一条。
+ */
+function pickFallbackDocumentId(
+    documents: readonly HarnessDocumentSummary[],
+    history: readonly string[],
+    boundGraphId: string | null,
+): string | null {
+    const available = new Set(documents.map((document) => document.id));
+    const fromHistory = history.find((id) => available.has(id));
+    if (fromHistory !== undefined) return fromHistory;
+    if (boundGraphId !== null && available.has(boundGraphId)) return boundGraphId;
+    return documents[0]?.id ?? null;
+}
 
 function readSidebarOpen(): boolean {
     try {
@@ -161,18 +257,17 @@ export function App(): ReactElement {
     const [runSnapshot, setRunSnapshot] = useState<RunSnapshot | null>(null);
     const [runEvents, setRunEvents] = useState<RunEventDto[]>([]);
     const [runResult, setRunResult] = useState<RunResult | null>(null);
-    const [savingRunSession, setSavingRunSession] = useState(false);
-    const [savedRunSessionId, setSavedRunSessionId] = useState<string | null>(null);
     const [sessionHistoryRevision, setSessionHistoryRevision] = useState(0);
-    const [writingConversation, setWritingConversation] = useState(false);
-    const [conversationWriteError, setConversationWriteError] = useState<string | null>(
-        null,
-    );
-    const [writtenConversationSessionId, setWrittenConversationSessionId] =
-        useState<string | null>(null);
-    const writtenConversationRunId = useRef<string | null>(null);
     const [sessionRevision, setSessionRevision] = useState(0);
     const fetchedRunResultId = useRef<string | null>(null);
+    /** 本次运行自动创建的会话；entries / 输出摘要都写入它。 */
+    const runSessionIdRef = useRef<string | null>(null);
+    const seenRunEntryIds = useRef<Set<string>>(new Set());
+    const summaryWrittenRunId = useRef<string | null>(null);
+    const runEntriesSyncChain = useRef<Promise<void>>(Promise.resolve());
+    /** 运行日志事件按 100ms 节流写入 React state，避免每个 token 批次重渲染壳层。 */
+    const pendingRunEventsRef = useRef<RunEventDto[]>([]);
+    const runEventsFlushTimerRef = useRef<number | null>(null);
     const [approvalRequests, setApprovalRequests] = useState<
         ApprovalRequestPayload[]
     >([]);
@@ -204,6 +299,20 @@ export function App(): ReactElement {
     const workbenchRevisionRef = useRef<string | null>(null);
     const workbenchControllerRef = useRef<WorkbenchController | null>(null);
     const workbenchSaveChain = useRef(Promise.resolve());
+    /** 工作流切换历史（最近的在前），删除当前图后回退使用。 */
+    const documentHistoryRef = useRef<string[]>([]);
+    const previousDocumentIdRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        const previous = previousDocumentIdRef.current;
+        if (previous !== null && previous !== activeDocumentId) {
+            documentHistoryRef.current = [
+                previous,
+                ...documentHistoryRef.current.filter((id) => id !== previous),
+            ].slice(0, 20);
+        }
+        previousDocumentIdRef.current = activeDocumentId;
+    }, [activeDocumentId]);
 
     const {
         panels,
@@ -216,6 +325,8 @@ export function App(): ReactElement {
     } = useFloatingPanels();
 
     const panelsEnabled = view === "designer" && activeWorkspace !== null;
+    const nodeLibraryEnabled =
+        panelsEnabled && activeWorkbench?.type === "harness-designer";
 
     // 切换工作台时恢复实例保存的 design / run 阶段与选中的会话。
     useEffect(() => {
@@ -264,43 +375,70 @@ export function App(): ReactElement {
         });
     }, [bridge]);
 
-    useEffect(
-        () =>
-            bridge.onEvent((envelope) => {
-                if (envelope.topic === "run") {
-                    const batch = envelope.payload as RunEventBatch;
-                    setRunSnapshot(batch.snapshot);
-                    setRunEvents((current) =>
-                        [...current, ...batch.events].slice(-300),
-                    );
-                    return;
-                }
+    useEffect(() => {
+        const flushPendingEvents = (): void => {
+            if (runEventsFlushTimerRef.current !== null) {
+                window.clearTimeout(runEventsFlushTimerRef.current);
+                runEventsFlushTimerRef.current = null;
+            }
+            const pending = pendingRunEventsRef.current.splice(0);
+            if (pending.length === 0) return;
+            setRunEvents((current) => [...current, ...pending].slice(-300));
+        };
 
-                if (envelope.topic === "approval") {
-                    const request = envelope.payload as ApprovalRequestPayload;
-                    setApprovalRequests((current) =>
-                        current.some(
-                            (item) => item.requestId === request.requestId,
-                        )
-                            ? current
-                            : [...current, request],
-                    );
-                    return;
-                }
+        const unsubscribe = bridge.onEvent((envelope) => {
+            if (envelope.topic === "run") {
+                const batch = envelope.payload as RunEventBatch;
+                setRunSnapshot((current) =>
+                    sameRunSnapshot(current, batch.snapshot)
+                        ? current
+                        : batch.snapshot,
+                );
+                pendingRunEventsRef.current.push(...batch.events);
 
-                if (envelope.topic === "input") {
-                    const request = envelope.payload as UserInputRequestPayload;
-                    setInputRequests((current) =>
-                        current.some(
-                            (item) => item.requestId === request.requestId,
-                        )
-                            ? current
-                            : [...current, request],
+                if (batch.events.some((event) => event.type === "run:end")) {
+                    flushPendingEvents();
+                } else if (runEventsFlushTimerRef.current === null) {
+                    runEventsFlushTimerRef.current = window.setTimeout(
+                        flushPendingEvents,
+                        100,
                     );
                 }
-            }),
-        [bridge],
-    );
+                return;
+            }
+
+            if (envelope.topic === "approval") {
+                const request = envelope.payload as ApprovalRequestPayload;
+                setApprovalRequests((current) =>
+                    current.some(
+                        (item) => item.requestId === request.requestId,
+                    )
+                        ? current
+                        : [...current, request],
+                );
+                return;
+            }
+
+            if (envelope.topic === "input") {
+                const request = envelope.payload as UserInputRequestPayload;
+                setInputRequests((current) =>
+                    current.some(
+                        (item) => item.requestId === request.requestId,
+                    )
+                        ? current
+                        : [...current, request],
+                );
+            }
+        });
+
+        return () => {
+            unsubscribe();
+            if (runEventsFlushTimerRef.current !== null) {
+                window.clearTimeout(runEventsFlushTimerRef.current);
+                runEventsFlushTimerRef.current = null;
+            }
+        };
+    }, [bridge]);
 
     const loadData = useCallback(async (): Promise<DataSnapshot> => {
         const [configResult, workspacesResult] = await Promise.all([
@@ -489,6 +627,57 @@ export function App(): ReactElement {
         [bridge],
     );
 
+    /**
+     * 独立运行页已移除：旧的 `flow-runner` 实例在打开工作区时转成 Harness 设计器，
+     * 保留 graph 绑定与标题，运行直接复用设计器画布。
+     */
+    const migrateLegacyWorkbenches = useCallback(
+        async (
+            workspaceId: string,
+            list: readonly WorkbenchSummary[],
+        ): Promise<boolean> => {
+            let changed = false;
+
+            for (const summary of list) {
+                if (summary.type !== "flow-runner") continue;
+
+                const snapshot = await bridge.readDocument(workspaceId, {
+                    kind: "workbench",
+                    id: summary.id,
+                });
+                if (!snapshot.ok || snapshot.data === null) continue;
+                if (!isWorkbenchInstanceDocument(snapshot.data.document)) continue;
+
+                const current = snapshot.data.document;
+                const next: WorkbenchInstanceDocument = {
+                    ...current,
+                    type: "harness-designer",
+                    title:
+                        current.title.trim().length === 0 || current.title === "运行页"
+                            ? defaultWorkbenchTitle("harness-designer")
+                            : current.title,
+                    mode: "design",
+                    runId: null,
+                    updatedAt: new Date().toISOString(),
+                };
+                const saved = await bridge.saveDocument({
+                    workspaceId,
+                    ref: { kind: "workbench", id: summary.id },
+                    baseRevision: snapshot.data.revision,
+                    document: next,
+                });
+                if (!saved.ok) {
+                    setDocumentError(saved.error.message);
+                    continue;
+                }
+                changed = true;
+            }
+
+            return changed;
+        },
+        [bridge],
+    );
+
     const openWorkbenchesForWorkspace = useCallback(
         async (
             workspaceId: string,
@@ -499,6 +688,9 @@ export function App(): ReactElement {
 
             try {
                 let list = await refreshWorkbenches(workspaceId);
+                if (await migrateLegacyWorkbenches(workspaceId, list)) {
+                    list = await refreshWorkbenches(workspaceId);
+                }
                 if (list.length === 0) {
                     const id = createWorkbenchId();
                     const instance = createWorkbenchInstance({
@@ -566,6 +758,7 @@ export function App(): ReactElement {
         [
             bridge,
             loadWorkbench,
+            migrateLegacyWorkbenches,
             refreshDocuments,
             refreshWorkbenches,
             rememberDocument,
@@ -617,7 +810,7 @@ export function App(): ReactElement {
         }));
     }, [activeSession?.id, updateActiveWorkbench, workbenchMode]);
 
-    // 最近一次 run 一并写入实例，运行页可据此恢复。
+    // 最近一次 run 一并写入实例，切回运行模式时可恢复运行上下文。
     useEffect(() => {
         const current = activeWorkbenchRef.current;
         if (current === null) return;
@@ -630,33 +823,21 @@ export function App(): ReactElement {
     const handleWorkbenchModeChange = useCallback(
         async (mode: WorkbenchMode): Promise<void> => {
             setWorkbenchMode(mode);
-            if (mode !== "run") return;
-            if (activeSession?.kind === "conversation") return;
-
-            const workspace = activeWorkspace;
-            if (workspace === null) return;
-
-            const created = await bridge.createSession({
-                workspaceId: workspace.id,
-                title: "运行对话",
-            });
-            if (created.ok) {
-                setActiveSession(created.data);
-                setSessionRevision((current) => current + 1);
-            }
         },
-        [activeSession, activeWorkspace, bridge],
+        [],
     );
 
     // 工作台导航选中文档后，统一在工作台壳层维护 primaryGraph 绑定。
     useEffect(() => {
         if (activeWorkbench?.type !== "harness-designer") return;
         if (activeDocumentId === null) return;
+        // 文档可能刚被删除或外部移除；不要在实例里留下悬空绑定。
+        if (!documents.some((document) => document.id === activeDocumentId)) return;
         if (primaryGraphId(activeWorkbench) === activeDocumentId) return;
         updateActiveWorkbench((current) =>
             withPrimaryGraph(current, activeDocumentId),
         );
-    }, [activeDocumentId, activeWorkbench, updateActiveWorkbench]);
+    }, [activeDocumentId, activeWorkbench, documents, updateActiveWorkbench]);
 
     const handleSelectWorkbench = useCallback(
         async (workbenchId: string): Promise<void> => {
@@ -1022,6 +1203,9 @@ export function App(): ReactElement {
                 if (id === activeDocumentId && !(await flushCurrentDocument())) {
                     return;
                 }
+                // 主进程会解除工作台对这张图的引用；先让挂起的实例保存落盘，
+                // 避免旧快照稍后覆盖解除结果。
+                await workbenchSaveChain.current;
 
                 const result = await bridge.deleteDocument(workspace.id, {
                     kind: "harness",
@@ -1033,31 +1217,38 @@ export function App(): ReactElement {
                 }
 
                 const list = await refreshDocuments(workspace.id);
-                if (list.length === 0) {
-                    await openDocumentsForWorkspace(workspace.id);
-                    return;
-                }
+                await refreshWorkbenches(workspace.id);
+                const reloaded =
+                    activeWorkbenchId === null
+                        ? null
+                        : await loadWorkbench(workspace.id, activeWorkbenchId);
 
-                if (id === activeDocumentId) {
-                    const recent = readRecentDocuments(localStore(), workspace.id);
-                    const next =
-                        list.find((document) => recent.includes(document.id))?.id ??
-                        list[0]?.id ??
-                        null;
-                    setActiveDocumentId(next);
-                    if (next !== null) rememberDocument(workspace.id, next);
-                }
+                if (id !== activeDocumentId) return;
+
+                documentHistoryRef.current = documentHistoryRef.current.filter(
+                    (candidate) => candidate !== id,
+                );
+                const next = pickFallbackDocumentId(
+                    list,
+                    documentHistoryRef.current,
+                    reloaded === null ? null : primaryGraphId(reloaded),
+                );
+                // 没有剩余工作流时保持 null，设计器显示空态而不是自动新建。
+                setActiveDocumentId(next);
+                if (next !== null) rememberDocument(workspace.id, next);
             } finally {
                 setDocumentBusy(false);
             }
         },
         [
             activeDocumentId,
+            activeWorkbenchId,
             activeWorkspace,
             bridge,
             flushCurrentDocument,
-            openDocumentsForWorkspace,
+            loadWorkbench,
             refreshDocuments,
+            refreshWorkbenches,
             rememberDocument,
         ],
     );
@@ -1234,16 +1425,51 @@ export function App(): ReactElement {
         }
     }, [activeWorkspace, bridge, busy]);
 
-    const handleDesignerRunWillStart = useCallback(() => {
+    const handleDesignerRunWillStart = useCallback(async (): Promise<void> => {
         setRunEvents([]);
         setRunSnapshot(null);
         setRunResult(null);
-        setSavedRunSessionId(null);
-        setWrittenConversationSessionId(null);
-        setConversationWriteError(null);
-        writtenConversationRunId.current = null;
         fetchedRunResultId.current = null;
-    }, []);
+        seenRunEntryIds.current = new Set();
+        summaryWrittenRunId.current = null;
+        runSessionIdRef.current = null;
+        runEntriesSyncChain.current = Promise.resolve();
+        pendingRunEventsRef.current = [];
+        if (runEventsFlushTimerRef.current !== null) {
+            window.clearTimeout(runEventsFlushTimerRef.current);
+            runEventsFlushTimerRef.current = null;
+        }
+
+        const workspace = activeWorkspace;
+        if (workspace === null) return;
+
+        const tree = await bridge.listSessionTree({ workspaceId: workspace.id });
+        const folderId = tree.ok ? tree.data.draftFolderId : null;
+        const title = runSessionTitle(
+            documents.find((document) => document.id === activeDocumentId)?.title,
+        );
+        const created = await bridge.createSession({
+            workspaceId: workspace.id,
+            folderId,
+            title,
+        });
+        if (!created.ok) {
+            setDataError(created.error.message);
+            return;
+        }
+
+        runSessionIdRef.current = created.data.id;
+        setActiveSession(created.data);
+        setSessionRevision((current) => current + 1);
+        setSessionHistoryRevision((current) => current + 1);
+        openPanel("session-history");
+    }, [
+        activeDocumentId,
+        activeWorkspace,
+        bridge,
+        documents,
+        openPanel,
+    ]);
 
     const handleDesignerRunStarted = useCallback((snapshot: RunSnapshot) => {
         setRunSnapshot((current) => {
@@ -1297,106 +1523,104 @@ export function App(): ReactElement {
     }, [activeWorkspace, bridge, runFinished, runSnapshot?.runId]);
 
     /**
-     * 把本次运行的 Agent / ModelCall 消息追加到选中的 conversation 会话。
-     * run session 仍保存 RunResult，二者不混用。
+     * 把运行中已采集的 RunResult entries 增量写入自动会话。
+     * 串行排队，避免轮询与结束同步并发导致重复消息。
      */
-    const appendRunToConversation = useCallback(
-        async (runId: string): Promise<void> => {
+    const syncRunEntries = useCallback(
+        (runId: string): Promise<void> => {
             const workspace = activeWorkspace;
-            const session = activeSession;
-            const result = runResult;
-            if (
-                workspace === null ||
-                session === null ||
-                session.kind !== "conversation" ||
-                result === null ||
-                result.runId !== runId ||
-                result.entries.length === 0
-            ) {
-                return;
-            }
-            if (writtenConversationRunId.current === runId) return;
+            const sessionId = runSessionIdRef.current;
+            if (workspace === null || sessionId === null) return Promise.resolve();
 
-            writtenConversationRunId.current = runId;
-            setWritingConversation(true);
-            setConversationWriteError(null);
-            try {
-                const result = await bridge.appendRunToSession({
-                    workspaceId: workspace.id,
-                    runId,
-                    sessionId: session.id,
+            const next = runEntriesSyncChain.current.then(async () => {
+                const response = await bridge.getRunEntries({ runId });
+                if (!response.ok) return;
+
+                const entries = Array.isArray(response.data) ? response.data : [];
+                const fresh = entries.filter((entry) => {
+                    if (typeof entry !== "object" || entry === null) return false;
+                    const id = (entry as { id?: unknown }).id;
+                    return (
+                        typeof id === "string" &&
+                        id.length > 0 &&
+                        !seenRunEntryIds.current.has(id)
+                    );
                 });
-                if (!result.ok) {
-                    writtenConversationRunId.current = null;
-                    setConversationWriteError(result.error.message);
-                    return;
-                }
+                if (fresh.length === 0) return;
 
-                setActiveSession(result.data);
-                setWrittenConversationSessionId(result.data.id);
+                const appended = await bridge.appendRunEntries({
+                    workspaceId: workspace.id,
+                    sessionId,
+                    entries: fresh,
+                });
+                if (!appended.ok) return;
+
+                for (const entry of fresh) {
+                    seenRunEntryIds.current.add((entry as { id: string }).id);
+                }
+                setActiveSession(appended.data);
                 setSessionHistoryRevision((current) => current + 1);
                 setSessionRevision((current) => current + 1);
-            } finally {
-                setWritingConversation(false);
-            }
+            });
+
+            runEntriesSyncChain.current = next.catch(() => undefined);
+            return next;
         },
-        [activeSession, activeWorkspace, bridge, runResult],
+        [activeWorkspace, bridge],
     );
 
-    // 运行模式下的自动写入：选中 conversation 会话时，run 结束即追加消息。
+    // 运行中轮询已采集的 entries，模型调用 / Agent 条目按完成顺序出现。
     useEffect(() => {
-        if (workbenchMode !== "run") return;
-        if (!runFinished || runResult === null || runSnapshot === null) return;
-        if (activeSession?.kind !== "conversation") return;
-        void appendRunToConversation(runSnapshot.runId);
-    }, [
-        activeSession?.kind,
-        appendRunToConversation,
-        runFinished,
-        runResult,
-        runSnapshot?.runId,
-        workbenchMode,
-    ]);
+        if (runSnapshot?.status !== "running") return;
+        const runId = runSnapshot.runId;
+        const timer = setInterval(() => {
+            void syncRunEntries(runId);
+        }, 450);
+        return () => clearInterval(timer);
+    }, [runSnapshot?.runId, runSnapshot?.status, syncRunEntries]);
 
-    const handleSaveRunToSession = useCallback(async (): Promise<void> => {
-        const workspace = activeWorkspace;
-        const runId = runSnapshot?.runId;
-        if (
-            workspace === null ||
-            runId === undefined ||
-            savingRunSession ||
-            savedRunSessionId !== null
-        ) {
-            return;
-        }
+    // 结束后补最后一批 entries，并把输出摘要写入会话。
+    useEffect(() => {
+        if (!runFinished || runSnapshot === null) return;
+        void syncRunEntries(runSnapshot.runId);
+    }, [runFinished, runSnapshot?.runId, syncRunEntries]);
 
-        setSavingRunSession(true);
-        setDataError(null);
-        try {
-            const saved = await bridge.saveRunSession({
+    useEffect(() => {
+        if (!runFinished || runSnapshot === null || runResult === null) return;
+        const runId = runSnapshot.runId;
+        if (summaryWrittenRunId.current === runId) return;
+        summaryWrittenRunId.current = runId;
+
+        void (async () => {
+            await syncRunEntries(runId);
+
+            const summary = formatRunSummary(runResult);
+            const sessionId = runSessionIdRef.current;
+            const workspace = activeWorkspace;
+            if (summary === null || sessionId === null || workspace === null) return;
+
+            const appended = await bridge.appendSessionMessage({
                 workspaceId: workspace.id,
-                runId,
+                sessionId,
+                role: "system",
+                content: summary,
             });
-            if (!saved.ok) {
-                setDataError(saved.error.message);
+            if (!appended.ok) {
+                setDataError(appended.error.message);
                 return;
             }
 
-            setSavedRunSessionId(saved.data.id);
+            setActiveSession(appended.data);
+            setSessionHistoryRevision((current) => current + 1);
             setSessionRevision((current) => current + 1);
-            setActiveSession(saved.data);
-            setWorkbenchMode("run");
-            openPanel("session-history");
-        } finally {
-            setSavingRunSession(false);
-        }
+        })();
     }, [
         activeWorkspace,
         bridge,
-        openPanel,
+        runFinished,
+        runResult,
         runSnapshot,
-        savedRunSessionId,
-        savingRunSession,
+        syncRunEntries,
     ]);
 
     const handleRenameWorkbench = useCallback(
@@ -1547,11 +1771,16 @@ export function App(): ReactElement {
         setRunEvents([]);
         setRunSnapshot(null);
         setRunResult(null);
-        setSavedRunSessionId(null);
-        setWrittenConversationSessionId(null);
-        setConversationWriteError(null);
-        writtenConversationRunId.current = null;
         fetchedRunResultId.current = null;
+        runSessionIdRef.current = null;
+        seenRunEntryIds.current = new Set();
+        summaryWrittenRunId.current = null;
+        runEntriesSyncChain.current = Promise.resolve();
+        pendingRunEventsRef.current = [];
+        if (runEventsFlushTimerRef.current !== null) {
+            window.clearTimeout(runEventsFlushTimerRef.current);
+            runEventsFlushTimerRef.current = null;
+        }
     }, [activeWorkspace?.id]);
 
     useEffect(() => {
@@ -1590,6 +1819,17 @@ export function App(): ReactElement {
                 target.closest("input, textarea, select, [contenteditable='true']")
             ) {
                 return;
+            }
+
+            if (event.shiftKey) {
+                const shifted = event.key.toLowerCase();
+                if (shifted === "n" || shifted === "m") {
+                    if (!nodeLibraryEnabled) return;
+                    event.preventDefault();
+                    if (shifted === "n") openNodeLibrary();
+                    else openPresetManager();
+                    return;
+                }
             }
 
             switch (event.key.toLowerCase()) {
@@ -1637,6 +1877,7 @@ export function App(): ReactElement {
         handleCreateDocument,
         handleToggleSidebar,
         panelsEnabled,
+        nodeLibraryEnabled,
         togglePanel,
     ]);
 
@@ -1709,65 +1950,13 @@ export function App(): ReactElement {
                         error={dataError ?? documentError}
                         shell={workbenchShell}
                         onUpdateInstance={updateActiveWorkbench}
+                        onCreateDocument={() => void handleCreateDocument()}
                         panelLayer={
-                            activeWorkbench.type === "harness-designer" ||
-                            activeWorkbench.type === "flow-runner" ? (
+                            activeWorkbench.type === "harness-designer" ? (
                                 <PanelLayer
                                     panels={panels}
                                     events={runEvents}
                                     snapshot={runSnapshot}
-                                    workspaceId={activeWorkspace.id}
-                                    runResult={runResult}
-                                    runResultActions={
-                                        runResult !== null ? (
-                                            <>
-                                                <Button
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    title={
-                                                        conversationWriteError ??
-                                                        undefined
-                                                    }
-                                                    disabled={
-                                                        writingConversation ||
-                                                        runResult.entries.length ===
-                                                            0 ||
-                                                        activeSession?.kind !==
-                                                            "conversation"
-                                                    }
-                                                    onClick={() =>
-                                                        void appendRunToConversation(
-                                                            runResult.runId,
-                                                        )
-                                                    }
-                                                >
-                                                    {writtenConversationSessionId !==
-                                                    null
-                                                        ? "已写入对话"
-                                                        : writingConversation
-                                                          ? "写入中…"
-                                                          : "写入对话"}
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    disabled={
-                                                        savingRunSession ||
-                                                        savedRunSessionId !== null
-                                                    }
-                                                    onClick={() =>
-                                                        void handleSaveRunToSession()
-                                                    }
-                                                >
-                                                    {savedRunSessionId !== null
-                                                        ? "已保存到会话"
-                                                        : savingRunSession
-                                                          ? "保存中…"
-                                                          : "保存到会话"}
-                                                </Button>
-                                            </>
-                                        ) : null
-                                    }
                                     inspector={designerInspector}
                                     problems={designerProblems?.problems ?? []}
                                     sessionHistory={
@@ -1899,6 +2088,7 @@ export function App(): ReactElement {
                         onToggleTheme={toggleTheme}
                         onCloseWindow={() => void flushAndClose()}
                         panelsEnabled={panelsEnabled}
+                        nodeLibraryEnabled={nodeLibraryEnabled}
                         runLogOpen={isPanelOpen("run-log")}
                         inspectorOpen={isPanelOpen("inspector")}
                         onToggleRunLog={() => togglePanel("run-log")}

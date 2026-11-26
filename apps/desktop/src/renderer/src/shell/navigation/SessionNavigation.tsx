@@ -45,6 +45,14 @@ import styles from "./SessionNavigation.module.css";
 
 type FolderOption = { id: string | null; title: string; depth: number };
 
+/**
+ * 会话树缩进：文件夹按层级缩进；文件（会话）行再多缩进一个 chevron 位，
+ * 让会话图标与同层文件夹图标对齐（正常文件树里文件不会顶到展开箭头那一列）。
+ */
+const TREE_INDENT_STEP = 14;
+const TREE_BASE_PADDING = 8;
+const TREE_FILE_OFFSET = 20;
+
 type RenameTarget =
     | { kind: "folder"; id: string; title: string }
     | { kind: "session"; id: string; title: string };
@@ -447,7 +455,7 @@ export function SessionNavigation({
                             <button
                                 type="button"
                                 className={styles.folderRow}
-                                style={{ paddingLeft: 8 + depth * 14 }}
+                                style={{ paddingLeft: TREE_BASE_PADDING + depth * TREE_INDENT_STEP }}
                                 onClick={() => toggleFolder(node.folder.id)}
                             >
                                 <ChevronRight
@@ -751,7 +759,12 @@ function SessionRow({
                     data-session-id={session.id}
                     aria-current={active ? "page" : undefined}
                     className={cx(styles.sessionRow, active && styles.active)}
-                    style={{ paddingLeft: 8 + depth * 14 }}
+                    style={{
+                        paddingLeft:
+                            TREE_BASE_PADDING +
+                            TREE_FILE_OFFSET +
+                            depth * TREE_INDENT_STEP,
+                    }}
                     onClick={onOpen}
                 >
                     <MessageSquare

@@ -15,8 +15,6 @@ export function defaultWorkbenchTitle(type: string): string {
             return "节点清单";
         case "plan-runner":
             return "批量运行";
-        case "flow-runner":
-            return "运行页";
         default:
             return type;
     }

@@ -19,6 +19,7 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M1 最小可运行 Designer：GraphDocument / 编辑 / 运行 / 自动保存 / 检查器 | ✅ |
 | M2 节点库 / configSchema 表单 / 预设 | ✅ 已完成（内建节点端口静态；失效边会提示） |
 | UI 打磨 2：面板材质加深 / 主题化 Select·Checkbox / 最近使用 | ✅ |
+| UI 打磨 3：标题栏手势 / 删除工作流回退 / Session 树缩进 / Ribbon 宽度 | ✅ |
 | M3 校验与运行可视化：问题面板 / 内嵌图递归校验 / 事件→画布 / 暂停·继续 | ✅ |
 | M4 文档生命周期与编辑体验：多图 / 撤销复制 / 框选·右键平移 / JSON 导入导出 | ✅ |
 | M5 Workbench Framework：定义 / 实例 / 三个工作台 / WorkbenchPlan / 节点内联与端口槽 | ✅ |
@@ -29,27 +30,30 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M7.1 工作台导航宿主 / 工作流导航 / 左栏切换 | ✅ |
 | M7.2 Session 递归文件夹 / SessionRecord v2 / 草稿目录 | ✅ |
 | M7.3 Session 树导航 / 历史浮动面板 / 工作流右键菜单 | ✅ |
-| M7.4 RunResult / 运行结果面板 / 保存到草稿 Session | ✅ |
+| M7.4 RunResult / 运行结果面板 / 保存到草稿 Session | ✅（手动保存入口已由 M8.6 取代） |
 | M7.4.1 双区导航（工作流 + 会话上下分区） | ✅ |
-| M7.5 工作台运行模式 / RunView / 动画运行页 | ✅ |
+| M7.5 工作台运行模式 / RunView / 动画原语 | ✅（独立运行页已移除，ADR-027） |
 | M7.6 M7 收口（验证 / 文档 / 里程碑顺延） | ✅ |
 | M8.1 工作台模板 / 内置节点预设（4 条） | ✅ |
 | M8.2 `.fhws` 导入导出 UI / 副本冲突策略 | ✅ |
-| M8.3 工作台模板化新建 / flow-runner 作为第四种工作台 | ✅ |
-| 用户节点预设库导入导出 | ⬜ |
+| M8.3 工作台模板化新建 / 多工作台 | ✅ |
+| M8.4 节点库：工作区预设库 / 管理 Modal / 插入菜单 / 从节点创建 | ✅ |
+| M8.5 移除独立运行页（flow-runner）/ 旧实例迁移 | ✅ |
+| M8.6 运行即自动建会话 / 逐步写入 / 移除结果页签 | ✅ |
+| 用户节点预设库文件导入 / 导出 | ⬜ |
 | 打包分发 | ⬜ |
 
 **已知限制**
 
 - 真透明窗口可透出桌面，但当前 Chromium/Electron 无法模糊桌面（ADR-009）；
 - 左侧栏是工作台导航 Panel：Harness 设计器为上下双区（上半区工作流、下半区 Session 树，可拖动分隔条）；其他工作台按模式显示单一导航；会话历史为 Canvas 浮动面板；
-- Session 历史以 wireclaw `SessionData` 持久化；run 结果以 wireclaw `RunResult` 持久化，可从运行结果面板「保存到会话」进入草稿目录；Agent / ModelCall 消息会在运行结束后写入选中的 conversation 会话（运行模式自动写入，结果面板也可手动「写入对话」）；手动聊天输入尚未接入；
-- 工作台已持久化 `mode` / `runId` / `sessionId`，设计 ↔ 运行可恢复；`harness-designer` 运行阶段复用设计画布，固定只读 + 动画的运行页由 `flow-runner` 工作台提供；
+- Session 历史以 wireclaw `SessionData` 持久化；run 结果以 wireclaw `RunResult` 持久化。点击运行时会在草稿目录自动创建一条会话并自动打开「会话历史」面板，运行中的 ModelCall / Agent 条目逐步写入该会话，结束时追加输出摘要；不再有结果页签或手动「保存到会话 / 写入对话」；手动聊天输入尚未接入；
+- 工作台已持久化 `mode` / `runId` / `sessionId`，设计 ↔ 运行可恢复；`harness-designer` 运行阶段复用同一张设计画布（只读 + 运行上下文条），不再有独立运行页；
 - 设计器运行中切换视图会丢失节点/边状态（run 仍在 main 继续）；
 - 暂停 run 的 checkpoint 已可跨重启恢复；wireclaw checkpoint v2 校验 graphHash 与 nodeVersions，恢复入口只在 Diagnostics；
 - 运行前 requirements 目录已从 ProviderRegistry 注入；模型目录需先「测试连接」才会进入 catalog；
 - 草稿目录通过 Session 树文件夹右键「设为草稿目录」配置，暂无独立工作区设置页；
-- `.fhws` 导入总是创建新工作区副本（不合并 / 不覆盖），档案不含 `runs/` 与 `sessions/`；工作台模板为内置静态列表，用户节点预设库导入导出尚未接入；
+- `.fhws` 导入总是创建新工作区副本（不合并 / 不覆盖），档案不含 `runs/` 与 `sessions/`；工作台模板为内置静态列表（3 条，原「节点清单」并入节点库、独立运行页已移除）；节点库随工作区文档导出，独立于 `.fhws` 的预设文件导入 / 导出尚未接入；
 - 标题栏关闭与 Ctrl+W 会先 flush 当前文档；系统级关闭（Alt+F4）仍无退出握手；
 - 撤销栈只覆盖画布结构编辑与 config，重启后不保留；
 - Agent 节点已接 Provider / 审批 / 用户输入，并注册工作区 LocalToolProvider（readFile / writeFile）；MCP 等更多工具待后续；
@@ -135,7 +139,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench 单测（36 files / 180 tests） |
+| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench + 节点库单测（37 files / 189 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

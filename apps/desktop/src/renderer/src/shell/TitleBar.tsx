@@ -31,6 +31,7 @@ import {
 } from "../ui";
 import { cx } from "../ui/cx";
 import type { RunControls } from "../run/run-controls";
+import { openNodeLibrary, openPresetManager } from "../presets/bus";
 import { WindowControls } from "./WindowControls";
 import type { ViewId } from "./views";
 import styles from "./TitleBar.module.css";
@@ -50,6 +51,8 @@ export type TitleBarProps = {
     onToggleTheme: () => void;
     onCloseWindow: () => void;
     panelsEnabled: boolean;
+    /** 节点库入口只在 Harness 设计器工作台可用。 */
+    nodeLibraryEnabled: boolean;
     runLogOpen: boolean;
     inspectorOpen: boolean;
     onToggleRunLog: () => void;
@@ -74,6 +77,7 @@ export function TitleBar({
     onToggleTheme,
     onCloseWindow,
     panelsEnabled,
+    nodeLibraryEnabled,
     runLogOpen,
     inspectorOpen,
     onToggleRunLog,
@@ -91,17 +95,8 @@ export function TitleBar({
         return () => window.removeEventListener("fh:command", open);
     }, []);
 
-    const handleDoubleClick = (event: React.MouseEvent<HTMLElement>): void => {
-        const target = event.target as HTMLElement;
-        if (target.closest("button, input, select, textarea, a, [data-no-drag]")) return;
-        void window.flowharness.windowToggleMaximize();
-    };
-
     return (
-        <header
-            className={cx(styles.root, overlay && styles.overlay)}
-            onDoubleClick={handleDoubleClick}
-        >
+        <header className={cx(styles.root, overlay && styles.overlay)}>
             <div className={styles.left}>
                 <div className={styles.brand}>
                     <span className={styles.mark} aria-hidden="true">
@@ -183,6 +178,20 @@ export function TitleBar({
                             >
                                 属性检查
                             </MenuItem>
+                            <MenuSeparator />
+                            <MenuItem
+                                onSelect={() => openNodeLibrary()}
+                                disabled={!nodeLibraryEnabled}
+                            >
+                                节点库
+                                <MenuShortcut>Ctrl Shift N</MenuShortcut>
+                            </MenuItem>
+                            <MenuItem
+                                onSelect={() => openPresetManager()}
+                                disabled={!nodeLibraryEnabled}
+                            >
+                                管理节点库…
+                            </MenuItem>
                         </MenuContent>
                     </Menu>
 
@@ -235,6 +244,20 @@ export function TitleBar({
                         </MenuItem>
                         <MenuItem onSelect={onToggleInspector} disabled={!panelsEnabled}>
                             属性检查
+                        </MenuItem>
+                        <MenuSeparator />
+                        <MenuItem
+                            onSelect={() => openNodeLibrary()}
+                            disabled={!nodeLibraryEnabled}
+                        >
+                            节点库
+                            <MenuShortcut>Ctrl Shift N</MenuShortcut>
+                        </MenuItem>
+                        <MenuItem
+                            onSelect={() => openPresetManager()}
+                            disabled={!nodeLibraryEnabled}
+                        >
+                            管理节点库…
                         </MenuItem>
                     </MenuContent>
                 </Menu>

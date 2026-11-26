@@ -70,7 +70,7 @@
 | 连线 | ✅ 端口拖拽，重复边去重 |
 | 删除 | ✅ Delete / Backspace / 右键菜单 |
 | 适配视图 | ✅ 右键菜单（缩放工具栏已移除） |
-| 节点库 | ✅ 右键「添加节点」；预设 + 分类 + 搜索，选中即插入 |
+| 节点库 | ✅ 右键「添加节点」；最近使用 + 用户预设文件夹 + 内置预设 + 分类，支持搜索 / ↑↓ + Enter / 拖拽插入 |
 | 节点内联编辑 | ✅ Constant / Model Call / Log / Value / Agent / Loop / ForEach |
 | 输入槽连线 | ✅ 连线可落在节点 Body 的输入端口槽，或左侧 Handle |
 | 撤销/重做、复制粘贴 | ✅ Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y / Ctrl+C / Ctrl+V |

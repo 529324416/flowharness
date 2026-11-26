@@ -305,6 +305,15 @@ export class RuntimeHost {
         return null;
     }
 
+    /** 运行中已采集的 RunResult entries；结束后返回最终结果里的 entries。 */
+    getEntries(runId: string): readonly unknown[] {
+        const active = this.active.get(runId);
+        if (active) return active.run.resultEntries;
+
+        const finished = this.finished.get(runId);
+        return finished?.result?.entries ?? [];
+    }
+
     list(workspaceId?: string): RunSnapshot[] {
         const snapshots = [
             ...this.active.values(),

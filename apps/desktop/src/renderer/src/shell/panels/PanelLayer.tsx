@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import type {
     RunEventDto,
     RunSnapshot,
     WorkspaceSummary,
 } from "@flowharness/contracts";
-import type { RunResult } from "wireclaw";
 import {
     History,
     SlidersHorizontal,
@@ -33,11 +32,6 @@ export type PanelLayerProps = {
     panels: FloatingPanelState[];
     events: readonly RunEventDto[];
     snapshot: RunSnapshot | null;
-    /** 当前工作区 id；运行结果附件通过它拼 fh-asset URL。 */
-    workspaceId?: string;
-    /** 已加载的 wireclaw RunResult；运行结束后由 App 拉取。 */
-    runResult?: RunResult | null;
-    runResultActions?: ReactNode;
     inspector: InspectorModel | null;
     problems: readonly DesignerProblem[];
     sessionHistory?: SessionHistoryPanelInput | null;
@@ -51,9 +45,6 @@ export function PanelLayer({
     panels,
     events,
     snapshot,
-    workspaceId,
-    runResult = null,
-    runResultActions,
     inspector,
     problems,
     sessionHistory,
@@ -110,11 +101,6 @@ export function PanelLayer({
                                   snapshot={snapshot}
                                   problems={problems}
                                   onSelectProblem={onSelectProblem}
-                                  result={runResult}
-                                  {...(workspaceId === undefined ? {} : { workspaceId })}
-                                  {...(runResultActions === undefined
-                                      ? {}
-                                      : { resultActions: runResultActions })}
                               />
                           </FloatingPanel>
                       ) : panel.id === "session-history" ? (

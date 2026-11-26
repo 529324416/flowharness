@@ -102,6 +102,22 @@ export type SessionFolderDeleteRequest = {
     folderId: string;
 };
 
+/** 运行中把已采集的 RunResult entries 增量追加为会话消息。 */
+export type SessionAppendEntriesRequest = {
+    workspaceId: string;
+    sessionId: string;
+    /** RunResultEntry[] 的原始 JSON，由 main 侧校验。 */
+    entries: unknown;
+};
+
+/** 向 conversation 会话追加一条纯文本消息（运行输出摘要等）。 */
+export type SessionAppendMessageRequest = {
+    workspaceId: string;
+    sessionId: string;
+    role: "assistant" | "system";
+    content: string;
+};
+
 /**
  * 把一次已持久化的 run 结果保存为 run 会话。
  *

@@ -63,31 +63,47 @@ export function applyRunEventsToView(
     events: readonly RunEventDto[],
 ): RunViewState {
     const nodeStatuses = reduceNodeStatuses(state.nodeStatuses, events);
-    const edgeStatuses: Record<string, CanvasEdgeStatus> = {
-        ...state.edgeStatuses,
-    };
     const { incoming, outgoing } = edgeIndexByNode(graph);
+    let edgeStatuses: Record<string, CanvasEdgeStatus> | null = null;
+
+    const setEdge = (
+        edgeIds: readonly string[] | undefined,
+        status: CanvasEdgeStatus,
+    ): void => {
+        if (edgeIds === undefined) return;
+        for (const edgeId of edgeIds) {
+            const current =
+                edgeStatuses === null
+                    ? state.edgeStatuses[edgeId]
+                    : edgeStatuses[edgeId];
+            if (current === status || current === undefined) continue;
+            if (edgeStatuses === null) {
+                edgeStatuses = { ...state.edgeStatuses };
+            }
+            edgeStatuses[edgeId] = status;
+        }
+    };
 
     for (const event of events) {
         switch (event.type) {
             case "node:start":
-                setEdges(edgeStatuses, incoming.get(event.nodeId), "active");
+                setEdge(incoming.get(event.nodeId), "active");
                 break;
             case "node:end":
-                setEdges(edgeStatuses, incoming.get(event.nodeId), "idle");
-                setEdges(edgeStatuses, outgoing.get(event.nodeId), "active");
+                setEdge(incoming.get(event.nodeId), "idle");
+                setEdge(outgoing.get(event.nodeId), "active");
                 break;
             case "node:skipped":
-                setEdges(edgeStatuses, incoming.get(event.nodeId), "idle");
-                setEdges(edgeStatuses, outgoing.get(event.nodeId), "idle");
+                setEdge(incoming.get(event.nodeId), "idle");
+                setEdge(outgoing.get(event.nodeId), "idle");
                 break;
             case "node:error":
-                setEdges(edgeStatuses, incoming.get(event.nodeId), "error");
-                setEdges(edgeStatuses, outgoing.get(event.nodeId), "error");
+                setEdge(incoming.get(event.nodeId), "error");
+                setEdge(outgoing.get(event.nodeId), "error");
                 break;
             case "run:end":
-                for (const [edgeId, status] of Object.entries(edgeStatuses)) {
-                    if (status === "active") edgeStatuses[edgeId] = "idle";
+                for (const [edgeId, status] of Object.entries(state.edgeStatuses)) {
+                    if (status === "active") setEdge([edgeId], "idle");
                 }
                 break;
             default:
@@ -95,47 +111,67 @@ export function applyRunEventsToView(
         }
     }
 
-    return { nodeStatuses, edgeStatuses };
+    const nextEdgeStatuses = edgeStatuses ?? state.edgeStatuses;
+    if (
+        nodeStatuses === state.nodeStatuses &&
+        nextEdgeStatuses === state.edgeStatuses
+    ) {
+        return state;
+    }
+    return { nodeStatuses, edgeStatuses: nextEdgeStatuses };
 }
 
 function reduceNodeStatuses(
     statuses: Readonly<Record<string, CanvasStatus>>,
     events: readonly RunEventDto[],
 ): Record<string, CanvasStatus> {
-    const next: Record<string, CanvasStatus> = { ...statuses };
+    let next: Record<string, CanvasStatus> | null = null;
+
+    const setStatus = (nodeId: string, status: CanvasStatus): void => {
+        const current = next === null ? statuses[nodeId] : next[nodeId];
+        if (current === status) return;
+        if (next === null) next = { ...statuses };
+        next[nodeId] = status;
+    };
 
     for (const event of events) {
         switch (event.type) {
             case "node:start":
-                next[event.nodeId] = "running";
-                break;
             case "node:stream":
-                next[event.nodeId] = "running";
+                setStatus(event.nodeId, "running");
                 break;
             case "node:end":
-                next[event.nodeId] = "completed";
+                setStatus(event.nodeId, "completed");
                 break;
             case "node:skipped":
-                next[event.nodeId] = "skipped";
+                setStatus(event.nodeId, "skipped");
                 break;
             case "node:error":
-                next[event.nodeId] = "failed";
+                setStatus(event.nodeId, "failed");
                 break;
             case "run:paused":
-                for (const nodeId of Object.keys(next)) {
-                    if (next[nodeId] === "running") next[nodeId] = "paused";
+                for (const nodeId of Object.keys(statuses)) {
+                    const nodeStatus =
+                        next === null ? statuses[nodeId] : next[nodeId];
+                    if (nodeStatus === "running") setStatus(nodeId, "paused");
                 }
                 break;
             case "run:resumed":
-                for (const nodeId of Object.keys(next)) {
-                    if (next[nodeId] === "paused") next[nodeId] = "running";
+                for (const nodeId of Object.keys(statuses)) {
+                    const nodeStatus =
+                        next === null ? statuses[nodeId] : next[nodeId];
+                    if (nodeStatus === "paused") setStatus(nodeId, "running");
                 }
                 break;
             case "run:end":
-                for (const nodeId of Object.keys(next)) {
-                    const nodeStatus = next[nodeId];
+                for (const nodeId of Object.keys(statuses)) {
+                    const nodeStatus =
+                        next === null ? statuses[nodeId] : next[nodeId];
                     if (nodeStatus !== "running" && nodeStatus !== "paused") continue;
-                    next[nodeId] = event.status === "failed" ? "failed" : "idle";
+                    setStatus(
+                        nodeId,
+                        event.status === "failed" ? "failed" : "idle",
+                    );
                 }
                 break;
             default:
@@ -143,7 +179,7 @@ function reduceNodeStatuses(
         }
     }
 
-    return next;
+    return next ?? (statuses as Record<string, CanvasStatus>);
 }
 
 type EdgeIndex = {
@@ -174,16 +210,5 @@ function push(
         index.set(nodeId, [edgeId]);
     } else {
         bucket.push(edgeId);
-    }
-}
-
-function setEdges(
-    statuses: Record<string, CanvasEdgeStatus>,
-    edgeIds: readonly string[] | undefined,
-    status: CanvasEdgeStatus,
-): void {
-    if (edgeIds === undefined) return;
-    for (const edgeId of edgeIds) {
-        if (edgeId in statuses) statuses[edgeId] = status;
     }
 }

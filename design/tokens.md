@@ -21,7 +21,7 @@
 | 字号 | `--fh-text-2xs/xs/sm/md/lg/xl/2xl` + `--fh-ui-scale` | 2xs 12.5 / xs 13.75 / sm 15 / md 16.25 / lg 18.75 / xl 22.5 / 2xl 30 |
 | 字重 | `--fh-weight-normal/medium/semibold` | 400 / 500 / 600 |
 | 动效 | `--fh-motion-fast/base/slow` + `--fh-ease-standard` | 120 / 160 / 240ms |
-| 尺寸 | `--fh-titlebar-height`、`--fh-rail-width`、`--fh-sidebar-*`、`--fh-statusbar-height`、`--fh-control-height` | token 值 40 / 52 / 260 / 26 / 32（sm 28）；侧栏范围 200–360，与 `NavigationPanel` 常量一致；面板尺寸在 `layout-metrics.ts` |
+| 尺寸 | `--fh-titlebar-height`、`--fh-rail-width`、`--fh-sidebar-*`、`--fh-statusbar-height`、`--fh-control-height` | token 值 40 / 46 / 260 / 26 / 32（sm 28）；侧栏范围 200–360，与 `NavigationPanel` 常量一致；面板尺寸在 `layout-metrics.ts` |
 | 布局 | `--fh-panel-gap`、`--fh-panel-inset`、`--fh-window-radius` | Session 与 Canvas 间距 4px；外边距 2px；窗口/Footer 圆角 12px |
 | 层级 | `--fh-z-canvas/rail/titlebar/overlay/modal/toast` | 避免魔法数字 |
 
@@ -76,7 +76,7 @@
 
 - 非画布正文 `--fh-text-md` = 16.25px；标题/辅助字号同步 ×1.25；
 - 图标：控件 16–20，栏位 24；
-- 控件 32 / 28，TitleBar 40，StatusBar 26，Rail 52；
+- 控件 32 / 28，TitleBar 40，StatusBar 26，Rail 46；
 - 窗口层级：TitleBar 与 StatusBar 使用 `--fh-surface-solid` 完全不透明；两者都是全宽 Chrome 层，TitleBar 无底边框，Footer 仅底部使用 `--fh-window-radius` 圆角；中间 Body 使用 `--fh-body-bg` 统一 95% 半透（导航与 Canvas 处于同一层，最终 alpha 相同）；
 - 面板：Session 与 Canvas 各自 1px 外框 + 6px 圆角，间隙 `--fh-panel-gap: 4px`；
 - 浮动面板默认 78% 不透明，底色为比节点更深的 `--fh-panel-bg`，头部 `--fh-panel-header-bg`；结构上支持通过 `--fh-panel-alpha` 调整。

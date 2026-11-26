@@ -15,8 +15,11 @@ import type {
     RunStartRequest,
     RunResumeInterruptedRequest,
     RunResultRequest,
+    RunEntriesRequest,
     SessionCreateRequest,
     SessionDeleteRequest,
+    SessionAppendEntriesRequest,
+    SessionAppendMessageRequest,
     SessionAppendRunRequest,
     SessionFolder,
     SessionFolderCreateRequest,
@@ -151,6 +154,12 @@ interface FlowHarnessBridge {
     readonly appendRunToSession: (
         request: SessionAppendRunRequest,
     ) => Promise<IpcResult<SessionRecord>>;
+    readonly appendRunEntries: (
+        request: SessionAppendEntriesRequest,
+    ) => Promise<IpcResult<SessionRecord>>;
+    readonly appendSessionMessage: (
+        request: SessionAppendMessageRequest,
+    ) => Promise<IpcResult<SessionRecord>>;
     readonly setDraftSessionFolder: (
         request: SessionSetDraftFolderRequest,
     ) => Promise<IpcResult<SessionTree>>;
@@ -172,6 +181,9 @@ interface FlowHarnessBridge {
     readonly getRunResult: (
         request: RunResultRequest,
     ) => Promise<IpcResult<unknown | null>>;
+    readonly getRunEntries: (
+        request: RunEntriesRequest,
+    ) => Promise<IpcResult<unknown>>;
     readonly listRuns: (workspaceId?: string) => Promise<IpcResult<RunSnapshot[]>>;
     readonly resumeInterrupted: (
         request: RunResumeInterruptedRequest,

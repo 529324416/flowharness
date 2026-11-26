@@ -6,9 +6,7 @@ import {
 
 const WORKBENCH_TYPES = new Set([
     "harness-designer",
-    "graph-table",
     "plan-runner",
-    "flow-runner",
 ]);
 
 describe("workbench templates", () => {

@@ -98,7 +98,40 @@ describe("WorkspaceStore", () => {
         ]);
     });
 
-    it("refuses to delete a graph referenced by a workbench", async () => {
+    it("stores preset library documents under documents/presets", async () => {
+        const { store } = await makeStore();
+        const created = await store.create({ name: "Presets" });
+        await store.open(created.id);
+
+        const ref = { kind: "presetLibrary", id: "library" } as const;
+        const saved = await store.saveDocument(
+            created.id,
+            ref,
+            {
+                schemaVersion: 1,
+                folders: [{ id: "npf_a", title: "我的预设", parentId: null }],
+                presets: [],
+            },
+            null,
+        );
+        expect(saved.revision).toMatch(/^sha256:[a-f0-9]{64}$/);
+
+        const snapshot = await store.readDocument(created.id, ref);
+        expect(snapshot?.document).toMatchObject({
+            schemaVersion: 1,
+            folders: [{ id: "npf_a" }],
+        });
+
+        const onDisk = JSON.parse(
+            await readFile(
+                join(created.path, "documents", "presets", "library.json"),
+                "utf8",
+            ),
+        );
+        expect(onDisk).toMatchObject({ schemaVersion: 1 });
+    });
+
+    it("detaches workbench references when deleting a graph", async () => {
         const { store } = await makeStore();
         const created = await store.create({ name: "References" });
         await store.open(created.id);
@@ -111,14 +144,35 @@ describe("WorkspaceStore", () => {
         );
         await store.saveDocument(
             created.id,
+            { kind: "harness", id: "graph-b" },
+            { version: 1, title: "图 B", nodes: [], edges: [] },
+            null,
+        );
+        await store.saveDocument(
+            created.id,
             { kind: "workbench", id: "wb_a" },
             {
                 schemaVersion: 1,
                 id: "wb_a",
                 type: "harness-designer",
                 title: "主工作台",
-                graphs: [{ graphId: "graph-a", role: "main" }],
-                plan: null,
+                graphs: [
+                    { graphId: "graph-a", role: "main" },
+                    { graphId: "graph-b", role: "extra" },
+                ],
+                plan: {
+                    graphs: [
+                        { graphId: "graph-a", role: "step-1" },
+                        { graphId: "graph-b", role: "step-2" },
+                    ],
+                    bindings: [
+                        {
+                            from: { graphId: "graph-a", port: "text" },
+                            to: { graphId: "graph-b", port: "text" },
+                        },
+                    ],
+                    trigger: "manual",
+                },
                 parameters: {},
                 createdAt: "2026-11-26T00:00:00.000Z",
                 updatedAt: "2026-11-26T00:00:00.000Z",
@@ -131,23 +185,44 @@ describe("WorkspaceStore", () => {
                 kind: "harness",
                 id: "graph-a",
             }),
-        ).rejects.toMatchObject({ code: "E_CONFLICT" });
+        ).resolves.toBe(true);
         await expect(
             store.readDocument(created.id, {
                 kind: "harness",
                 id: "graph-a",
             }),
+        ).resolves.toBeNull();
+        await expect(
+            store.readDocument(created.id, {
+                kind: "harness",
+                id: "graph-b",
+            }),
         ).resolves.not.toBeNull();
 
-        await expect(
-            store.deleteDocument(created.id, { kind: "workbench", id: "wb_a" }),
-        ).resolves.toBe(true);
+        const workbench = await store.readDocument(created.id, {
+            kind: "workbench",
+            id: "wb_a",
+        });
+        expect(workbench?.document).toMatchObject({
+            graphs: [{ graphId: "graph-b", role: "extra" }],
+            plan: {
+                graphs: [{ graphId: "graph-b", role: "step-2" }],
+                bindings: [],
+            },
+        });
+
+        // 最后一个绑定被删除后实例保留空绑定，由视图层显示空态。
         await expect(
             store.deleteDocument(created.id, {
                 kind: "harness",
-                id: "graph-a",
+                id: "graph-b",
             }),
         ).resolves.toBe(true);
+        const empty = await store.readDocument(created.id, {
+            kind: "workbench",
+            id: "wb_a",
+        });
+        expect(empty?.document).toMatchObject({ graphs: [], plan: null });
     });
 
     it("persists workspace settings", async () => {

@@ -58,7 +58,9 @@ export type WorkspaceCreateInput = { name: string };
 /** 工作区内的文档引用。 */
 export type DocumentRef =
     | { kind: "harness"; id: string }
-    | { kind: "workbench"; id: string };
+    | { kind: "workbench"; id: string }
+    /** 工作区级节点预设库（documents/presets/<id>.json）。 */
+    | { kind: "presetLibrary"; id: string };
 
 /**
  * 文档快照。

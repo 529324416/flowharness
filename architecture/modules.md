@@ -22,7 +22,8 @@
 | L4 | Canvas | 无框架画布核心 + React 视图 | ✅（core 仅几何/边 key/类型） |
 | L4 | Workbench Framework | 工作台契约、实例、视图宿主、运行控制、Plan | ✅ M5 |
 | L5 | Harness Designer | 默认工作台，框架的参考实现 | ✅ M6 |
-| L5 | Other Workbenches | 节点清单 / 批量运行 | ✅ M5 |
+| L5 | Other Workbenches | 批量运行 | ✅ M5 |
+| L5 | Preset Library | 工作区级节点预设库（文件树 + 插入菜单 + 管理 Modal） | ✅ M8.4 |
 
 图例：✅ 已实现 ｜ 🚧 部分实现 ｜ ⬜ 未开始
 
@@ -50,7 +51,7 @@ interface Platform {
 
 **不做**：业务逻辑、数据模型、执行调度。
 
-> 现状：没有名为 `Platform` 的类。窗口生命周期在 `main/index.ts`；IPC 路由是 `platform/ipc.ts` 的 `registerHandler`；`fh-asset://` 由 `platform/asset-protocol.ts` 的 `registerAssetScheme` / `registerAssetProtocol` 注册；工作区路径由 `WorkspaceStore.getWorkspaceDir` 提供。
+> 现状：没有名为 `Platform` 的类。窗口生命周期在 `main/index.ts`；IPC 路由是 `platform/ipc.ts` 的 `registerHandler`；`fh-asset://` 由 `platform/asset-protocol.ts` 的 `registerAssetScheme` / `registerAssetProtocol` 注册；工作区路径由 `WorkspaceStore.getWorkspaceDir` 提供。透明无边框窗口的标题栏手势（双击最大化 / 还原、拖动最大化窗口先还原）在 `main/index.ts` 用 `hookWindowMessage(WM_SYSCOMMAND)` 补齐，绕过 Electron 对 `SC_MAXIMIZE` 的吞掉。
 
 ## 2. AppConfig
 
@@ -164,7 +165,7 @@ class WorkspaceFileHost implements IFileHost {
 
 - 持有当前打开的 session（内存），历史落 `sessions/<folder...>/<sessionId>/`；
 - 提供 wireclaw `GraphHost.attachments`；
-- 会话历史与附件引用持久化；M6.3 起由 `SessionStore` 校验 / 规范化 wireclaw `SessionData`，派生消息数与附件索引；M7.2 起支持递归文件夹、Session v2 与草稿目录；M7.4.2 起运行结束可把 Agent / ModelCall 消息追加到 conversation 会话（`session:appendRun`）。
+- 会话历史与附件引用持久化；M6.3 起由 `SessionStore` 校验 / 规范化 wireclaw `SessionData`，派生消息数与附件索引；M7.2 起支持递归文件夹、Session v2 与草稿目录；M7.4.2 起支持 entries → conversation 消息；M8.6 起运行开始时自动在草稿目录创建会话，entries 按完成顺序增量写入，结束时追加输出摘要（ADR-028）。
 
 **当前实现（M7.3）**：每个已打开工作区装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore）与一个 `SessionStore`（`sessions/<folderId>/.../<sessionId>/session.json`）；支持默认会话、创建 / 列表 / 读取 / 保存、文件夹 CRUD、session 移动 / 重命名 / 删除。`SessionRecord` v2 带 `kind / folderId / entryCount`；草稿目录由 `manifest.settings.draftSessionFolderId` 持久化；v1 记录读取时迁移为 v2。`messageCount` / `attachments` 从 conversation history 派生，非法历史返回 `E_INVALID_ARGUMENT`；Session 树与历史面板已接入 renderer。
 
@@ -238,7 +239,7 @@ type CanvasDocument = { nodes: CanvasNode[]; edges: CanvasEdge[]; viewport: View
 
 **职责**：把「一个工作台」抽象为「实例文档 + 导航 + 视图 + 运行控制」。
 
-> 现状：`renderer/src/workbench/` 提供 `WorkbenchDefinition`、`WorkbenchController`、`WorkbenchPlan`、registry 与 `WorkbenchHost`；实例文档持久化到 `documents/workbenches/<id>.json`，通过 `workspace:listWorkbenches` 列出。M7.1 起 `WorkbenchDefinition.navigation` 提供左栏 PanelContent（design / run 槽位），Shell 不再硬编码 SessionSidebar；当前设计器 design 使用 `DocumentNavigation`，plan-runner 使用 `PlanNavigation`。View 自持 hooks（设计器复用现有 document/run/undo），`WorkbenchController` 由设计器上报给 Shell。工作台类型：`harness-designer` / `graph-table` / `plan-runner` / `flow-runner`；新建入口由 `workbench/templates.ts` 提供 6 条模板（可创建起始工作流），`plan-runner` 在 renderer 侧按顺序调用 `run:start`，尚未下沉 RuntimeHost。
+> 现状：`renderer/src/workbench/` 提供 `WorkbenchDefinition`、`WorkbenchController`、`WorkbenchPlan`、registry 与 `WorkbenchHost`；实例文档持久化到 `documents/workbenches/<id>.json`，通过 `workspace:listWorkbenches` 列出。M7.1 起 `WorkbenchDefinition.navigation` 提供左栏 PanelContent（design / run 槽位），Shell 不再硬编码 SessionSidebar；当前设计器 design 使用 `DocumentNavigation`，plan-runner 使用 `PlanNavigation`。View 自持 hooks（设计器复用现有 document/run/undo），`WorkbenchController` 由设计器上报给 Shell。工作台类型：`harness-designer` / `plan-runner`（原 `graph-table` 节点清单已由节点库取代；`flow-runner` 独立运行页已移除，ADR-027）；新建入口由 `workbench/templates.ts` 提供 3 条模板（可创建起始工作流），`plan-runner` 在 renderer 侧按顺序调用 `run:start`，尚未下沉 RuntimeHost。
 
 ```ts
 interface WorkbenchDefinition {
@@ -289,10 +290,20 @@ interface WorkbenchController {
 - 运行前用 `Graph.validate()`（renderer 的 wireclaw 浏览器构建）；内嵌图递归校验与问题定位已在 M3 接入，`requirements` catalog 由 DesignerView 从 `providers:list`（ProviderRegistry）构造并注入（M6.2）；
 - 导入导出：文档菜单提供单 `GraphDocument` JSON 导入（新建文档）与导出（可选剥离 `ui`）；`.fhws` 整工作区导入导出仍只有 main 通道。
 
+## 14.1 Preset Library（L5，M8.4）
+
+**职责**：工作区级节点预设库，保存“节点类型 + 默认 config”的可复用组合，并组织到文件夹。
+
+- 存储：`documents/presets/library.json`（`DocumentRef { kind: "presetLibrary", id: "library" }`），复用 WorkspaceStore 的 revision / 原子写 / 4 MB 上限；`.fhws` 导出自动包含；
+- 数据：`{ schemaVersion: 1, folders: PresetFolder[], presets: PresetRecord[] }`；文件夹只有 id / title / parentId，预设记录含 `type / typeVersion / config / folderId`；
+- renderer：`renderer/src/presets/` 提供 `PresetLibraryProvider`（加载 / 串行保存 / CRUD）、`PresetManagerDialog`（左树右属性，编辑名称、简介、文件夹与 configSchema 表单）、`NodeLibraryPalette`（最近使用 / 用户库文件夹 / 内置预设 / 节点类型；搜索、↑↓ + Enter、拖拽到画布）、`CreatePresetDialog`（画布节点右键创建）；
+- 内置 4 条预设仍在 `designer/core/presets.ts`，与用户库分离；插入菜单合并展示；
+- 全局入口：标题栏「视图」菜单与 `Ctrl+Shift+N` / `Ctrl+Shift+M`，通过 `presets/bus.ts` 通知工作台 View；画布右键「添加节点」仍锚定光标打开插入菜单。
+
 ## 15. Other Workbenches（L5）
 
 - 运行底层都是 Harness Graph，但以不同动画/交互呈现；
-- `flow-runner` 是固定只读运行页参考实现：`View` 为配置页，`RunView` 用只读 `CanvasView`、运行节点 pulse、活跃边 flow 与 `focusNode` 跟随；
+- 运行阶段由 `harness-designer` 的 `RunView` 承担（同一画布 + 运行上下文条，运行时只读）；独立 `flow-runner` 运行页已移除（ADR-027）；
 - 必须实现 `WorkbenchDefinition`，不得绕过 Workbench Framework 直接连 RuntimeHost；
 - 多 graph 组合由 `WorkbenchPlan` 描述（图引用、输入绑定、输出消费）；目标由 RuntimeHost 编排，当前 `plan-runner` 是 renderer 侧临时实现。
 
@@ -302,6 +313,7 @@ interface WorkbenchController {
 | --- | --- | --- | --- |
 | Harness JSON | 单个 `GraphDocument` | 工作流互通、版本管理 | ✅ M4（文档菜单导入/导出） |
 | `.fhws` | zip：`export.json` + `manifest.json` + `documents/**` + `objects/**` | 整工作区迁移 | ✅ M8.2（文件菜单 + 系统对话框；导入总是新副本，不含 runs/sessions） |
+| 节点预设库 | `documents/presets/library.json` | 随 `.fhws` 迁移；独立文件导入导出未做 | ✅（含在 `.fhws` 内） |
 | 备份 | 迁移前的自动副本 | 恢复 | ⬜ 未实现（无迁移表） |
 
 两者不混用：Harness JSON 不包含工作台实例信息，`.fhws` 才包含。
@@ -314,13 +326,13 @@ interface WorkbenchController {
 
 ## 18. M7 目标（已完成）
 
-- **M7.1 已实现**：`WorkbenchDefinition.navigation`（design 模式）；`NavigationPanel` / `DocumentNavigation` / `PlanNavigation`；App 按工作台渲染左栏；移除全局 SessionSidebar 与顶层 sessions 视图；`WorkbenchHost` 提供 `panelLayer` 槽；文档选择同步 primaryGraph；删除 graph 前检查工作台引用；`--fh-panel-alpha` 0.78。
+- **M7.1 已实现**：`WorkbenchDefinition.navigation`（design 模式）；`NavigationPanel` / `DocumentNavigation` / `PlanNavigation`；App 按工作台渲染左栏；移除全局 SessionSidebar 与顶层 sessions 视图；`WorkbenchHost` 提供 `panelLayer` 槽；文档选择同步 primaryGraph；删除 graph 时解除工作台引用（ADR-025）；`--fh-panel-alpha` 0.78。
 - **M7.2 已实现**：Session 递归文件夹树、SessionRecord v2、草稿目录、session/folder 移动与 IPC。
 - **M7.3 已实现**：设计/运行模式切换；设计左栏工作流列表 + 右键菜单；运行左栏 Session 树（递归、搜索、文件夹/会话 CRUD、移动、草稿标识）；会话历史嵌入 Canvas 浮动 Panel；对外文案统一为“工作流”。
-- **M7.4 已实现**：wireclaw `RunResult` v1（类型 / 序列化 / 校验 / ModelCall·AgentRun 采集 / graphPath 冒泡）；`RunStore` 写 `result.json`，`RuntimeHost.getResult` 与 `run:result` 暴露结果；运行日志扩展「结果」面板；`SessionStore.createRunSession` 校验 kind 并派生 entryCount / 附件；「保存到会话」进入草稿目录；`session:setDraftFolder` 支持 Session 树右键切换草稿目录。
+- **M7.4 已实现**：wireclaw `RunResult` v1（类型 / 序列化 / 校验 / ModelCall·AgentRun 采集 / graphPath 冒泡）；`RunStore` 写 `result.json`，`RuntimeHost.getResult` 与 `run:result` 暴露结果；`SessionStore.createRunSession` 校验 kind 并派生 entryCount / 附件；`session:setDraftFolder` 支持 Session 树右键切换草稿目录。M8.6 起结果页签与手动保存入口由自动运行会话取代。
 - **M7.4.1 已实现**：`WorkbenchDefinition.splitNavigation` + `SplitSidebar`；`NavigationPanel` 增加 `section` 变体；`harness-designer` 左栏固定为上工作流 / 下会话，共享宽度、比例可拖动并持久化（ADR-021）。
-- **M7.4.2 已实现**：`RunResult` entries → conversation 消息（Agent 使用完整 SessionData，ModelCall 重建 system/user/assistant）；`session:appendRun`；运行模式自动写入选中的 conversation 会话，结果面板提供「写入对话」（ADR-022）。
-- **M7.5 已实现**：`WorkbenchDefinition.RunView` 与 `WorkbenchHost` mode 选择；实例持久化 `mode / runId / sessionId`；harness-designer 运行阶段有独立上下文条；新增 `flow-runner` 参考运行页（只读固定画布 + 运行控制 + 时间线），动画复用节点/边状态、CSS pulse/flow 与 `focusNode`（ADR-023）。
+- **M7.4.2 已实现**：`RunResult` entries → conversation 消息（Agent 使用完整 SessionData，ModelCall 重建 system/user/assistant）；M8.6 起 `run:entries` + `session:appendEntries` 在运行中增量写入自动创建的会话（ADR-028）。
+- **M7.5 已实现**：`WorkbenchDefinition.RunView` 与 `WorkbenchHost` mode 选择；实例持久化 `mode / runId / sessionId`；harness-designer 运行阶段有独立上下文条；动画复用节点/边状态、CSS pulse/flow 与 `focusNode`（ADR-023；独立运行页已由 ADR-027 移除）。
 - **Workbench Framework**：`WorkbenchDefinition` 提供 `mode` / `RunView`；工作台运行阶段可渲染独立 RunView 与动画，harness-designer 则复用画布 + 浮动面板。
 - **SessionService / SessionStore（M7.4 已完成）**：Session 递归文件夹树；`SessionRecord.kind` 区分 conversation / run；草稿目录；RunResult 写入与校验。
 - **RuntimeHost / RunStore（M7.4 已完成）**：采集 wireclaw `RunResult`，写 `runs/<runId>/result.json`，run 结束向 renderer 提供结果。

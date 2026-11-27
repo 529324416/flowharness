@@ -275,7 +275,7 @@ CanvasCommand → GraphDocument
 - 二期（M5）：节点 Body 开始支持常用参数内联编辑；2026-11-27 起端口改为贴边的方块 / 圆点徽标，与数据行顶部对齐，连线也可落在字段行上（ADR-041）；
 - 全量内联属性（2026-11-27）：节点 Body 覆盖所有内建节点的可编辑 config 字段——Constant 文本、Provider / Model 的 Provider / Model 下拉、Model Call 的 mode / system / think / thinkingLv / temperature / modality / parameters、Agent 的权限 / 步数 / system / think / thinkingLv / temperature / hostTools、ToolSet 的 include / exclude / hostTools、Value、Loop 的迭代 / 失败重试 / graph、ForEach 的 resultPort / graph、Subgraph 的 graph、Event Trigger 的 event、Log 的级别；对象 / 内嵌图使用紧凑 JSON TextArea（失焦解析、失败就地提示），节点高度随字段增长；
 - 表单控件统一（2026-11-27）：节点 Body 的枚举字段全部改用 FH `ui/Select`（Radix 菜单），保留 22px 紧凑高度与默认边框；布尔字段统一 `ui/Checkbox`（自绘方框，`compact` 变体）；输入框、下拉与 JSON 区都不显示聚焦描边，焦点只由光标表达（ADR-037）；
-- 端口徽标与数据行（2026-11-27）：节点 Body 顶部先列输出数据、再列未挂字段的输入；端口徽标与节点主体保持 5px 间距，纵向与数据行上边缘对齐（按布局坐标测量，拖动 / 缩放不跳变）；未连接为灰色 20px 方块 + 居中类型图标，已连接为 20px 橙红空圆环 + 6px 实心点；连线终点落在实心点底部，且连线不再绘制端点小圆（Handle 与视觉徽标解耦）；颜色不随节点选中 / 运行状态变化；底部端口列表移除（ADR-041）；
+- 端口徽标与数据行（2026-11-27）：节点 Body 顶部先列输出数据、再列未挂字段的输入；端口徽标与节点主体保持 5px 间距，纵向与数据行上边缘对齐（按布局坐标测量，拖动 / 缩放不跳变）；未连接为灰色 20px 方块 + 居中类型图标，已连接为 20px 橙红空圆环 + 6px 实心点；连线终点落在实心点中心，且连线不再绘制端点小圆（Handle 与视觉徽标解耦）；颜色不随节点选中 / 运行状态变化；底部端口列表移除（ADR-041）；
 - 数据来源统一（2026-11-27）：Model Call / Agent Run 的每个数据字段都同时有输入端口与本地编辑——`core.model.call` 端口为 model / prompt / system / parameters / attachments，`core.agent.run` 为 model / input / system / hostTools / attachments / toolset；未连接时读 config（含 providerId / modelId），连接后对应字段变为只读锁定行；字段顺序为可接入端口的数据优先于只能本地编辑的参数，同组内按必要数据 → 必要参数 → 常用标量 → 低频枚举 → 结构数据（ADR-040 / ADR-041）；
 - 上游锁定字段（2026-11-27）：被连接固定的字段（当前为 Model 的 Provider）不再渲染禁用下拉，而是只读行——锁图标 + 来源值 + 「上游」，hover 提示修改位置；来源值由工作台以 `CanvasLockedField { value, reason }` 投影注入，Canvas 只透传（ADR-037）；
 - JSON 字段（2026-11-27）：节点内联与检查器使用 `ui/CodeArea`（透明 textarea + JSON 高亮层，滚动同步），键 / 字符串 / 数字 / 字面量分别着色，颜色走 `--fh-code-*`；节点内联为 10px 紧凑变体；Constant 阅读态的 JSON 截断预览同样用 `ui/JsonCodeText` 着色，与编辑态一致（ADR-038）；
@@ -305,6 +305,13 @@ CanvasCommand → GraphDocument
 - 点击运行会在草稿目录自动创建一条 conversation 会话，自动打开「会话历史」面板；运行中 ModelCall / Agent entries 逐步追加为消息，结束时追加输出摘要；运行日志不再有「结果」页签，也没有手动保存按钮；
 - 对外 UI 统一称 **工作流（workflow）**；`GraphDocument` 仅保留为 wireclaw / 契约内部类型名。
 - 文件菜单提供 `.fhws` 导入 / 导出：导入经系统打开对话框并创建新工作区副本，导出经系统保存对话框写档；不覆盖现有工作区。
+
+### 6.7 节点折叠与工作流多选（2026-11-28）
+
+- 节点折叠（ADR-042）：Header 右侧提供折叠按钮，状态写入 `node.ui.collapsed`（随文档自动保存、进入撤销栈、随「导出无布局」剥离）；折叠后只保留**已连接的端口**与**有数据且不等于节点默认值**的 config 字段——默认值来自 `configSchema.default` 与节点类型 `defaultConfig`（`designer/core/collapse.ts`）；未连接端口徽标、空字段、kind 标签同时隐藏，展开恢复；运行期只读时不提供折叠入口；
+- 折叠字段计算在 adapter 投影时完成（`collapsedFields`），Canvas 组件只按字段名过滤，不感知节点语义；Constant 以文本 / JSON 是否有内容判断；
+- 工作流多选（ADR-043）：`DocumentNavigation` 本地维护选中集合；Ctrl / Cmd 切换、Shift 区间；选中态由对勾 + 强调边框双重表达；批量操作条提供全选 / 复制 / 删除；右键多选项切到批量菜单；
+- 批量复制 / 删除在 `App` 层实现（`handleDuplicateDocuments` / `handleDeleteDocuments`，单选入口复用同一实现），逐条调用既有 IPC：删除仍会 flush 当前文档、等待工作台保存链、刷新工作台引用并回退到剩余文档；批量复制仅在单选时切换到副本。
 
 ## 7. 其他工作台
 

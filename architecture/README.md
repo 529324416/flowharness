@@ -97,6 +97,8 @@
 | 模型节点数据端口化 / 本地回退 / 端口连接锁定 / 本地模型绑定 | ✅ 已实现（2026-11-27，ADR-040） |
 | 节点端口行去圆点 / Agent Run 使用 Bot 图标 | ✅ 已实现（2026-11-27） |
 | 节点端口徽标与数据行：输出优先 / 行顶对齐 / 图标↔圆点 | ✅ 已实现（2026-11-27，ADR-041） |
+| 节点折叠模式 / 折叠字段过滤 | ✅ 已实现（2026-11-28，ADR-042） |
+| 工作流多选与批量复制·删除 | ✅ 已实现（2026-11-28，ADR-043） |
 | M6.2 wireclaw checkpoint v2（graphHash + nodeVersions） | ✅ 已实现（M6.2） |
 | M6.2 工作区文件工具 / 运行前 requirements catalog | ✅ 已实现（M6.2） |
 | SessionService（AttachmentFileManager / SessionStore 装配） | ✅ 已实现（Phase 2 附件；M6.2 会话） |

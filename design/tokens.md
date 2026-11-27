@@ -14,6 +14,8 @@
 | 主色 | `--fh-accent`、`--fh-accent-hover`、`--fh-accent-contrast` | 去饱和青绿；只做语义高亮 |
 | 状态 | `--fh-success`、`--fh-warning`、`--fh-danger`、`--fh-info`（各带 `-soft`） | 成功/警告/危险/信息 |
 | 画布 | `--fh-canvas-bg`、`--fh-canvas-grid`、`--fh-node-bg`、`--fh-node-border`、`--fh-edge`、`--fh-edge-active` | 画布专用；节点背景任何模式下都不透明 |
+| 端口 | `--fh-port-idle`、`--fh-port-connected` | 未连接端口为灰、已连接为橙红；只由连接状态决定，不随选中变化（ADR-041） |
+| 代码 | `--fh-code-bg`、`--fh-code-plain`、`--fh-code-key`、`--fh-code-string`、`--fh-code-number`、`--fh-code-literal`、`--fh-code-punct` | JSON 代码主题（ADR-038）；深色取 VS Code Dark+ 去饱和版本，亮色给出对应浅色值 |
 | 阴影 | `--fh-shadow-1/2/3` | 1 卡片、2 面板、3 浮层 |
 | 圆角 | `--fh-radius-xs/sm/md/lg/pill` | 4 / 6 / 10 / 14 / 999 |
 | 间距 | `--fh-space-1..8` | 4 / 8 / 12 / 16 / 20 / 24 / 32 / 40 |
@@ -43,6 +45,14 @@
 | `--fh-warning` | `#b09e6f` | `#785b45` |
 | `--fh-danger` | `#c9a0a0` | `#825353` |
 | `--fh-info` | `#7ba3b5` | `#3a596a` |
+| `--fh-code-bg` | `#0b0e12` | `#f6f8fa` |
+| `--fh-code-key` | `#9cdcfe` | `#0451a5` |
+| `--fh-code-string` | `#ce9178` | `#a31515` |
+| `--fh-code-number` | `#b5cea8` | `#098658` |
+| `--fh-code-literal` | `#569cd6` | `#0000ff` |
+| `--fh-code-punct` | `#808b96` | `#6e7781` |
+| `--fh-port-idle` | `#6b7580` | `#8a949d` |
+| `--fh-port-connected` | `#cf6f4e` | `#a4543a` |
 
 完整值见 `tokens.css`。
 
@@ -55,7 +65,7 @@
 - 尺寸用 4 的倍数；控件高度用 `--fh-control-height`（32px）/ `-sm`（28px）。
 - 非画布文字统一走字号 token：基准比 Phase 2.6 放大 125%（`--fh-ui-scale`），图标按同一比例放大；画布内部字号保持不变。
 - 字体统一以 `Microsoft YaHei UI` 优先；`--fh-font-mono` 也把它放在等宽字体之后作 CJK 回退，避免任何位置落回宋体。
-- 输入框不提供 focus 高亮（不加 ring、不改变边框），只保留原生光标。
+- 输入框、下拉与 JSON 代码区不提供 focus 高亮（不加 ring、不改变边框），只保留原生光标；按钮 / 链接仍使用 `--fh-border-focus` 焦点环。
 - 其余 UI 仍保持细边距与紧凑间距，不做整体等比放大。
 
 ### 色彩角色分工（2026-11-25 调整）

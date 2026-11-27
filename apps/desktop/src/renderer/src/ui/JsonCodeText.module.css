@@ -1,0 +1,21 @@
+/* JSON token 颜色；与 CodeArea 共用同一套 --fh-code-* token。 */
+
+.key {
+  color: var(--fh-code-key);
+}
+
+.string {
+  color: var(--fh-code-string);
+}
+
+.number {
+  color: var(--fh-code-number);
+}
+
+.literal {
+  color: var(--fh-code-literal);
+}
+
+.punctuation {
+  color: var(--fh-code-punct);
+}

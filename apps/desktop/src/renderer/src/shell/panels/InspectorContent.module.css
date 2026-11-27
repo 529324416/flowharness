@@ -110,27 +110,9 @@
   font-size: var(--fh-text-xs);
 }
 
-.editor {
-  width: 100%;
+.editorArea {
   min-height: 148px;
-  padding: var(--fh-space-2);
-  border: 1px solid var(--fh-border);
   border-radius: var(--fh-radius-sm);
-  background: var(--fh-bg-subtle);
-  color: var(--fh-text);
-  font-family: var(--fh-font-mono);
-  font-size: var(--fh-text-xs);
-  line-height: 1.5;
-  resize: vertical;
-}
-
-.editor:read-only {
-  color: var(--fh-text-muted);
-  opacity: 0.8;
-}
-
-.editor:focus {
-  outline: none;
 }
 
 .error {

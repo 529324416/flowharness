@@ -8,8 +8,9 @@
 | `IconButton` | ghost / secondary；sm / md | 必须提供 `aria-label`；配 Tooltip |
 | `Input` | 默认 / 错误 | label、hint、error 三段式；错误用 `aria-invalid` |
 | `Field` | — | 表单行：标签 / 必填标记 / 错误或提示；控件自身负责输入样式 |
-| `Select` | 主题化下拉 / 禁用 | 枚举字段；触发器 + Radix DropdownMenu 弹层，不再使用原生 select 弹层 |
-| `Checkbox` | — | 自绘方框（隐藏原生外观）；选中用主色描边与勾，焦点态走 `focus-visible` |
+| `Select` | 主题化下拉 / 禁用 | 枚举字段；触发器 + Radix DropdownMenu 弹层，不再使用原生 select 弹层；不显示聚焦描边（只保留 hover 边框） |
+| `Checkbox` | 默认 / `compact` | 自绘方框（隐藏原生外观）；选中用主色描边与勾，键盘焦点态走 `focus-visible`；`compact` 用于 220px 画布节点（12px 方框 / 10px 文案） |
+| `CodeArea` | JSON / 只读 | 透明 textarea + JSON 高亮层；负责光标、选择、输入法与滚动，颜色走 `--fh-code-*`（ADR-038） |
 | `NumberField` | — | 失焦提交；空值表示未设置；整数/小数由 `step` 区分 |
 | `Badge` | neutral / accent / success / warning / danger / info | 小号状态文本，不承载交互 |
 | `StatusDot` | 语义色；`pulse` | 仅视觉；旁边必须有文本或 aria-label |
@@ -27,7 +28,7 @@
 
 - 只从 `src/ui` 导出；
 - 样式用 CSS Modules，颜色/间距全部走 token；
-- 焦点环统一 `--fh-border-focus` + 2px offset；
+- 焦点环统一 `--fh-border-focus` + 2px offset；**表单控件（input / select / textarea / CodeArea）不显示聚焦描边**，焦点只由光标表达；
 - 中文文案随组件调用方传入，不在组件内写死。
 
 ## 2. 外壳布局（Shell v2 + 2026-11-25 面板化）
@@ -80,6 +81,8 @@
 - 两区：**API 密钥**（协议 / 名称 / 密钥 / 可选 Base URL → 验证并保存；列表显示掩码指纹、状态、上次校验）与 **Provider**（适配器 / 密钥 / Base URL / 默认模型 / 启用 / 模型目录）；
 - 密钥只写 main，列表永远不回显明文；失效 / 额度 / 未验证用不同 Badge；
 - `core.model` 的 Provider / 模型为下拉；节点标题右侧用红色 / 黄色三角提示 Provider 健康问题；
+- 端口徽标：未连接为灰色 20px 方块 + 居中类型图标，已连接为 20px 橙红空圆环 + 6px 实心点；输入徽标贴左边缘、输出贴右边缘，与节点主体保持 5px 间距并与数据行上边缘对齐；字段行本身即输入数据行；颜色不随选中变化（ADR-041）；
+- `core.model.call` / `core.agent.run` 在节点内直接编辑模型绑定与数据字段：未连接时用本地 Provider / Model 下拉与文本 / JSON 编辑器，端口连接后对应字段改为只读锁定行（锁图标 + 上游值 + 上游）；
 - 节点库含 `Provider`（`core.provider`）：检查器同样用 Provider 下拉，输出 `provider` 可连到 Model 的 `provider` 输入；连接优先、config 回退；
 - 运行中的审批与用户输入复用同一 Dialog 体系：审批展示工具名与参数 JSON；用户输入支持单选/多选/其他文本。
 
@@ -125,7 +128,7 @@ smoke 模式默认打开 Diagnostics，保证自检 run 正常触发。
 - 字体统一 `Microsoft YaHei UI`（等宽栈也包含它做 CJK 回退，避免宋体）；
 - 图标统一 Lucide，尺寸 16–20（控件）/ 24（栏位），随 125% 文字基准同步放大；
 - 图标不单独承载含义：必须配 Tooltip 或文本；
-- 输入框聚焦不改变边框、不加 ring，只显示原生光标；
+- 输入框、下拉与 JSON 代码区聚焦不改变边框、不加 ring，只显示原生光标；
 - 状态文案：未运行 / 运行中 / 已暂停 / 已完成 / 失败 / 已取消 / 已中断；
 - 中文为主，技术标识（runId、hash）用等宽字体。
 

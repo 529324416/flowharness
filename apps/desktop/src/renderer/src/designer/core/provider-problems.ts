@@ -60,6 +60,57 @@ export function resolveModelProvider(
 }
 
 /**
+ * Model Call / Agent Run 的有效模型绑定。
+ *
+ * - `model` 输入边存在时以来源 `core.model` 节点为准（Provider 再按 Model 的规则解析）；
+ * - 未连接时回退节点自身 config 的 providerId / modelId。
+ */
+export function resolveNodeModelBinding(
+    graph: GraphDocument,
+    node: GraphNode,
+): {
+    providerId?: string;
+    modelId?: string;
+    connected: boolean;
+    sourceNodeId?: string;
+} {
+    const config = isRecord(node.config) ? node.config : {};
+    const edge = graph.edges.find(
+        (candidate) =>
+            candidate.to.nodeId === node.id && candidate.to.port === "model",
+    );
+    if (edge === undefined) {
+        const providerId = readString(config, "providerId");
+        const modelId = readString(config, "modelId");
+        return {
+            ...(providerId === undefined ? {} : { providerId }),
+            ...(modelId === undefined ? {} : { modelId }),
+            connected: false,
+        };
+    }
+
+    const source = graph.nodes.find(
+        (candidate) => candidate.id === edge.from.nodeId,
+    );
+    if (source?.type !== "core.model") {
+        return { connected: true, sourceNodeId: edge.from.nodeId };
+    }
+
+    const sourceConfig = isRecord(source.config) ? source.config : {};
+    const provider = resolveModelProvider(graph, source);
+    return {
+        ...(provider.providerId === undefined
+            ? {}
+            : { providerId: provider.providerId }),
+        ...(readString(sourceConfig, "modelId") === undefined
+            ? {}
+            : { modelId: readString(sourceConfig, "modelId") }),
+        connected: true,
+        sourceNodeId: source.id,
+    };
+}
+
+/**
  * 某个 Provider 目录中是否有该模型。
  *
  * 目录为空时视为“尚未刷新”，不做兼容性判断，避免误清空旧图。
@@ -233,24 +284,12 @@ function collectCapabilityProblems(
         const config = isRecord(node.config) ? node.config : {};
         const mode = config.mode === "generate" ? "generate" : "chat";
 
-        const edge = graph.edges.find(
-            (candidate) =>
-                candidate.to.nodeId === node.id && candidate.to.port === "model",
-        );
-        if (edge === undefined) continue;
+        const binding = resolveNodeModelBinding(graph, node);
+        const providerId = binding.providerId;
+        const modelId = binding.modelId;
+        if (providerId === undefined || modelId === undefined) continue;
 
-        const modelNode = graph.nodes.find(
-            (candidate) => candidate.id === edge.from.nodeId,
-        );
-        if (modelNode?.type !== "core.model") continue;
-
-        const modelConfig = isRecord(modelNode.config) ? modelNode.config : {};
-        const modelId = readString(modelConfig, "modelId");
-        if (modelId === undefined) continue;
-
-        const binding = resolveModelProvider(graph, modelNode);
-        if (binding.providerId === undefined) continue;
-        const status = byId.get(binding.providerId);
+        const status = byId.get(providerId);
         const model = status?.profile.models.find((item) => item.id === modelId);
         const capabilities = model?.capabilities;
         if (capabilities === undefined) continue;

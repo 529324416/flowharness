@@ -76,6 +76,8 @@ pnpm capture:ui   # 启动应用并通过 CDP 截取 renderer（默认 devlog/as
 # designer-history / designer-config / designer-form / designer-form-edit /
 # designer-schema / designer-preset / designer-library / designer-recent /
 # designer-panels / designer-select / designer-toggle / designer-menu /
+# designer-provider / designer-json / designer-json-read / designer-controls /
+# designer-model-empty / designer-panel /
 # canvas / canvas-selection / canvas-pan / canvas-zoom / styleguide /
 # styleguide-nodes / styleguide-form / input-focus
 $env:FH_CAPTURE_SCENARIO='canvas'; pnpm capture:ui
@@ -83,6 +85,6 @@ $env:FH_CAPTURE_SCENARIO='canvas'; pnpm capture:ui
 
 默认走 CDP `Page.captureScreenshot`，得到 1440×900 的 renderer 视图，不受窗口遮挡/动画合成影响；
 默认以 **opaque frameless** 启动，保证截图可读；`-WindowMode transparent` 只用于 renderer 层对比。
-真透明的桌面透出必须用 GPU + 系统屏幕抓取，CDP 截图不会包含桌面。当前视觉基线保留在 `devlog/assets/step4-*.png`；不再保留逐阶段过程截图。
+真透明的桌面透出必须用 GPU + 系统屏幕抓取，CDP 截图不会包含桌面。阶段性视觉基线保留在 `devlog/assets/`（`step4-*`、`ui-node-constraints`、`ui-form-controls`、`ui-json-code`、`ui-json-preview`、`ui-model-empty` 等），过程截图不长期保留。
 
 

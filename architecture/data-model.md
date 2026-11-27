@@ -102,6 +102,7 @@
 - `ui.panels`（2026-11-27）保存该图内部浮动面板的布局：`inspector` / `run-log` / `session-history` 的 `open / collapsed / x / y / width / height / z`；打开文档时恢复，面板操作停稳后写回；
 - 节点级 `ui` 与图级 `ui` 都是自由 `JsonObject`，FH 需定义自己的子结构并做版本兼容；
 - 节点 `type` 必须使用 wireclaw 内建名（`HarnessBuiltinNodeType`，如 `core.constant` / `core.model.call` / `core.log`），不是显示名；
+- Model Call / Agent Run 的 config 增加本地回退字段：Model Call 为 `providerId` / `modelId` / `prompt` / `attachments`，Agent 为 `providerId` / `modelId` / `input` / `attachments` / `toolset`；对应输入端口连接时以端口值为准，未连接时读取 config（ADR-040）；
 - `inputs` / `requires` 由 wireclaw 管理，FH 只透传。
 
 ## 5. Workbench Instance 文档（M5 已实现）

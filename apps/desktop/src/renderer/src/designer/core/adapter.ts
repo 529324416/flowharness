@@ -4,6 +4,7 @@ import type {
     CanvasEdge,
     CanvasEdgeStatus,
     CanvasFieldOption,
+    CanvasLockedField,
     CanvasNode,
     CanvasNodeData,
     CanvasNodeNotice,
@@ -32,7 +33,9 @@ export type ToCanvasDocumentOptions = {
         Record<string, Readonly<Record<string, readonly CanvasFieldOption[]>>>
     >;
     /** 被连接固定、不可编辑的字段；按 nodeId → config 字段名注入。 */
-    lockedFields?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+    lockedFields?: Readonly<
+        Record<string, Readonly<Record<string, CanvasLockedField>>>
+    >;
     /** 已连接输入端口在节点 Body 内的显示值；按 nodeId → 端口名注入。 */
     slotLabels?: Readonly<Record<string, Readonly<Record<string, string>>>>;
 };

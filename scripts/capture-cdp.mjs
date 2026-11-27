@@ -169,6 +169,10 @@ try {
         scenario === "designer-inline" ||
         scenario === "designer-inline-type" ||
         scenario === "designer-provider" ||
+        scenario === "designer-json" ||
+        scenario === "designer-json-read" ||
+        scenario === "designer-model-empty" ||
+        scenario === "designer-controls" ||
         scenario === "designer-panel" ||
         scenario === "designer-slot-connect" ||
         scenario === "designer-import" ||
@@ -668,7 +672,7 @@ try {
                 returnByValue: true,
             });
             const point = points.result?.value;
-            if (point) {
+            if (point?.from !== undefined && point?.to !== undefined) {
                 await send("Input.dispatchMouseEvent", {
                     type: "mousePressed",
                     x: point.from.x,
@@ -900,6 +904,273 @@ try {
                 windowsVirtualKeyCode: 27,
             });
             await settle(300);
+        }
+
+        if (scenario === "designer-json" || scenario === "designer-json-read") {
+            const fixture = join(tmpdir(), `fh-json-${process.pid}.json`);
+            writeFileSync(
+                fixture,
+                `${JSON.stringify({
+                    version: 1,
+                    id: "json-fixture",
+                    title: "JSON 代码主题",
+                    nodes: [
+                        {
+                            id: "constant",
+                            type: "core.constant",
+                            typeVersion: 1,
+                            config: {
+                                value: {
+                                    type: "json",
+                                    value: {
+                                        hello: "test",
+                                        count: 12,
+                                        ratio: 0.75,
+                                        ok: true,
+                                        none: null,
+                                        list: ["alpha", "beta"],
+                                    },
+                                },
+                            },
+                            ui: { x: 160, y: 140 },
+                        },
+                    ],
+                    edges: [],
+                })}\n`,
+            );
+
+            const root = await send("DOM.getDocument", { depth: -1 });
+            const input = await send("DOM.querySelector", {
+                nodeId: root.root.nodeId,
+                selector: 'input[type="file"]',
+            });
+            if (input.nodeId === 0) {
+                console.log("json import input: not found");
+            } else {
+                await send("DOM.setFileInputFiles", {
+                    files: [fixture],
+                    nodeId: input.nodeId,
+                });
+                await settle(1500);
+            }
+
+            if (scenario === "designer-json") {
+                await evaluate(
+                    `document.querySelector('button[aria-label="编辑常量文本"]')?.click()`,
+                );
+                await settle(600);
+
+                const value = await evaluateAsync(
+                    `document.querySelector('textarea[aria-label="常量 JSON"]')?.value`,
+                );
+                console.log(
+                    `json editor value: ${JSON.stringify(value.result?.value)}`,
+                );
+            }
+            await settle(400);
+        }
+
+        if (scenario === "designer-controls") {
+            const fixture = join(tmpdir(), `fh-controls-${process.pid}.json`);
+            writeFileSync(
+                fixture,
+                `${JSON.stringify({
+                    version: 1,
+                    id: "controls-fixture",
+                    title: "表单控件约束",
+                    nodes: [
+                        {
+                            id: "provider",
+                            type: "core.provider",
+                            typeVersion: 1,
+                            config: { providerId: "ollama" },
+                            ui: { x: 80, y: 40 },
+                        },
+                        {
+                            id: "model",
+                            type: "core.model",
+                            typeVersion: 1,
+                            config: { providerId: "ollama", modelId: "qwen3.5:9b" },
+                            ui: { x: 380, y: 40 },
+                        },
+                        {
+                            id: "call",
+                            type: "core.model.call",
+                            typeVersion: 1,
+                            config: {
+                                mode: "chat",
+                                system: "You are a helper.",
+                                think: true,
+                                thinkingLv: "high",
+                                temperature: 0.7,
+                            },
+                            ui: { x: 80, y: 230 },
+                        },
+                        {
+                            id: "agent",
+                            type: "core.agent.run",
+                            typeVersion: 1,
+                            config: {
+                                providerId: "ollama",
+                                permission: "approval",
+                                maxSteps: 6,
+                                think: true,
+                                thinkingLv: 3,
+                                temperature: 0.2,
+                            },
+                            ui: { x: 620, y: 230 },
+                        },
+                        {
+                            id: "system",
+                            type: "core.constant",
+                            typeVersion: 1,
+                            config: {
+                                value: {
+                                    type: "text",
+                                    text: "来自上游的 System Prompt",
+                                },
+                            },
+                            ui: { x: 720, y: 40 },
+                        },
+                        {
+                            id: "result",
+                            type: "core.output",
+                            typeVersion: 1,
+                            ui: { x: 330, y: 230 },
+                        },
+                    ],
+                    edges: [
+                        {
+                            from: { nodeId: "provider", port: "provider" },
+                            to: { nodeId: "model", port: "provider" },
+                        },
+                        {
+                            from: { nodeId: "model", port: "model" },
+                            to: { nodeId: "call", port: "model" },
+                        },
+                        {
+                            from: { nodeId: "system", port: "value" },
+                            to: { nodeId: "call", port: "system" },
+                        },
+                        {
+                            from: { nodeId: "call", port: "text" },
+                            to: { nodeId: "result", port: "text" },
+                        },
+                    ],
+                })}\n`,
+            );
+
+            const root = await send("DOM.getDocument", { depth: -1 });
+            const input = await send("DOM.querySelector", {
+                nodeId: root.root.nodeId,
+                selector: 'input[type="file"]',
+            });
+            if (input.nodeId === 0) {
+                console.log("controls import input: not found");
+            } else {
+                await send("DOM.setFileInputFiles", {
+                    files: [fixture],
+                    nodeId: input.nodeId,
+                });
+                await settle(1500);
+            }
+
+            await evaluate(
+                `const close = (label) => { const button = document.querySelector(\`button[aria-label="\${label}"]\`); if (button?.getAttribute('aria-pressed') === 'true') button.click(); };` +
+                    `close('切换属性检查'); close('切换运行日志');`,
+            );
+            await settle(600);
+
+            const agentProviderOpened = await clickElement(
+                `document.querySelector('button[aria-label="Agent Provider"]')`,
+            );
+            await settle(400);
+            const agentProviderMenu = await evaluateAsync(
+                `[...document.querySelectorAll('[role="menu"]')].map((node) => node.textContent?.trim())`,
+            );
+            console.log(
+                `agent provider opened: ${JSON.stringify(agentProviderOpened)} menu: ${JSON.stringify(agentProviderMenu.result?.value)}`,
+            );
+            await send("Input.dispatchKeyEvent", {
+                type: "keyDown",
+                key: "Escape",
+                code: "Escape",
+                windowsVirtualKeyCode: 27,
+            });
+            await send("Input.dispatchKeyEvent", {
+                type: "keyUp",
+                key: "Escape",
+                code: "Escape",
+                windowsVirtualKeyCode: 27,
+            });
+            await settle(400);
+        }
+
+        if (scenario === "designer-model-empty") {
+            const fixture = join(tmpdir(), `fh-model-empty-${process.pid}.json`);
+            writeFileSync(
+                fixture,
+                `${JSON.stringify({
+                    version: 1,
+                    id: "model-empty-fixture",
+                    title: "未选择模型",
+                    nodes: [
+                        {
+                            id: "provider",
+                            type: "core.provider",
+                            typeVersion: 1,
+                            config: { providerId: "ollama" },
+                            ui: { x: 120, y: 180 },
+                        },
+                        {
+                            id: "model",
+                            type: "core.model",
+                            typeVersion: 1,
+                            config: { providerId: "ollama" },
+                            ui: { x: 440, y: 180 },
+                        },
+                    ],
+                    edges: [
+                        {
+                            from: { nodeId: "provider", port: "provider" },
+                            to: { nodeId: "model", port: "provider" },
+                        },
+                    ],
+                })}\n`,
+            );
+
+            const root = await send("DOM.getDocument", { depth: -1 });
+            const input = await send("DOM.querySelector", {
+                nodeId: root.root.nodeId,
+                selector: 'input[type="file"]',
+            });
+            if (input.nodeId === 0) {
+                console.log("model-empty import input: not found");
+            } else {
+                await send("DOM.setFileInputFiles", {
+                    files: [fixture],
+                    nodeId: input.nodeId,
+                });
+                await settle(1500);
+            }
+
+            const banners = await evaluate(
+                `[...document.querySelectorAll('[role="status"]')].map((node) => node.textContent?.trim()).filter((text) => text?.includes('无法运行'))`,
+            );
+            const notice = await evaluate(
+                `document.querySelector('[aria-label="Model 节点未选择模型"]') !== null`,
+            );
+            console.log(`model-empty banners: ${JSON.stringify(banners.result?.value)}`);
+            console.log(`model-empty notice: ${JSON.stringify(notice.result?.value)}`);
+
+            await clickElement(
+                `document.querySelector('button[aria-label="Model ID"]')`,
+            );
+            await settle(500);
+            const menu = await evaluateAsync(
+                `[...document.querySelectorAll('[role="menu"]')].map((node) => node.textContent?.trim())`,
+            );
+            console.log(`model-empty menu: ${JSON.stringify(menu.result?.value)}`);
         }
 
         if (scenario === "designer-panel") {

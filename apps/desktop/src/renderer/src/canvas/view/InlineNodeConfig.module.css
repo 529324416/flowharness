@@ -1,5 +1,4 @@
 .input,
-.select,
 .number {
   height: 22px;
   min-width: 0;
@@ -16,19 +15,28 @@
   padding: 0 6px;
 }
 
-.select {
-  flex: 1;
-  padding: 0 4px;
-}
-
 .number {
   width: 62px;
   padding: 0 4px;
 }
 
+/* 节点内联下拉：FH Select 触发器沿用 22px 紧凑尺寸与默认边框。 */
+.inlineSelect {
+  flex: 1;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-family: var(--fh-font);
+  font-size: 11px;
+}
+
+.row .inlineSelect,
+.stack .inlineSelect {
+  background: var(--fh-surface-raised);
+}
+
 /* 只读期间控件仍占位，仅降低可编辑暗示，不改变节点尺寸。 */
 .input:disabled,
-.select:disabled,
 .number:disabled {
   opacity: 1;
   color: var(--fh-text-muted);
@@ -39,6 +47,14 @@
   display: flex;
   gap: 4px;
   align-items: center;
+}
+
+/* 端口字段行：画布按 data-port-anchor 测量徽标位置。 */
+.portBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .stack {
@@ -70,9 +86,10 @@
   resize: none;
 }
 
+/* 表单控件不提供聚焦高亮：只保留默认边框与光标（ADR-037）。 */
 .smallTextarea:focus {
   outline: none;
-  border-color: var(--fh-border-strong);
+  border-color: var(--fh-border);
 }
 
 .smallTextarea:disabled {
@@ -80,9 +97,12 @@
   cursor: default;
 }
 
-.jsonTextarea {
-  font-family: var(--fh-font-mono);
-  font-size: 9px;
+/* JSON 代码区：复用 ui/CodeArea，按节点密度缩小字号与内边距。 */
+.codeArea {
+  --fh-code-size: 10px;
+  --fh-code-padding: 4px 6px;
+  --fh-code-leading: 1.4;
+  border-radius: 3px;
 }
 
 .inlineError {
@@ -94,26 +114,37 @@
   white-space: nowrap;
 }
 
-/* Provider 节点：内联下拉使用默认边框，仅去掉 focus outline；菜单由 ui/Select 承担 FH 样式。 */
-.providerSelect {
-  height: 22px;
-  padding: 0 4px;
-  border-radius: 3px;
-  font-family: var(--fh-font);
-  font-size: 11px;
-}
-
-.row .providerSelect {
-  background: var(--fh-surface-raised);
-}
-
-.check {
-  display: inline-flex;
-  flex: none;
+/* 上游连接固定的字段：只读展示来源值，不提供本节点编辑入口。 */
+.lockedRow {
+  display: flex;
   align-items: center;
-  gap: 3px;
-  color: var(--fh-text-subtle);
+  gap: 4px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px dashed var(--fh-border-strong);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--fh-surface-raised) 70%, transparent);
+  color: var(--fh-text-muted);
   font-size: 10px;
+}
+
+.lockIcon {
+  flex: none;
+  color: var(--fh-text-subtle);
+}
+
+.lockedValue {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lockedSource {
+  flex: none;
+  margin-left: auto;
+  color: var(--fh-text-subtle);
+  font-size: 9px;
 }
 
 .summary {
@@ -142,7 +173,7 @@
 
 .textarea:focus {
   outline: none;
-  border-color: var(--fh-border-strong);
+  border-color: var(--fh-border);
 }
 
 .textarea:disabled {
@@ -165,6 +196,13 @@
 
 .constantPreview:focus {
   outline: none;
+}
+
+/* JSON 阅读态：与 CodeArea 使用同一套 token 颜色与等宽字体。 */
+.constantJsonPreview {
+  font-family: var(--fh-font-mono);
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .constantEmpty {

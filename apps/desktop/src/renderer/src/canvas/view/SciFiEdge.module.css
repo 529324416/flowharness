@@ -33,12 +33,6 @@
   pointer-events: none;
 }
 
-.endpoint {
-  fill: var(--fh-canvas-bg);
-  stroke: var(--edge-tone);
-  stroke-width: 1;
-}
-
 @keyframes fh-edge-flow {
   to {
     stroke-dashoffset: -16;

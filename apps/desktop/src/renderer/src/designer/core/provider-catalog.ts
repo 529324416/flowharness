@@ -1,6 +1,6 @@
 import type { ProviderLibraryView } from "@flowharness/contracts";
 import type { GraphDocument } from "wireclaw";
-import { resolveModelProvider } from "./provider-problems";
+import { resolveModelProvider, resolveNodeModelBinding } from "./provider-problems";
 
 export type ProviderCatalogRequest = {
     profileId: string;
@@ -23,9 +23,12 @@ export function collectProviderCatalogRequests(
     const requested = new Map<string, ProviderCatalogRequest>();
 
     for (const node of graph.nodes) {
-        if (node.type !== "core.model") continue;
-        const binding = resolveModelProvider(graph, node);
-        const providerId = binding.providerId;
+        const providerId =
+            node.type === "core.model"
+                ? resolveModelProvider(graph, node).providerId
+                : node.type === "core.model.call" || node.type === "core.agent.run"
+                  ? resolveNodeModelBinding(graph, node).providerId
+                  : undefined;
         if (providerId === undefined) continue;
         if (requested.has(providerId)) continue;
 

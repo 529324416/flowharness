@@ -74,6 +74,20 @@ a {
   outline-offset: 2px;
 }
 
+/*
+ * 表单控件不提供聚焦高亮：焦点只由光标 / 编辑态表达。
+ * 节点内联与检查器的控件因此始终只显示默认边框（ADR-037）。
+ */
+input:focus,
+input:focus-visible,
+select:focus,
+select:focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--fh-border-strong) transparent;

@@ -43,6 +43,16 @@ export type CanvasFieldOption = {
 };
 
 /**
+ * 被上游连接固定的字段：只读展示来源值，不在当前节点提供编辑入口。
+ */
+export type CanvasLockedField = {
+    /** 来源节点上的当前值（已解析为可读文本）。 */
+    value: string;
+    /** 来源说明；用于 tooltip 与无障碍描述。 */
+    reason: string;
+};
+
+/**
  * 节点渲染数据。
  *
  * 这是 GraphDocument 的投影，不持有运行身份；config 只供节点 Body 内联编辑与
@@ -63,10 +73,15 @@ export type CanvasNodeData = {
     notice?: CanvasNodeNotice;
     /** 内联字段下拉选项（按 config 字段名），由工作台在投影时注入。 */
     fieldOptions?: Readonly<Record<string, readonly CanvasFieldOption[]>>;
-    /** 被连接固定、不可编辑的字段及原因。 */
-    lockedFields?: Readonly<Record<string, string>>;
+    /** 被连接固定、不可编辑的字段及其来源值。 */
+    lockedFields?: Readonly<Record<string, CanvasLockedField>>;
     /** 已连接输入端口在节点内的显示值；缺省显示端口名。 */
     slotLabels?: Readonly<Record<string, string>>;
+    /** 已连接端口（输入 / 输出）：用于端口徽标在方块与圆点之间切换。 */
+    connectedPorts?: {
+        inputs: readonly string[];
+        outputs: readonly string[];
+    };
 };
 
 export type CanvasNode = {

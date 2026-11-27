@@ -24,7 +24,10 @@
 - 结构固定为 **HeaderBar + Body** 两层；Footer 已移除，不再展示 type/meta/ports/id；
 - HeaderBar 30px（`--fh-surface-raised`），body padding 8/9px；
 - 节点内字体与画布外统一为 `Microsoft YaHei UI`；标题 12px/600，kind 9px mono，summary 11px（画布内字号不参与 125% 缩放）；
-- 状态点位于 Header 右侧；端口左入右出，10px 圆点、24px 透明热区（`--fh-port-size` / `--fh-port-hit-size`），hover 仅换边框色；
+- 状态点位于 Header 右侧；端口徽标与节点主体保持 5px 间距，未连接为灰色 20px 圆角方块 + 10px 数据类型图标（居中），已连接为 20px 橙红空圆环 + 6px 实心点（`--fh-port-connected`）；连线终点落在实心点底部，连线本身不再绘制端点小圆；透明热区 24px（`--fh-port-hit-size`）；颜色只由连接状态决定，不随选中 / 运行状态变化；位置按布局坐标测量，拖动 / 缩放不跳变（ADR-041）；
+- 节点 Body 顶部是数据行：先输出、后未挂字段的输入；端口徽标纵向与对应数据行顶部对齐。Model / Model Call / Agent 的内联字段行本身就是输入锚点（模型绑定 / Prompt / System Prompt / 参数 / 附件 / 工具范围），节点底部不再有端口列表；
+- 输出徽标与输入同构：有下游连线时为橙红圆点，否则为灰色方块 + 类型图标；
+- Agent Run 使用 Bot 图标、Model Call 使用 BotMessageSquare，Model / Provider 保持 Sparkles；节点图标只做类型提示，不承载状态；
 - 选中只改变边框颜色为 `--fh-accent`，**没有辉光/外描边**。
 
 ## 3. 状态

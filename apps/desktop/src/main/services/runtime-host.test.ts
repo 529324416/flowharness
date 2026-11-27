@@ -282,6 +282,65 @@ describe("RuntimeHost", () => {
         });
     });
 
+    it("runs a Model Call with local provider / model / prompt config", async () => {
+        const fakeProvider = {
+            title: "Fake",
+            modelProvider: null,
+            async chat(): Promise<ChatResult> {
+                return { message: new AssistantMessage("hello from fake") };
+            },
+        } as unknown as AIProvider;
+
+        const { host, batches } = createRuntime(undefined, (providerId) =>
+            providerId === "fake" ? fakeProvider : undefined,
+        );
+
+        const graph = {
+            version: 1,
+            id: "local-model-call",
+            nodes: [
+                {
+                    id: "call",
+                    type: "core.model.call",
+                    typeVersion: 1,
+                    config: {
+                        mode: "chat",
+                        providerId: "fake",
+                        modelId: "fake-model",
+                        prompt: "local prompt",
+                        system: "system text",
+                    },
+                },
+                { id: "output", type: "core.output", typeVersion: 1 },
+            ],
+            edges: [
+                {
+                    from: { nodeId: "call", port: "text" },
+                    to: { nodeId: "output", port: "text" },
+                },
+            ],
+        };
+
+        const snapshot = await host.start({ graph });
+        await waitFor(() => host.get(snapshot.runId)?.status === "completed");
+
+        const events = batches.flatMap((batch) => batch.events);
+        expect(events.find((event) => event.type === "run:end")).toMatchObject({
+            status: "completed",
+        });
+        expect(
+            events.find(
+                (event) =>
+                    event.type === "node:end" && event.nodeId === "output",
+            ),
+        ).toMatchObject({
+            type: "node:end",
+            outputs: {
+                text: { type: "text", text: "hello from fake" },
+            },
+        });
+    });
+
     it("annotates node:error with providerId/httpStatus and reports auth failures", async () => {
         const failure = new SessionError(
             SessionErrorType.ProviderError,

@@ -80,6 +80,19 @@
   cursor: pointer;
 }
 
+.pickCheckbox {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Checkbox 的 label 槽：让文档标题可以省略号截断。 */
+.pickCheckbox > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .checkRow:hover {
   background: var(--fh-surface-raised);
 }

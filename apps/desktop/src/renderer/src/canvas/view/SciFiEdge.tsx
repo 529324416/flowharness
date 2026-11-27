@@ -56,9 +56,6 @@ export function SciFiEdge({
             />
 
             {active ? <path d={path} className={styles.flow} /> : null}
-
-            <circle cx={sourceX} cy={sourceY} r={2.2} className={styles.endpoint} />
-            <circle cx={targetX} cy={targetY} r={2.2} className={styles.endpoint} />
         </g>
     );
 }

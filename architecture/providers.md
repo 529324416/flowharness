@@ -109,6 +109,7 @@ M9.6 起 Model Call 还会检查目录 `capabilities`：chat 模式要求模型�
 - 设计期健康：Provider 节点自身检查 profile / 启用 / key；连接后的 Model 不再重复检查 profile，由 Provider 节点负责，Model 只检查 modelId / 目录；
 - 节点摘要：Provider 节点显示 Profile 标签；连接后的 Model 显示“来源 Profile · modelId”；
 - 交互（2026-11-27）：Provider 节点 Body 使用 FH `ui/Select` 直接切换 Profile（保留默认边框，仅去掉 focus outline）；Model 的 `provider` 输入连接后，检查器 Provider 字段锁定并显示来源 Profile，输入槽也显示来源名称；连接 / 切换 Provider 时按持久化模型目录清空不兼容的 `modelId` 并提示（目录为空时不清空，ADR-032）；Model ID 下拉提供「未选择模型」并可清除失效值；
+- 本地模型绑定（2026-11-27）：Model Call / Agent Run 的 config 也可保存 `providerId` / `modelId`，作为未连接 Model 节点时的本地绑定；节点内提供与 Model 相同的 Provider / Model 下拉，`model` 端口连接后锁定为只读展示（ADR-040）；
 - 模型目录按需刷新（2026-11-27）：Model 节点引用的 Profile 目录为空且没有 `modelsFetchedAt` 时，设计器在后台调用 `provider:models:refresh`；成功由 main 持久化模型列表并广播，失败保留空目录并在 Model 检查器显示错误，可在设置页重试（ADR-035）；
 - 右键「添加节点」的落点换算到画布坐标，避免平移 / 缩放后把节点插到视口外。
 

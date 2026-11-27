@@ -7,7 +7,7 @@ import {
 } from "react";
 import type { RunStatus } from "@flowharness/contracts";
 import type { GraphDocument } from "wireclaw";
-import { Badge, Button, EmptyState, type BadgeVariant } from "../ui";
+import { Badge, Button, Checkbox, EmptyState, type BadgeVariant } from "../ui";
 import type { WorkbenchDefinition, WorkbenchViewProps } from "../workbench/types";
 import { PlanNavigation } from "../shell/navigation/PlanNavigation";
 import { createWorkbenchPlan, planGraphIds } from "../workbench/plan";
@@ -229,18 +229,20 @@ function PlanRunnerWorkbench({
                     <ul className={styles.list}>
                         {documents.map((document) => (
                             <li key={document.id}>
-                                <label className={styles.checkRow}>
-                                    <input
-                                        type="checkbox"
+                                <div className={styles.checkRow}>
+                                    <Checkbox
+                                        className={styles.pickCheckbox}
                                         checked={selected.includes(document.id)}
                                         disabled={running}
+                                        label={
+                                            <span className={styles.docTitle}>
+                                                {document.title}
+                                            </span>
+                                        }
                                         onChange={() => toggle(document.id)}
                                     />
-                                    <span className={styles.docTitle}>
-                                        {document.title}
-                                    </span>
                                     <code className={styles.docId}>{document.id}</code>
-                                </label>
+                                </div>
                             </li>
                         ))}
                     </ul>

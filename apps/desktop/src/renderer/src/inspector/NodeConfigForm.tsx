@@ -6,7 +6,7 @@ import {
     writeConfigPath,
     type ConfigPath,
 } from "../designer/core/config-path";
-import { Checkbox, Field, Input, NumberField, Select, type SelectOption } from "../ui";
+import { Checkbox, CodeArea, Field, Input, NumberField, Select, type SelectOption } from "../ui";
 import styles from "./NodeConfigForm.module.css";
 
 export type NodeConfigFormProps = {
@@ -403,14 +403,13 @@ function JsonValueField({
 
     const field = (
         <>
-            <textarea
+            <CodeArea
                 id={id}
-                className={styles.json}
                 value={draft}
-                rows={multiline ? 6 : 3}
-                spellCheck={false}
+                onChange={setDraft}
                 disabled={disabled}
-                onChange={(event) => setDraft(event.target.value)}
+                ariaLabel="JSON 参数"
+                minHeight={multiline ? 128 : 72}
                 onBlur={commit}
             />
             {parseError !== null ? (

@@ -9,6 +9,8 @@ export type CheckboxProps = {
     onChange: (checked: boolean) => void;
     label?: ReactNode;
     disabled?: boolean;
+    /** 紧凑尺寸：用于 220px 画布节点内联字段。 */
+    compact?: boolean;
     className?: string;
 };
 
@@ -19,10 +21,18 @@ export function Checkbox({
     onChange,
     label,
     disabled = false,
+    compact = false,
     className,
 }: CheckboxProps) {
     return (
-        <label className={cx(styles.row, disabled && styles.disabled, className)}>
+        <label
+            className={cx(
+                styles.row,
+                compact && styles.compact,
+                disabled && styles.disabled,
+                className,
+            )}
+        >
             <input
                 id={id}
                 type="checkbox"

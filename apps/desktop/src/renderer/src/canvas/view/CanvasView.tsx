@@ -98,6 +98,13 @@ function toFlowNodes(
     readOnly: boolean,
 ): FlowNode[] {
     const selected = new Set(selectedNodeIds);
+    const connectedInputs = new Set<string>();
+    const connectedOutputs = new Set<string>();
+    for (const edge of document.edges) {
+        connectedInputs.add(`${edge.target.nodeId}\u0000${edge.target.port}`);
+        connectedOutputs.add(`${edge.source.nodeId}\u0000${edge.source.port}`);
+    }
+
     return document.nodes.map((node) => {
         const data: FlowNodeData = {
             ...node.data,
@@ -109,6 +116,18 @@ function toFlowNodes(
                           onUpdateNodeConfig(node.id, config),
                   }),
             readOnly,
+            connectedPorts: {
+                inputs: node.data.inputs
+                    .filter((port) =>
+                        connectedInputs.has(`${node.id}\u0000${port.name}`),
+                    )
+                    .map((port) => port.name),
+                outputs: node.data.outputs
+                    .filter((port) =>
+                        connectedOutputs.has(`${node.id}\u0000${port.name}`),
+                    )
+                    .map((port) => port.name),
+            },
         };
 
         return {

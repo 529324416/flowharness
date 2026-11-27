@@ -272,8 +272,13 @@ CanvasCommand → GraphDocument
 ### 6.5 NodeContent
 
 - 一期（M2 已完成）：`inspector/NodeConfigForm.tsx` 根据 `configSchema` 生成通用表单（wireclaw 的 JSON Schema 子集：object / string / number / integer / boolean / array / enum / required / minimum / maximum…）；无法表达的字段用 JSON 文本域兜底，整份 config 仍可在「JSON」页签编辑；
-- 二期（M5）：节点 Body 开始支持常用参数内联编辑；节点 Body 显示输入端口槽，连线可直接拖到槽上（同时保留左侧 Handle）；
+- 二期（M5）：节点 Body 开始支持常用参数内联编辑；2026-11-27 起端口改为贴边的方块 / 圆点徽标，与数据行顶部对齐，连线也可落在字段行上（ADR-041）；
 - 全量内联属性（2026-11-27）：节点 Body 覆盖所有内建节点的可编辑 config 字段——Constant 文本、Provider / Model 的 Provider / Model 下拉、Model Call 的 mode / system / think / thinkingLv / temperature / modality / parameters、Agent 的权限 / 步数 / system / think / thinkingLv / temperature / hostTools、ToolSet 的 include / exclude / hostTools、Value、Loop 的迭代 / 失败重试 / graph、ForEach 的 resultPort / graph、Subgraph 的 graph、Event Trigger 的 event、Log 的级别；对象 / 内嵌图使用紧凑 JSON TextArea（失焦解析、失败就地提示），节点高度随字段增长；
+- 表单控件统一（2026-11-27）：节点 Body 的枚举字段全部改用 FH `ui/Select`（Radix 菜单），保留 22px 紧凑高度与默认边框；布尔字段统一 `ui/Checkbox`（自绘方框，`compact` 变体）；输入框、下拉与 JSON 区都不显示聚焦描边，焦点只由光标表达（ADR-037）；
+- 端口徽标与数据行（2026-11-27）：节点 Body 顶部先列输出数据、再列未挂字段的输入；端口徽标与节点主体保持 5px 间距，纵向与数据行上边缘对齐（按布局坐标测量，拖动 / 缩放不跳变）；未连接为灰色 20px 方块 + 居中类型图标，已连接为 20px 橙红空圆环 + 6px 实心点；连线终点落在实心点底部，且连线不再绘制端点小圆（Handle 与视觉徽标解耦）；颜色不随节点选中 / 运行状态变化；底部端口列表移除（ADR-041）；
+- 数据来源统一（2026-11-27）：Model Call / Agent Run 的每个数据字段都同时有输入端口与本地编辑——`core.model.call` 端口为 model / prompt / system / parameters / attachments，`core.agent.run` 为 model / input / system / hostTools / attachments / toolset；未连接时读 config（含 providerId / modelId），连接后对应字段变为只读锁定行；字段顺序为可接入端口的数据优先于只能本地编辑的参数，同组内按必要数据 → 必要参数 → 常用标量 → 低频枚举 → 结构数据（ADR-040 / ADR-041）；
+- 上游锁定字段（2026-11-27）：被连接固定的字段（当前为 Model 的 Provider）不再渲染禁用下拉，而是只读行——锁图标 + 来源值 + 「上游」，hover 提示修改位置；来源值由工作台以 `CanvasLockedField { value, reason }` 投影注入，Canvas 只透传（ADR-037）；
+- JSON 字段（2026-11-27）：节点内联与检查器使用 `ui/CodeArea`（透明 textarea + JSON 高亮层，滚动同步），键 / 字符串 / 数字 / 字面量分别着色，颜色走 `--fh-code-*`；节点内联为 10px 紧凑变体；Constant 阅读态的 JSON 截断预览同样用 `ui/JsonCodeText` 着色，与编辑态一致（ADR-038）；
 - Constant（2026-11-27）：非编辑态渲染为 p 标签，正文按 200 字符裁剪并最多显示 3 行；hover 用半透面板 Tooltip 展示最多 400 字符。标题栏铅笔按钮进入编辑模式，正文切换为随内容自增高的 TextArea（上限 180px），再次点击退出；编辑态可切换 text / json 类型，json 使用紧凑 JSON TextArea；两种模式都关闭拼写检查；
 - Provider（2026-11-27）：Provider 节点 Body 直接提供 Provider 下拉，不再只显示摘要；
 - 节点内容组件通过 `canvas/view/node-registry.ts` 的 registry 注册，Canvas 不感知；当前所有类型都回落到 `SciFiNode`。
@@ -287,10 +292,10 @@ CanvasCommand → GraphDocument
 - renderer `ProviderLibraryProvider` 通过 `provider:library` 读取只读视图，并监听 main 的 `provider` topic；
 - `core.model` 检查器的 `providerId` / `modelId` 变为 Provider / 模型下拉；节点标题右侧显示 Provider 健康三角（红色 / 黄色，带 tooltip）；
 - 节点库新增 `Provider`（`core.provider`）：检查器用同一个 Provider 下拉；输出 `provider` 端口可拖到 Model 的 `provider` 输入，连接后以来源为准、config.providerId 只作回退；
-- Provider 连接是只读约束（2026-11-27）：Model 的 `provider` 输入存在来源 Provider 时，检查器 Provider 字段显示来源并禁用（JSON 写入也会保留原 providerId）；节点内 Provider 槽显示来源 Profile 名称；连接或切换 Provider 后，目录中不存在的 `modelId` 会被清空并弹出「模型已清空」提示；
-- Provider 节点的内联下拉使用 `ui/Select`（FH 菜单，保留默认边框并去掉 focus outline）；Model ID 下拉始终带「未选择模型」项，可清除当前模型；Provider 目录为空且未检测过时，设计器后台刷新并持久化模型目录，检查器在刷新中 / 失败时给出提示；
+- Provider 连接是只读约束（2026-11-27）：Model 的 `provider` 输入存在来源 Provider 时，检查器 Provider 字段显示来源并禁用（JSON 写入也会保留原 providerId）；节点内 Provider 输入槽显示来源 Profile 名称，Body 中的 Provider 字段渲染为只读锁定行（锁图标 + 来源 Profile + 上游），不再提供下拉入口；连接或切换 Provider 后，目录中不存在的 `modelId` 会被清空并弹出「模型已清空」提示；
+- Provider 节点的内联下拉使用 `ui/Select`（FH 菜单，保留默认边框并去掉 focus outline）；Model ID 下拉始终带一条「未选择模型」项（工作台注入、节点内联去重），可清除当前模型；Provider 目录为空且未检测过时，设计器后台刷新并持久化模型目录，检查器在刷新中 / 失败时给出提示；
 - Provider 节点自身显示健康问题；连接后的 Model 摘要显示“来源 Profile · modelId”；右键「添加节点」按画布坐标落点，不会在平移 / 缩放后插到视口外；
-- provider 问题合并进运行日志；缺 profile / model 为 error 并阻断运行，key 失效 / 未验证为 warning，允许尝试运行；
+- provider 问题合并进运行日志：缺 profile / 模型不在目录 / 能力不匹配为 error 并阻断运行；key 失效 / 未验证为 warning，允许尝试运行；「未选择模型」只保留节点标题的红色叹号（hover 提示原因），不弹横幅、不进问题列表、不阻断运行（ADR-039）；
 - Model Call 的 chat / generate / modality 与目录 capabilities 不匹配为 error；旧目录没有 capabilities 时不误报；
 - run 期间：审批走 `shell/InteractionDialogs.tsx` 的 ApprovalDialog，用户输入走 UserInputDialog；main 发 `approval` / `input` topic，renderer 回 `approval:respond` / `input:respond`；
 - Diagnostics 提供「运行恢复」面板：列出 paused / interrupted run，使用 `run:resume-interrupted` 从 checkpoint + graph 快照恢复；
@@ -325,7 +330,7 @@ CanvasCommand → GraphDocument
 | 密度 | 非画布文字 125% 基准（16.25px 正文）、控件 32px（sm 28）、节点 220px、4px 间距基线；图标同步放大 |
 | 外壳 | TitleBar 40（不透明，无底边框）/ Ribbon 46 / 工作台导航 Panel 200–360（默认 260，可收起/拖宽；token 兜底 280）/ StatusBar 26（全宽不透明 Chrome 层，仅底部圆角）；导航与 Canvas 面板化（各 1px 外框 + 6px 圆角，间隙 4px），中间 Body 统一 95% 半透；固定 Inspector/BottomPanel 已移除，改由内部浮动 Panel 承担 |
 | 会话入口 | 设计器左栏为上下双区：上半区工作流列表（`DocumentNavigation`，支持右键菜单），下半区 Session 树（`SessionNavigation`，草稿目录 / 右键菜单）；会话历史是 Canvas 浮动 Panel |
-| 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Field、Select、Checkbox、NumberField、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
+| 原语 | Button、IconButton、Badge、StatusDot、Kbd、Input、Field、Select、Checkbox、CodeArea、NumberField、Panel、EmptyState、Alert、Tooltip、Menu、ContextMenu、Dialog、Tabs |
 | 画布视觉 | 商务扁平节点：6px 圆角、纯色不透明底、HeaderBar 30 + Body 两层、无 Footer；描边通过 `--fh-canvas-zoom` 反向缩放，屏幕恒为 1px；选中仅换 accent 边框；网格线 24px/低亮度，拖拽吸附同为 24px；边 1.4px 贝塞尔，活跃边用主色流动虚线、失败 danger 虚线；缩放工具栏已移除；节点宽、Header、端口、边宽、网格、小地图与缩放范围全部来自 `canvas/metrics.ts`，并通过 CSS 变量下发 |
 | 评审 | 「样式指南」视图覆盖 tokens、组件状态、节点与连线样张（跟随全局主题，页面内无主题切换） |
 
@@ -383,7 +388,7 @@ Panel 布局按 Graph 持久化：`GraphDocument.ui.panels` 保存每个面板�
 - **设计模式**：`harness-designer` 左栏 = GraphDocument 列表（新建 / 最近 / 重命名 / 复制 / 删除 / 导入导出），选中同步 `WorkbenchInstance.graphs` 的 primaryGraph。
 - **运行模式**：同一实例切到 `run`，主视图显示运行上下文条并保持同一张画布（运行时只读）；Session 树位于左栏下半区，不再替换整个左栏。
 - **工作台定义**：`WorkbenchDefinition` 增加 `navigation`（design / run）与可选的 `RunView`；`harness-designer` 不再用 `RunView` 替换主视图，运行上下文条与画布在同一个组件内渲染，design ↔ run 只更新 props、不重挂载 `DesignerView` / `CanvasView`（ADR-027）。
-- **运行期结构保持**：只读（运行 / 暂停 / 冲突）时节点仍渲染内联控件与输入端口槽，仅置为 disabled；节点高度与连线锚点不随运行状态变化。
+- **运行期结构保持**：只读（运行 / 暂停 / 冲突）时节点仍渲染内联控件与端口徽标，仅置为 disabled；节点高度与连线锚点不随运行状态变化。
 - **面板**：
   - 运行日志面板：单一日志列表（问题行 + 事件行，无页签）；渲染 `node:end` / `run:end` outputs、`node:stream`、附件（结果页签已移除）；
   - 会话历史面板：由 `SessionHistoryView` 迁移而来，按 `kind` 渲染 conversation / run；

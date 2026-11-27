@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 import {
+    Bot,
+    BotMessageSquare,
     Box,
     Check,
     GitBranch,
@@ -14,11 +16,12 @@ import { StatusDot, type StatusTone } from "../../ui";
 import { cx } from "../../ui/cx";
 import type {
     CanvasFieldOption,
+    CanvasLockedField,
     CanvasNodeNotice,
     CanvasPort,
     CanvasStatus,
 } from "../core/types";
-import { InlineNodeConfig } from "./InlineNodeConfig";
+import { InlineNodeConfig, inlineInputPorts } from "./InlineNodeConfig";
 import styles from "./NodeVisual.module.css";
 
 export type NodeVisualProps = {
@@ -34,6 +37,8 @@ export type NodeVisualProps = {
     onUpdateConfig?: (config: unknown) => void;
     /** 输入端口槽；提供后可在节点 Body 内直接作为连线落点。 */
     inputs?: readonly CanvasPort[];
+    /** 输出端口数据；显示在 Body 顶部（优先级高于输入）。 */
+    outputs?: readonly CanvasPort[];
     showInputSlots?: boolean;
     /** 端口较多的节点需要最小高度，避免 Handle 挤在 header 里。 */
     minHeight?: number;
@@ -41,22 +46,31 @@ export type NodeVisualProps = {
     notice?: CanvasNodeNotice;
     /** 内联字段下拉；目前用于 core.provider 的 providerId。 */
     fieldOptions?: Readonly<Record<string, readonly CanvasFieldOption[]>>;
-    /** 被连接固定、不可编辑的字段及原因。 */
-    lockedFields?: Readonly<Record<string, string>>;
+    /** 被连接固定、不可编辑的字段及其来源值。 */
+    lockedFields?: Readonly<Record<string, CanvasLockedField>>;
     /** 已连接输入端口在节点内的显示值；缺省显示端口名。 */
     slotLabels?: Readonly<Record<string, string>>;
+    /** 已连接端口：徽标由方块切换为圆点。 */
+    connectedPorts?: {
+        inputs: readonly string[];
+        outputs: readonly string[];
+    };
 };
 
 const ICONS = {
     input: LogIn,
     output: LogOut,
     model: Sparkles,
+    modelCall: BotMessageSquare,
+    agent: Bot,
     branch: GitBranch,
     log: ScrollText,
     default: Box,
 } as const;
 
 function iconFor(kind: string): (typeof ICONS)[keyof typeof ICONS] {
+    if (kind.includes("agent")) return ICONS.agent;
+    if (kind.includes("model.call")) return ICONS.modelCall;
     if (kind.includes("input")) return ICONS.input;
     if (kind.includes("output")) return ICONS.output;
     if (kind.includes("model")) return ICONS.model;
@@ -89,16 +103,21 @@ export function NodeVisual({
     readOnly = false,
     onUpdateConfig,
     inputs = [],
+    outputs = [],
     showInputSlots = false,
     minHeight,
     notice,
     fieldOptions,
     lockedFields,
     slotLabels,
+    connectedPorts,
 }: NodeVisualProps): ReactElement {
     const Icon = iconFor(kind);
     const canEditConstant = kind === "core.constant" && onUpdateConfig !== undefined;
     const [constantEditing, setConstantEditing] = useState(false);
+    const attachedInputs = new Set(inlineInputPorts(kind));
+    const dataInputs = inputs.filter((port) => !attachedInputs.has(port.name));
+    const connectedInputSet = new Set(connectedPorts?.inputs ?? []);
 
     useEffect(() => {
         if (readOnly) setConstantEditing(false);
@@ -158,6 +177,51 @@ export function NodeVisual({
 
             <div className={styles.body}>
                 <span className={styles.kind}>{kind}</span>
+
+                {showInputSlots && (outputs.length > 0 || dataInputs.length > 0) ? (
+                    <div className={styles.dataSection}>
+                        {outputs.map((port) => (
+                            <div
+                                key={`out:${port.name}`}
+                                className={cx(styles.dataRow, styles.dataOutput)}
+                                data-port-anchor={`out:${port.name}`}
+                            >
+                                <span className={styles.dataName}>
+                                    {port.name}
+                                </span>
+                                <span className={styles.dataMeta}>
+                                    {port.type}
+                                </span>
+                            </div>
+                        ))}
+                        {dataInputs.map((port) => {
+                            const connected = connectedInputSet.has(port.name);
+                            const label = slotLabels?.[port.name];
+                            return (
+                                <div
+                                    key={`in:${port.name}`}
+                                    className={cx(
+                                        styles.dataRow,
+                                        styles.dataInput,
+                                        connected && styles.dataConnected,
+                                    )}
+                                    data-port-anchor={`in:${port.name}`}
+                                    data-input-port={port.name}
+                                >
+                                    <span className={styles.dataName}>
+                                        {port.name}
+                                    </span>
+                                    <span className={styles.dataMeta}>
+                                        {connected
+                                            ? (label ?? "已连接")
+                                            : port.type}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : null}
+
                 <InlineNodeConfig
                     kind={kind}
                     config={config}
@@ -168,36 +232,6 @@ export function NodeVisual({
                     lockedFields={lockedFields}
                     editing={constantEditing && !readOnly}
                 />
-
-                {showInputSlots && inputs.length > 0 ? (
-                    <div className={styles.slots}>
-                        {inputs.map((port) => {
-                            const label = slotLabels?.[port.name];
-                            return (
-                                <div
-                                    key={port.name}
-                                    className={cx(
-                                        styles.slot,
-                                        label !== undefined && styles.slotConnected,
-                                        readOnly && styles.slotReadOnly,
-                                    )}
-                                    data-input-port={port.name}
-                                    title={
-                                        readOnly
-                                            ? `输入端口 ${port.name}`
-                                            : `拖拽连线到输入端口 ${port.name}`
-                                    }
-                                >
-                                    <span className={styles.slotDot} aria-hidden="true" />
-                                    <span className={styles.slotName}>
-                                        {label ?? port.name}
-                                    </span>
-                                    <span className={styles.slotType}>{port.type}</span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                ) : null}
             </div>
         </article>
     );

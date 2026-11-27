@@ -43,32 +43,3 @@
   color: var(--fh-text-subtle);
   font-size: var(--fh-text-xs);
 }
-
-.json {
-  width: 100%;
-  min-height: 96px;
-  padding: var(--fh-space-2);
-  border: 1px solid var(--fh-border);
-  border-radius: var(--fh-radius-sm);
-  background: var(--fh-bg-subtle);
-  color: var(--fh-text);
-  font-family: var(--fh-font-mono);
-  font-size: var(--fh-text-xs);
-  line-height: var(--fh-leading-normal);
-  resize: vertical;
-}
-
-.json:hover:not(:disabled) {
-  border-color: var(--fh-border-strong);
-}
-
-.json:focus,
-.json:focus-visible {
-  outline: none;
-  box-shadow: none;
-}
-
-.json:disabled {
-  color: var(--fh-text-subtle);
-  cursor: not-allowed;
-}

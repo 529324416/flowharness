@@ -47,6 +47,10 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M9.5 Provider 节点 / 连线 | ✅（`core.provider` + Model `provider` 输入） |
 | M9.6 Provider 收口 / 真实调用 / 能力校验 | ✅（DeepSeek Live 完成） |
 | 节点交互约束：Provider 内联 / 连接锁定 / Constant 阅读模式 / 图级浮动面板布局 / 模型目录按需刷新 | ✅ |
+| 表单控件收口：FH 下拉 / 无聚焦描边 / 自绘勾选 / 上游锁定只读 / JSON 代码主题 | ✅ |
+| 未选择模型：空选项去重 / 仅节点红叹号提示 / 不阻断运行 | ✅ |
+| 模型节点数据端口化：本地回退 / 端口连接锁定 / 本地模型绑定 / Agent Bot 图标 | ✅ |
+| 节点端口徽标：输出数据优先 / 与主体留距·行顶对齐 / 灰↔橙红 / 选中不变色 | ✅ |
 | 用户节点预设库文件导入 / 导出 | ⬜ |
 | 打包分发 | ⬜ |
 
@@ -62,6 +66,14 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 - Provider 库是应用级数据，不随 `.fhws` 导出；换 key 只改 Provider Profile，节点仍引用 `providerId`；
 - Provider 节点输出 `provider` 引用，可连到 Model 的 `provider` 输入；连接优先，config.providerId 作为未连接回退；
 - 受限环境（AppData 不可写）下 Provider 库 / secrets 的修改只在当前会话内存生效，设置页会显示明确警告；正常权限启动即可持久化；
+- 表单控件（输入框 / 下拉 / JSON 代码区）不显示聚焦描边，焦点只由光标表达；下拉、勾选与代码区统一走 FH 原语，不再出现原生控件；
+- 被上游连接固定的字段（当前为 Model 的 Provider）只读展示来源值；修改需要回到上游 Provider 节点；
+- JSON 代码主题只覆盖 JSON（`ui/CodeArea` + `json-highlight`），大文本未做虚拟化；
+- 清空 Model 的模型只在节点标题显示红色叹号（带 tooltip），不弹横幅、不进问题列表、不阻断运行；直接运行会在该节点以运行期错误结束（ADR-039）；
+- Model Call / Agent Run 的每个数据字段都有输入端口与本地编辑；未连接时读 config（含 `providerId` / `modelId`），连接后字段锁定为只读展示（ADR-040）；
+- 本地模型绑定只在 Model Call 参与能力校验，Provider 健康检查仍由 Model / Provider 节点承担；
+- 本地 attachments / toolset 通过 JSON 编辑（`[{ contentHash }]` / `{ include, exclude }`），误填在运行期报错；新增字段与端口行使节点明显变高；
+- 端口徽标与节点主体保持 5px 间距、上边缘对齐数据行；未连接为灰色 20px 方块 + 居中图标，已连接为 20px 橙红空圆环 + 6px 实心点（连线终点在实心点底部，连线不再画端点小圆），颜色不随选中变化；位置按布局坐标测量，拖动 / 缩放不跳变；输出数据行只做展示、不可编辑；Styleguide 静态样张不渲染端口徽标；
 - 草稿目录通过 Session 树文件夹右键「设为草稿目录」配置，暂无独立工作区设置页；
 - `.fhws` 导入总是创建新工作区副本（不合并 / 不覆盖），档案不含 `runs/` 与 `sessions/`；工作台模板为内置静态列表（3 条，原「节点清单」并入节点库、独立运行页已移除）；节点库随工作区文档导出，独立于 `.fhws` 的预设文件导入 / 导出尚未接入；
 - 标题栏关闭与 Ctrl+W 会先 flush 当前文档；系统级关闭（Alt+F4）仍无退出握手；
@@ -149,7 +161,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core/view + designer core/state + workbench + 节点库 + Provider 库单测（45 files / 252 tests） |
+| `pnpm test` | main 数据层 + canvas core/view + designer core/state + workbench + 节点库 + Provider 库 + UI 纯函数单测（46 files / 260 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

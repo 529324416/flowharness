@@ -981,3 +981,157 @@ Provider Profile 的模型目录只在设置页显式刷新，新建 / 迁移的
 - 在节点内实现完整的 schema 表单：220px 宽度下标签 / 提示成本过高，且会重复检查器。
 - 为内嵌图单独做节点内图编辑器：交互复杂，当前 JSON 文本域足够表达且可回退。
 
+---
+
+## ADR-037：表单控件统一——FH 下拉、无聚焦描边、上游锁定只读
+
+**背景**
+
+节点内联仍有原生 `<select>`（Constant 的 text/json、Model Call 的 mode / modality、Agent 的 permission、Log 的 level）：弹层是系统样式，聚焦时还会套上全局 `:focus-visible` 的青绿描边。布尔字段（Value 的必填、Model Call / Agent 的思考、Loop 的失败重试、批量运行的图选择）仍是原生 checkbox，未被选中时是系统灰底方块。Model 的 Provider 连接上游后虽然被禁用，但仍渲染成下拉，界面上看起来仍像一个可编辑入口。
+
+**决定**
+
+- 节点内联枚举全部改用 `ui/Select`（Radix DropdownMenu + FH token），通过 `inlineSelect` 保留 22px 紧凑高度、3px 圆角与默认边框；菜单沿用检查器同一套 FH 弹层。
+- 全局移除 `input` / `select` / `textarea` 的 `:focus-visible` 描边与 focus 期的边框变化；焦点只由光标表达。按钮、图标按钮等非表单控件仍保留 `--fh-border-focus` 焦点环。
+- 布尔字段统一 `ui/Checkbox`（隐藏原生外观、自绘方框）；画布节点使用新增的 `compact` 变体（12px 方框、10px 文案、不占 32px 控件高度）。
+- 被上游连接固定的字段不再渲染“禁用下拉”，改为只读行：锁图标 + 来源值 + 「上游」，hover 提示修改位置。来源值由工作台投影注入（`CanvasLockedField { value, reason }`），Canvas 只透传，不解释 Provider 语义。
+
+**后果**
+
+- 表单控件在深 / 亮主题下外观一致，节点与检查器使用同一套下拉与勾选原语；节点内联不再出现系统弹层。
+- 键盘焦点在表单控件上不可见（与既有 `Input` 的约定一致）；可访问性依赖标签、光标与 aria-label。
+- 上游锁定从“看起来可编辑但点不动”变为明确的只读信息；`lockedFields` 的类型由 reason 字符串升级为 `{ value, reason }`，`adapter` / `NodeVisual` / `SciFiNode` 只做透传。
+- 节点高度不因锁定态变化；断开连接后回退值仍是 `config.providerId`（ADR-032）。
+
+**否决**
+
+- 只把原生 `<select>` 的聚焦描边去掉：弹层仍是系统样式，与 FH 菜单并存。
+- 给表单控件换中性色焦点环：用户明确要求输入框与下拉不显示聚焦边框。
+- 继续用禁用下拉展示上游值：控件语义仍是“可编辑”，且无法直接读出“来自上游”。
+
+---
+
+## ADR-038：JSON 字段使用代码主题
+
+**背景**
+
+检查器「JSON」页签、节点内联的 `parameters` / `hostTools` / 内嵌图 JSON 都是纯文本 textarea：没有键、字符串、数字的区分，长 JSON 难以扫读，错误也不易定位。与此同时项目没有编辑器依赖，也不希望为此引入 Monaco 级别的体积。
+
+**决定**
+
+- 新增 `ui/CodeArea`：透明 textarea（负责光标、选择、输入法、撤销与滚动）+ 同字体高亮层（`<pre aria-hidden>`）叠放，滚动位置由 `onScroll` 同步。
+- 新增 `ui/json-highlight.ts`：把 JSON 源码扫描为 key / string / number / boolean / null / punctuation / plain token；只做展示层分词、不校验结构，无法识别的内容原样保留，保证拼接后与原文逐字一致。
+- 颜色走新 token `--fh-code-*`：深色取 VS Code Dark+ 的去饱和版本（键 `#9cdcfe`、字符串 `#ce9178`、数字 `#b5cea8`、字面量 `#569cd6`），亮色给出对应浅色值。
+- 接入三处：节点内联 JSON（10px 紧凑变体）、检查器 schema 表单里的 JSON 字段、检查器「JSON」页签；节点内联的高度仍由行数决定，超出后在控件内滚动。
+- Constant 阅读态（2026-11-27 同日修正）：JSON 类型的截断预览同样经过 `JsonCodeText` 着色，和编辑态使用同一套 token 颜色与等宽字体。
+- 不引入第三方编辑器；只支持 JSON，不做自动补全、折叠或校验提示。
+
+**后果**
+
+- JSON 在编辑态即可读出色块结构；选中、复制、输入法行为不变。
+- 高亮层与 textarea 必须共享字体、字号、行高与内边距，否则光标与字形错位；换行被禁用（`wrap="off"`），横向滚动由 textarea 驱动。
+- 纯展示分词对超大 JSON 会生成较多 span；当前 config 规模（4 MB 上限、常见几百行）可接受，后续若需要再换虚拟化。
+- `json-highlight` 是纯函数，可单测；`CodeArea` 仍是薄组件，没有新增运行期依赖。
+
+**否决**
+
+- 引入 Monaco / CodeMirror：体积、主题与 Electron 集成成本远高于当前需求。
+- 只读时高亮、编辑时纯文本：用户在编辑时最需要辨认结构。
+- 用 `<textarea>` + CSS 渐变模拟着色：无法按 token 精确上色。
+
+---
+
+## ADR-039：未选择模型只做节点提示，不再阻断运行
+
+**背景**
+
+Model 节点清空模型（下拉选择「未选择模型」）后，Provider 问题收集把它作为 `error`：画布顶部立刻出现「无法运行：Provider 配置存在问题」横幅，运行按钮同时被禁用。用户只是把模型暂时清空、准备重新选择，却先收到一条无法运行的错误；同一节点标题已经有红色叹号，信息重复。同时 Model ID 下拉里出现了两个「未选择模型」：工作台注入了一份空值项，节点内联又补了一份。
+
+**决定**
+
+- `missing-model` 问题保持 `severity: "error"`（问题模型不降级），但**不进入阻断集合**：不弹 Provider 错误横幅、不进入运行日志的问题行、不禁用运行。
+- 节点标题的红色叹号（`CanvasNodeNotice.severity = "danger"`）继续由 Provider 问题投影，hover 显示「Model 节点未选择模型」；这是该状态的唯一可见提示。
+- 「未选择模型」只作为待补全状态：用户仍可运行；若直接运行，模型节点会在运行期失败并按运行错误展示。
+- 下拉空值项由工作台选项统一提供；节点内联只在缺失时补一条（`withEmptyOption`），检查器与画布都恰好一条「未选择模型」。
+
+**后果**
+
+- 清空模型不再打断编辑；错误反馈从三条（横幅 / 日志 / 图标）收敛为一条（标题图标 + tooltip）。
+- 用户可能在未选模型时点击运行，失败信息出现在运行期而不是设计期；这与“允许尝试”的既有取向一致（key 未验证也不阻断）。
+- `missing-model` 仍出现在 `ProviderProblem` 列表中，供测试与后续面板复用；只是不再参与阻断与问题列表渲染。
+- `Provider` 缺失、模型不在目录、能力不匹配仍按 error 阻断。
+
+**否决**
+
+- 继续弹横幅：与节点红色叹号重复，且打断“先清空再重选”的常见操作。
+- 把 severity 降级为 warning：图标会变成黄色，与用户要求的红色叹号不符，也削弱了“必须选择模型才能运行”的语义。
+- 让运行按钮禁用但不提示：用户不知道为何点不动。
+
+---
+
+## ADR-040：节点数据端口化与本地回退
+
+**背景**
+
+Model Call / Agent Run 的 `model`、`prompt`（Agent 为 `input`）、`attachments`、`toolset` 只能由上游连接提供，节点本地没有编辑入口；`system`、`parameters`、`hostTools` 只能在节点本地修改，无法由上游节点喂入。同一条数据“从哪来”两套规则，用户既不能脱离上游直接编辑，也不能把本地字段接到上游。
+
+**决定**
+
+- 统一为「每个数据字段 = 输入端口 + 本地 config 回退」：端口连接时以端口值为准，未连接时读取节点 config。
+- `core.model.call` 新增 `system` / `parameters` 输入；configSchema 新增 `providerId` / `modelId` / `prompt` / `attachments`（`[{ contentHash }]`）。`model` / `prompt` 改为可选输入。
+- `core.agent.run` 新增 `system` / `hostTools` 输入；configSchema 新增 `providerId` / `modelId` / `input` / `attachments` / `toolset`。`model` / `input` 改为可选输入。
+- 执行期先做端口覆盖（`system` / `parameters` / `hostTools`），再走原有 config 校验；模型绑定、prompt/input、attachments、toolset 在端口缺席时读 config；缺值在节点执行期报错，解析期不再抛 `MissingInput`。
+- 画布把「端口连接」投影为字段锁：连接任何受支持端口后，对应字段渲染为只读锁定行（锁图标 + 上游值 + 「上游」）；锁定值按字段解析（Provider 显示 Profile、Model 显示模型 id、Constant 显示文本），检查器同字段禁用并显示锁定原因。
+- Model Call / Agent 增加本地 Provider + Model 下拉，与 Model 节点一致；`model` 端口连接时保留本地回退值、锁定编辑；切换 Provider 时按持久化目录清空不兼容的 `modelId`。
+- 端口行移除装饰性圆点，只保留节点边缘的连接柄；Agent Run 图标改为 Bot、Model Call 改为 BotMessageSquare。
+- 节点 Body 字段顺序：必要数据 → 必要参数 → 常用标量 → 低频枚举 → 结构数据（`parameters` / `toolset` / `hostTools` / `attachments`）；2026-11-27 晚修订：可接入端口的数据字段整体优先于只能本地编辑的参数（ADR-041）。
+
+**后果**
+
+- 图可以完全不连上游、只靠本地 config 运行，也可以部分字段来自上游、部分本地。
+- 缺少 model / prompt / input 不再在依赖解析时失败，而是在节点执行期给出节点错误；`Graph.validate()` 不拦截，设计器仍可按需要补提示。
+- 节点明显变高：新增本地编辑控件与端口行；密集画布需要更大节点间距。
+- 本地 `attachments` / `toolset` 通过 JSON 编辑，属于高级入口；误填会在运行期被校验拒绝。
+- Model Call / Agent 的本地模型绑定暂不复用 Provider 健康检查（仍由 Model / Provider 节点承担），只参与 Model Call 的 chat / generate / modality 能力校验。
+
+**否决**
+
+- 继续“端口只读、config 只写”：同一条数据两种来源，用户无法在节点内补齐。
+- 用 `inputDefaults` 承载本地值：需要新的文档命令、撤销栈与表单接线，且与 configSchema 表单重复。
+- 给 `temperature` / `think` / `maxSteps` 等标量也加端口：收益低、节点更高；本轮只端口化数据字段，参数保持本地。
+
+---
+
+## ADR-041：节点端口徽标与数据行
+
+**背景**
+
+端口此前只在节点底部以「端口行」列表出现：只有输入、没有输出；端口 Handle 沿节点边缘均匀分布，与数据字段的纵向位置无关；未连接与已连接都用同一个小圆点，只能靠行内文字区分类型。节点变高后，底部列表离对应字段很远，连线时要来回找。
+
+**决定**
+
+- 节点 Body 顶部增加「数据行」区：先列输出端口（优先级高于输入），再列没有对应字段的输入端口；底部端口列表移除。
+- 端口徽标与节点主体保持 5px 间距，贴在左右两侧；纵向与对应数据行的**上边缘**对齐（`top` = 行顶，不再垂直居中）。行位置由 `data-port-anchor` 标记，画布按 **offsetTop 布局链**（未缩放的整数坐标）测量，避免平移 / 缩放时 `getBoundingClientRect` 亚像素取整造成的徽标跳变；同时覆盖 react-flow 默认的 `translate(-50%, -50%)`。
+- 未连接 = 灰色 20px 圆角方块 + 10px 数据类型图标（text / json / model / provider / toolset / attachments / any），图标在方块内几何居中；已连接 = 橙红色 20px 空圆环 + 6px 实心点（`--fh-port-connected`），不再显示类型；圆环上边缘与方块对齐。
+- 连线端点与视觉徽标解耦：react-flow 对 Left / Right 句柄取**外缘**作为连线端点，因此句柄改为 6px 透明块（未连接中心对准方块中心，已连接对准实心点底部），视觉徽标作为独立元素渲染；命中区覆盖整块徽标，点击方块 / 圆环仍可拖线。
+- 连线组件不再自绘端点小圆（`SciFiEdge` 的 endpoint 圆移除）；连线终点就是实心点底部。
+- 端口颜色只由连接状态决定，不随节点选中或运行状态改变；节点边框也不再因选中改色。
+- 端口徽标本身就是 React Flow `Handle`：视觉与命中区是同一个元素；保留 `data-input-port`，连线仍可落在字段行上。
+- Model / Model Call / Agent 的内联字段行就是输入端口的锚点（`PortBlock`），例如 `model` 对齐模型绑定行、`prompt` 对齐 Prompt、`system` 对齐 System Prompt；没有字段可挂的输入（如 Output 节点的 text / json）作为数据行出现。
+- 输出徽标同理：有下游连线时为橙红圆点，否则为灰色方块 + 类型图标。
+- 字段顺序规则修订：**可接入端口的数据字段优先于只能本地编辑的参数**（本轮之前是「必要数据 → 必要参数 → …」，新增优先级更高）；同组内仍按必要 / 常用 / 结构排序。
+
+**后果**
+
+- 连线目标与数据字段一一对齐，节点更高（每个输出一行数据 + 已有字段），但不再需要底部端口列表。
+- Handle 位置依赖渲染后测量；配置编辑导致行高变化时会重新测量并更新位置，连线端点随内容移动。
+- 端口颜色稳定（连接 = 橙红、未连接 = 灰），选中节点不再改变节点 / 端口颜色；选中反馈只保留在检查器标题与多选行为上。
+- 端口图标是纯视觉，不替代 aria-label；Handles 仍带 `aria-label`（方向 / 端口名 / 类型）。
+- Styleguide 的静态节点样张没有画布测量，只渲染数据行与字段，不渲染徽标。
+
+**否决**
+
+- 保留底部端口行并在旁边加输出列表：字段与端口仍然分离，连线要跨节点找位置。
+- 继续把 Handle 均匀分布在边缘：与数据行无关，且节点变高后偏差更大。
+- 用文字标签表达类型：220px 节点内过于拥挤，图标更紧凑。
+

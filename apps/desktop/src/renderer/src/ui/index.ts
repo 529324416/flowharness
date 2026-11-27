@@ -26,6 +26,12 @@ export type { SelectOption, SelectProps } from "./Select";
 export { Checkbox } from "./Checkbox";
 export type { CheckboxProps } from "./Checkbox";
 
+export { CodeArea } from "./CodeArea";
+export type { CodeAreaProps } from "./CodeArea";
+export { JsonCodeText } from "./JsonCodeText";
+export { tokenizeJson } from "./json-highlight";
+export type { JsonToken, JsonTokenType } from "./json-highlight";
+
 export { NumberField } from "./NumberField";
 export type { NumberFieldProps } from "./NumberField";
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactElement } from "react";
 import {
     Badge,
     Button,
+    CodeArea,
     EmptyState,
     StatusDot,
     Tabs,
@@ -246,13 +247,13 @@ function ConfigJsonEditor({
 
     return (
         <>
-            <textarea
-                className={styles.editor}
+            <CodeArea
+                className={styles.editorArea}
                 value={draft}
+                onChange={setDraft}
                 readOnly={!canEdit}
-                spellCheck={false}
-                aria-label="节点 config JSON"
-                onChange={(event) => setDraft(event.target.value)}
+                ariaLabel="节点 config JSON"
+                minHeight={148}
             />
             {parseError ? <p className={styles.error}>{parseError}</p> : null}
             {!canEdit ? (

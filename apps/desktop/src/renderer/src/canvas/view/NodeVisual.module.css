@@ -112,57 +112,34 @@
   white-space: nowrap;
 }
 
-.slots {
+/* 数据行：输出在上（优先），输入在下；端口徽标由画布按 data-port-anchor 对齐。 */
+.dataSection {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-top: 3px;
+  gap: 3px;
+  margin-bottom: 2px;
 }
 
-.slot {
+.dataRow {
   display: flex;
-  align-items: center;
-  gap: 5px;
+  align-items: baseline;
+  gap: 6px;
   min-width: 0;
-  padding: 2px 4px;
+  padding: 2px 5px;
   border: 1px dashed var(--fh-border);
   border-radius: 3px;
   background: color-mix(in srgb, var(--fh-surface-raised) 55%, transparent);
 }
 
-.slot:hover {
-  border-color: var(--fh-border-strong);
+.dataOutput {
+  border-color: color-mix(in srgb, var(--fh-accent) 38%, var(--fh-border));
 }
 
-/* 已连接端口显示来源值，保留可重新连线的视觉；只读时由 slotReadOnly 覆盖。 */
-.slotConnected {
+.dataConnected {
   border-style: solid;
-  background: color-mix(in srgb, var(--fh-surface-raised) 80%, transparent);
 }
 
-.slotConnected .slotName {
-  color: var(--fh-text);
-}
-
-/* 只读期间保留同一套端口槽，仅去掉可拖拽的视觉暗示。 */
-.slotReadOnly {
-  border-style: solid;
-  cursor: default;
-}
-
-.slotReadOnly:hover {
-  border-color: var(--fh-border);
-}
-
-.slotDot {
-  width: 6px;
-  height: 6px;
-  flex: none;
-  border: 1px solid var(--fh-text-subtle);
-  border-radius: 50%;
-}
-
-.slotName {
+.dataName {
   overflow: hidden;
   color: var(--fh-text-muted);
   font-family: var(--fh-font-mono);
@@ -171,7 +148,8 @@
   white-space: nowrap;
 }
 
-.slotType {
+.dataMeta {
+  flex: none;
   margin-left: auto;
   color: var(--fh-text-subtle);
   font-family: var(--fh-font-mono);
@@ -197,9 +175,4 @@
   --node-accent: var(--fh-text-subtle);
   --node-border: var(--fh-border);
   color: var(--fh-text-muted);
-}
-
-.selected {
-  --node-border: var(--fh-accent);
-  border-color: var(--fh-accent);
 }

@@ -4,9 +4,11 @@ import {
     useRef,
     useState,
     type ReactElement,
+    type ReactNode,
 } from "react";
-import type { CanvasFieldOption } from "../core/types";
-import { Select, Tooltip } from "../../ui";
+import { Lock } from "lucide-react";
+import type { CanvasFieldOption, CanvasLockedField } from "../core/types";
+import { Checkbox, CodeArea, JsonCodeText, Select, Tooltip } from "../../ui";
 import {
     CONSTANT_PREVIEW_LIMIT,
     CONSTANT_TOOLTIP_LIMIT,
@@ -17,6 +19,38 @@ import styles from "./InlineNodeConfig.module.css";
 /** 常量编辑模式的 TextArea 高度上限（px）。 */
 const CONSTANT_EDIT_MAX_HEIGHT = 180;
 
+/** 节点内联下拉的紧凑尺寸：与 22px 输入框对齐，不使用 32px 检查器控件高度。 */
+const INLINE_SELECT = `nodrag nowheel ${styles.inlineSelect}`;
+
+const MODEL_CALL_MODES = [
+    { value: "chat", label: "chat" },
+    { value: "generate", label: "generate" },
+] as const;
+
+const GENERATE_MODALITIES = [
+    { value: "image", label: "image" },
+    { value: "audio", label: "audio" },
+    { value: "video", label: "video" },
+] as const;
+
+const AGENT_PERMISSIONS = [
+    { value: "readonly", label: "readonly" },
+    { value: "approval", label: "approval" },
+    { value: "full", label: "full" },
+] as const;
+
+const LOG_LEVELS = [
+    { value: "debug", label: "debug" },
+    { value: "info", label: "info" },
+    { value: "warn", label: "warn" },
+    { value: "error", label: "error" },
+] as const;
+
+const CONSTANT_TYPES = [
+    { value: "text", label: "text" },
+    { value: "json", label: "json" },
+] as const;
+
 export type InlineNodeConfigProps = {
     kind: string;
     config: unknown;
@@ -25,11 +59,35 @@ export type InlineNodeConfigProps = {
     onChange?: (config: unknown) => void;
     /** 运行时注入的字段下拉（目前用于 core.provider 的 providerId）。 */
     fieldOptions?: Readonly<Record<string, readonly CanvasFieldOption[]>>;
-    /** 被连接固定、不可编辑的字段及原因。 */
-    lockedFields?: Readonly<Record<string, string>>;
+    /** 被连接固定、不可编辑的字段及其来源值。 */
+    lockedFields?: Readonly<Record<string, CanvasLockedField>>;
     /** core.constant 是否处于正文编辑模式（由节点标题栏按钮切换）。 */
     editing?: boolean;
 };
+
+/**
+ * 节点内联字段覆盖的输入端口。
+ *
+ * 这些端口不再出现在顶部「数据行」里，而是把徽标对齐到对应字段行；
+ * 其余输入端口由 NodeVisual 以数据行展示。
+ */
+export function inlineInputPorts(kind: string): readonly string[] {
+    if (kind === "core.model") return ["provider"];
+    if (kind === "core.model.call") {
+        return ["model", "prompt", "system", "parameters", "attachments"];
+    }
+    if (kind === "core.agent.run") {
+        return [
+            "model",
+            "input",
+            "system",
+            "hostTools",
+            "attachments",
+            "toolset",
+        ];
+    }
+    return [];
+}
 
 /**
  * 节点内联编辑：高频节点的常用参数直接在节点 Body 上修改。
@@ -67,14 +125,14 @@ export function InlineNodeConfig({
             isRecord(config) && typeof config.providerId === "string"
                 ? config.providerId
                 : "";
-        const options = [
-            { value: "", label: "未选择 Provider" },
-            ...(fieldOptions?.providerId ?? []),
-        ];
+        const options = withEmptyOption(
+            fieldOptions?.providerId ?? [],
+            "未选择 Provider",
+        );
         return (
             <div className={styles.row}>
                 <Select
-                    className={`${styles.providerSelect} nodrag nowheel`}
+                    className={INLINE_SELECT}
                     value={providerId}
                     options={options}
                     disabled={readOnly}
@@ -105,35 +163,45 @@ export function InlineNodeConfig({
             isRecord(config) && typeof config.modelId === "string"
                 ? config.modelId
                 : "";
-        const providerLocked = lockedFields?.providerId !== undefined;
+        const providerLock = lockedFields?.providerId;
         return (
             <div className={styles.stack}>
+                <PortBlock port="provider">
+                    {providerLock === undefined ? (
+                        <Select
+                            className={INLINE_SELECT}
+                            value={providerId}
+                            options={withEmptyOption(
+                                fieldOptions?.providerId ?? [],
+                                "未选择 Provider",
+                            )}
+                            disabled={readOnly}
+                            aria-label="Model Provider"
+                            placeholder="未选择 Provider"
+                            onChange={(next) => {
+                                const configNext: Record<string, unknown> = {
+                                    ...(isRecord(config) ? config : {}),
+                                };
+                                if (next === "") delete configNext.providerId;
+                                else configNext.providerId = next;
+                                onChange(configNext);
+                            }}
+                        />
+                    ) : (
+                        <LockedField
+                            label="Provider"
+                            value={providerLock.value}
+                            reason={providerLock.reason}
+                        />
+                    )}
+                </PortBlock>
                 <Select
-                    className={`${styles.providerSelect} nodrag nowheel`}
-                    value={providerId}
-                    options={[
-                        { value: "", label: "未选择 Provider" },
-                        ...(fieldOptions?.providerId ?? []),
-                    ]}
-                    disabled={readOnly || providerLocked}
-                    aria-label="Model Provider"
-                    placeholder="未选择 Provider"
-                    onChange={(next) => {
-                        const configNext: Record<string, unknown> = {
-                            ...(isRecord(config) ? config : {}),
-                        };
-                        if (next === "") delete configNext.providerId;
-                        else configNext.providerId = next;
-                        onChange(configNext);
-                    }}
-                />
-                <Select
-                    className={`${styles.providerSelect} nodrag nowheel`}
+                    className={INLINE_SELECT}
                     value={modelId}
-                    options={[
-                        { value: "", label: "未选择模型" },
-                        ...(fieldOptions?.modelId ?? []),
-                    ]}
+                    options={withEmptyOption(
+                        fieldOptions?.modelId ?? [],
+                        "未选择模型",
+                    )}
                     disabled={readOnly}
                     aria-label="Model ID"
                     placeholder="未选择模型"
@@ -169,58 +237,139 @@ export function InlineNodeConfig({
                 ? config.modality
                 : "image";
         const parameters = isRecord(config) ? config.parameters : undefined;
+        const prompt =
+            isRecord(config) && typeof config.prompt === "string"
+                ? config.prompt
+                : "";
+        const attachments = isRecord(config) ? config.attachments : undefined;
         return (
             <div className={styles.stack}>
-                <div className={styles.row}>
-                    <select
-                        className={`${styles.select} nodrag nowheel`}
-                        value={mode}
-                        disabled={readOnly}
-                        aria-label="模型调用模式"
-                        onChange={(event) =>
-                            onChange(writeConfig(config, { mode: event.target.value }))
-                        }
-                        onKeyDown={(event) => event.stopPropagation()}
-                    >
-                        <option value="chat">chat</option>
-                        <option value="generate">generate</option>
-                    </select>
-                    <input
-                        className={`${styles.number} nodrag nowheel`}
-                        type="number"
-                        min={0}
-                        max={2}
-                        step={0.1}
-                        value={temperature ?? ""}
-                        disabled={readOnly}
-                        aria-label="Temperature"
-                        placeholder="temp"
-                        onChange={(event) => {
-                            const parsed = Number(event.target.value);
-                            onChange(
-                                writeConfig(config, {
-                                    temperature:
-                                        event.target.value === "" ||
-                                        !Number.isFinite(parsed)
-                                            ? undefined
-                                            : parsed,
-                                }),
-                            );
-                        }}
-                        onKeyDown={(event) => event.stopPropagation()}
+                <PortBlock port="model">
+                    <ModelBindingFields
+                        config={config}
+                        readOnly={readOnly}
+                        fieldOptions={fieldOptions}
+                        lockedFields={lockedFields}
+                        ariaPrefix="Model Call"
+                        onChange={onChange}
                     />
-                </div>
-                <TextareaInline
-                    value={system}
-                    ariaLabel="System Prompt"
-                    placeholder="System Prompt"
+                </PortBlock>
+                <PortBlock port="prompt">
+                    {lockedFields?.prompt !== undefined ? (
+                        <LockedField
+                            label="Prompt"
+                            value={lockedFields.prompt.value}
+                            reason={lockedFields.prompt.reason}
+                        />
+                    ) : (
+                        <TextareaInline
+                            value={prompt}
+                            ariaLabel="Prompt"
+                            placeholder="Prompt"
+                            disabled={readOnly}
+                            onChange={(next) =>
+                                onChange(writeConfig(config, { prompt: next }))
+                            }
+                        />
+                    )}
+                </PortBlock>
+                <PortBlock port="system">
+                    {lockedFields?.system !== undefined ? (
+                        <LockedField
+                            label="System Prompt"
+                            value={lockedFields.system.value}
+                            reason={lockedFields.system.reason}
+                        />
+                    ) : (
+                        <TextareaInline
+                            value={system}
+                            ariaLabel="System Prompt"
+                            placeholder="System Prompt"
+                            disabled={readOnly}
+                            onChange={(next) =>
+                                onChange(writeConfig(config, { system: next }))
+                            }
+                        />
+                    )}
+                </PortBlock>
+                <PortBlock port="parameters">
+                    {lockedFields?.parameters !== undefined ? (
+                        <LockedField
+                            label="生成参数"
+                            value={lockedFields.parameters.value}
+                            reason={lockedFields.parameters.reason}
+                        />
+                    ) : (
+                        <JsonInline
+                            value={parameters}
+                            ariaLabel="生成参数"
+                            placeholder="{ } 生成参数"
+                            rows={2}
+                            disabled={readOnly}
+                            onChange={(next) =>
+                                onChange(writeConfig(config, { parameters: next }))
+                            }
+                        />
+                    )}
+                </PortBlock>
+                <PortBlock port="attachments">
+                    {lockedFields?.attachments !== undefined ? (
+                        <LockedField
+                            label="附件"
+                            value={lockedFields.attachments.value}
+                            reason={lockedFields.attachments.reason}
+                        />
+                    ) : (
+                        <JsonInline
+                            value={attachments}
+                            ariaLabel="附件引用"
+                            placeholder='[ { "contentHash": "…" } ]'
+                            rows={2}
+                            disabled={readOnly}
+                            onChange={(next) =>
+                                onChange(writeConfig(config, { attachments: next }))
+                            }
+                        />
+                    )}
+                </PortBlock>
+                <Select
+                    className={INLINE_SELECT}
+                    value={mode}
+                    options={MODEL_CALL_MODES}
                     disabled={readOnly}
+                    aria-label="模型调用模式"
                     onChange={(next) =>
-                        onChange(writeConfig(config, { system: next }))
+                        onChange(writeConfig(config, { mode: next }))
                     }
                 />
+                <input
+                    className={`${styles.number} nodrag nowheel`}
+                    type="number"
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    value={temperature ?? ""}
+                    disabled={readOnly}
+                    aria-label="Temperature"
+                    placeholder="temp"
+                    onChange={(event) => {
+                        const parsed = Number(event.target.value);
+                        onChange(
+                            writeConfig(config, {
+                                temperature:
+                                    event.target.value === "" ||
+                                    !Number.isFinite(parsed)
+                                        ? undefined
+                                        : parsed,
+                            }),
+                        );
+                    }}
+                    onKeyDown={(event) => event.stopPropagation()}
+                />
                 <div className={styles.row}>
-                    <CheckInline
+                    <Checkbox
+                        className="nodrag"
+                        compact
                         label="思考"
                         checked={think}
                         disabled={readOnly}
@@ -242,27 +391,15 @@ export function InlineNodeConfig({
                         onKeyDown={(event) => event.stopPropagation()}
                     />
                 </div>
-                <select
-                    className={`${styles.select} nodrag nowheel`}
+                <Select
+                    className={INLINE_SELECT}
                     value={modality}
+                    options={GENERATE_MODALITIES}
                     disabled={readOnly}
                     aria-label="生成模态"
-                    onChange={(event) =>
-                        onChange(writeConfig(config, { modality: event.target.value }))
+                    onChange={(next) =>
+                        onChange(writeConfig(config, { modality: next }))
                     }
-                    onKeyDown={(event) => event.stopPropagation()}
-                >
-                    <option value="image">image</option>
-                    <option value="audio">audio</option>
-                    <option value="video">video</option>
-                </select>
-                <JsonInline
-                    value={parameters}
-                    ariaLabel="生成参数"
-                    placeholder="{ } 生成参数"
-                    rows={2}
-                    disabled={readOnly}
-                    onChange={(next) => onChange(writeConfig(config, { parameters: next }))}
                 />
             </div>
         );
@@ -289,22 +426,19 @@ export function InlineNodeConfig({
                     }
                     onKeyDown={(event) => event.stopPropagation()}
                 />
-                <label className={styles.check}>
-                    <input
-                        type="checkbox"
-                        className="nodrag"
-                        checked={required}
-                        disabled={readOnly}
-                        aria-label="必填"
-                        onChange={(event) =>
-                            onChange({
-                                ...(isRecord(config) ? config : {}),
-                                required: event.target.checked,
-                            })
-                        }
-                    />
-                    必填
-                </label>
+                <Checkbox
+                    className="nodrag"
+                    compact
+                    label="必填"
+                    checked={required}
+                    disabled={readOnly}
+                    onChange={(checked) =>
+                        onChange({
+                            ...(isRecord(config) ? config : {}),
+                            required: checked,
+                        })
+                    }
+                />
             </div>
         );
     }
@@ -329,27 +463,133 @@ export function InlineNodeConfig({
                 ? config.temperature
                 : undefined;
         const hostTools = isRecord(config) ? config.hostTools : undefined;
+        const input =
+            isRecord(config) && typeof config.input === "string"
+                ? config.input
+                : "";
+        const toolset = isRecord(config) ? config.toolset : undefined;
+        const attachments = isRecord(config) ? config.attachments : undefined;
         return (
             <div className={styles.stack}>
+                <PortBlock port="model">
+                    <ModelBindingFields
+                        config={config}
+                        readOnly={readOnly}
+                        fieldOptions={fieldOptions}
+                        lockedFields={lockedFields}
+                        ariaPrefix="Agent"
+                        onChange={onChange}
+                    />
+                </PortBlock>
+                <PortBlock port="input">
+                    {lockedFields?.input !== undefined ? (
+                        <LockedField
+                            label="输入"
+                            value={lockedFields.input.value}
+                            reason={lockedFields.input.reason}
+                        />
+                    ) : (
+                        <TextareaInline
+                            value={input}
+                            ariaLabel="输入"
+                            placeholder="输入内容"
+                            disabled={readOnly}
+                            onChange={(next) =>
+                                onChange(writeConfig(config, { input: next }))
+                            }
+                        />
+                    )}
+                </PortBlock>
+                <PortBlock port="system">
+                    {lockedFields?.system !== undefined ? (
+                        <LockedField
+                            label="System Prompt"
+                            value={lockedFields.system.value}
+                            reason={lockedFields.system.reason}
+                        />
+                    ) : (
+                        <TextareaInline
+                            value={system}
+                            ariaLabel="System Prompt"
+                            placeholder="System Prompt"
+                            disabled={readOnly}
+                            onChange={(next) =>
+                                onChange(writeConfig(config, { system: next }))
+                            }
+                        />
+                    )}
+                </PortBlock>
+                <PortBlock port="toolset">
+                    {lockedFields?.toolset !== undefined ? (
+                        <LockedField
+                            label="工具范围"
+                            value={lockedFields.toolset.value}
+                            reason={lockedFields.toolset.reason}
+                        />
+                    ) : (
+                        <JsonInline
+                            value={toolset}
+                            ariaLabel="工具范围"
+                            placeholder="{ include, exclude }"
+                            rows={2}
+                            disabled={readOnly}
+                            onChange={(next) =>
+                                onChange(writeConfig(config, { toolset: next }))
+                            }
+                        />
+                    )}
+                </PortBlock>
+                <PortBlock port="hostTools">
+                    {lockedFields?.hostTools !== undefined ? (
+                        <LockedField
+                            label="宿主工具"
+                            value={lockedFields.hostTools.value}
+                            reason={lockedFields.hostTools.reason}
+                        />
+                    ) : (
+                        <JsonInline
+                            value={hostTools}
+                            ariaLabel="宿主工具"
+                            placeholder="{ } host tools"
+                            rows={2}
+                            disabled={readOnly}
+                            onChange={(next) =>
+                                onChange(writeConfig(config, { hostTools: next }))
+                            }
+                        />
+                    )}
+                </PortBlock>
+                <PortBlock port="attachments">
+                    {lockedFields?.attachments !== undefined ? (
+                        <LockedField
+                            label="附件"
+                            value={lockedFields.attachments.value}
+                            reason={lockedFields.attachments.reason}
+                        />
+                    ) : (
+                        <JsonInline
+                            value={attachments}
+                            ariaLabel="附件引用"
+                            placeholder='[ { "contentHash": "…" } ]'
+                            rows={2}
+                            disabled={readOnly}
+                            onChange={(next) =>
+                                onChange(writeConfig(config, { attachments: next }))
+                            }
+                        />
+                    )}
+                </PortBlock>
                 <div className={styles.row}>
-                    <select
-                        className={`${styles.select} nodrag nowheel`}
+                    <Select
+                        className={INLINE_SELECT}
                         value={permission}
+                        options={AGENT_PERMISSIONS}
                         disabled={readOnly}
                         aria-label="Agent 权限"
-                        onChange={(event) =>
-                            onChange(
-                                writeConfig(config, {
-                                    permission: event.target.value,
-                                }),
-                            )
+                        onChange={(next) =>
+                            onChange(writeConfig(config, { permission: next }))
                         }
-                        onKeyDown={(event) => event.stopPropagation()}
-                    >
-                        <option value="readonly">readonly</option>
-                        <option value="approval">approval</option>
-                        <option value="full">full</option>
-                    </select>
+                    />
                     <input
                         className={`${styles.number} nodrag nowheel`}
                         type="number"
@@ -367,40 +607,6 @@ export function InlineNodeConfig({
                                 }),
                             );
                         }}
-                        onKeyDown={(event) => event.stopPropagation()}
-                    />
-                </div>
-                <TextareaInline
-                    value={system}
-                    ariaLabel="System Prompt"
-                    placeholder="System Prompt"
-                    disabled={readOnly}
-                    onChange={(next) =>
-                        onChange(writeConfig(config, { system: next }))
-                    }
-                />
-                <div className={styles.row}>
-                    <CheckInline
-                        label="思考"
-                        checked={think}
-                        disabled={readOnly}
-                        onChange={(checked) =>
-                            onChange(writeConfig(config, { think: checked }))
-                        }
-                    />
-                    <input
-                        className={`${styles.input} nodrag nowheel`}
-                        value={formatThinkingLevel(thinkingLv)}
-                        disabled={readOnly}
-                        aria-label="思考强度"
-                        placeholder="think lv"
-                        onChange={(event) =>
-                            onChange(
-                                writeConfig(config, {
-                                    thinkingLv: parseThinkingLevel(event.target.value),
-                                }),
-                            )
-                        }
                         onKeyDown={(event) => event.stopPropagation()}
                     />
                 </div>
@@ -428,14 +634,33 @@ export function InlineNodeConfig({
                     }}
                     onKeyDown={(event) => event.stopPropagation()}
                 />
-                <JsonInline
-                    value={hostTools}
-                    ariaLabel="宿主工具"
-                    placeholder="{ } host tools"
-                    rows={2}
-                    disabled={readOnly}
-                    onChange={(next) => onChange(writeConfig(config, { hostTools: next }))}
-                />
+                <div className={styles.row}>
+                    <Checkbox
+                        className="nodrag"
+                        compact
+                        label="思考"
+                        checked={think}
+                        disabled={readOnly}
+                        onChange={(checked) =>
+                            onChange(writeConfig(config, { think: checked }))
+                        }
+                    />
+                    <input
+                        className={`${styles.input} nodrag nowheel`}
+                        value={formatThinkingLevel(thinkingLv)}
+                        disabled={readOnly}
+                        aria-label="思考强度"
+                        placeholder="think lv"
+                        onChange={(event) =>
+                            onChange(
+                                writeConfig(config, {
+                                    thinkingLv: parseThinkingLevel(event.target.value),
+                                }),
+                            )
+                        }
+                        onKeyDown={(event) => event.stopPropagation()}
+                    />
+                </div>
             </div>
         );
     }
@@ -470,7 +695,9 @@ export function InlineNodeConfig({
                         }}
                         onKeyDown={(event) => event.stopPropagation()}
                     />
-                    <CheckInline
+                    <Checkbox
+                        className="nodrag"
+                        compact
                         label="失败重试"
                         checked={retryOnError}
                         disabled={readOnly}
@@ -606,25 +833,19 @@ export function InlineNodeConfig({
             ? config.level
             : "info";
         return (
-            <select
-                className={`${styles.select} nodrag nowheel`}
+            <Select
+                className={INLINE_SELECT}
                 value={level}
+                options={LOG_LEVELS}
                 disabled={readOnly}
                 aria-label="日志级别"
-                onChange={(event) =>
+                onChange={(next) =>
                     onChange({
                         ...(isRecord(config) ? config : {}),
-                        level: event.target.value,
+                        level: next,
                     })
                 }
-                onKeyDown={(event) => event.stopPropagation()}
-            >
-                {["debug", "info", "warn", "error"].map((option) => (
-                    <option key={option} value={option}>
-                        {option}
-                    </option>
-                ))}
-            </select>
+            />
         );
     }
 
@@ -726,14 +947,14 @@ function JsonInline({
 
     return (
         <div className={styles.field}>
-            <textarea
-                className={`${styles.smallTextarea} ${styles.jsonTextarea} nodrag nowheel`}
-                rows={rows}
+            <CodeArea
+                className={`${styles.codeArea} nodrag nowheel`}
                 value={draft}
+                onChange={setDraft}
                 disabled={disabled}
-                spellCheck={false}
-                aria-label={ariaLabel}
+                ariaLabel={ariaLabel}
                 placeholder={placeholder}
+                minHeight={rows * 16 + 14}
                 onFocus={() => {
                     focusedRef.current = true;
                 }}
@@ -741,7 +962,6 @@ function JsonInline({
                     focusedRef.current = false;
                     commit();
                 }}
-                onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => event.stopPropagation()}
             />
             {error === null ? null : (
@@ -801,30 +1021,152 @@ function ListInline({
     );
 }
 
-function CheckInline({
-    label,
-    checked,
-    disabled,
-    onChange,
+/** 端口对应的字段行：`data-port-anchor` 供画布测量徽标位置。 */
+function PortBlock({
+    port,
+    children,
 }: {
-    label: string;
-    checked: boolean;
-    disabled: boolean;
-    onChange: (checked: boolean) => void;
+    port: string;
+    children: ReactNode;
 }): ReactElement {
     return (
-        <label className={styles.check}>
-            <input
-                type="checkbox"
-                className="nodrag"
-                checked={checked}
-                disabled={disabled}
-                aria-label={label}
-                onChange={(event) => onChange(event.target.checked)}
-            />
-            {label}
-        </label>
+        <div
+            className={styles.portBlock}
+            data-port-anchor={`in:${port}`}
+            data-input-port={port}
+        >
+            {children}
+        </div>
     );
+}
+
+/**
+ * 本地模型绑定：Provider + Model 两个下拉。
+ *
+ * 未连接 Model 节点时可本地选择；`model` 端口连接后两个字段都由工作台锁定，
+ * 改为只读展示上游绑定。
+ */
+function ModelBindingFields({
+    config,
+    readOnly,
+    fieldOptions,
+    lockedFields,
+    ariaPrefix,
+    onChange,
+}: {
+    config: unknown;
+    readOnly: boolean;
+    fieldOptions?: Readonly<Record<string, readonly CanvasFieldOption[]>>;
+    lockedFields?: Readonly<Record<string, CanvasLockedField>>;
+    ariaPrefix: string;
+    onChange: (config: unknown) => void;
+}): ReactElement {
+    const providerId =
+        isRecord(config) && typeof config.providerId === "string"
+            ? config.providerId
+            : "";
+    const modelId =
+        isRecord(config) && typeof config.modelId === "string"
+            ? config.modelId
+            : "";
+    const providerLock = lockedFields?.providerId;
+    const modelLock = lockedFields?.modelId;
+
+    const write = (key: "providerId" | "modelId", value: string): void => {
+        const next: Record<string, unknown> = {
+            ...(isRecord(config) ? config : {}),
+        };
+        if (value === "") delete next[key];
+        else next[key] = value;
+        onChange(next);
+    };
+
+    return (
+        <div className={styles.stack}>
+            {providerLock === undefined ? (
+                <Select
+                    className={INLINE_SELECT}
+                    value={providerId}
+                    options={withEmptyOption(
+                        fieldOptions?.providerId ?? [],
+                        "未选择 Provider",
+                    )}
+                    disabled={readOnly}
+                    aria-label={`${ariaPrefix} Provider`}
+                    placeholder="未选择 Provider"
+                    onChange={(next) => write("providerId", next)}
+                />
+            ) : (
+                <LockedField
+                    label="Provider"
+                    value={providerLock.value}
+                    reason={providerLock.reason}
+                />
+            )}
+            {modelLock === undefined ? (
+                <Select
+                    className={INLINE_SELECT}
+                    value={modelId}
+                    options={withEmptyOption(
+                        fieldOptions?.modelId ?? [],
+                        "未选择模型",
+                    )}
+                    disabled={readOnly}
+                    aria-label={`${ariaPrefix} Model ID`}
+                    placeholder="未选择模型"
+                    onChange={(next) => write("modelId", next)}
+                />
+            ) : (
+                <LockedField
+                    label="模型"
+                    value={modelLock.value}
+                    reason={modelLock.reason}
+                />
+            )}
+        </div>
+    );
+}
+
+/**
+ * 上游连接固定的字段：本节点不再提供编辑入口，只展示来源值。
+ *
+ * 值仍来自 config（连接时已同步），因此断开连接后回退语义保持不变；
+ * 修改该字段需要回到上游 Provider 节点。
+ */
+function LockedField({
+    label,
+    value,
+    reason,
+}: {
+    label: string;
+    value: string;
+    reason: string;
+}): ReactElement {
+    return (
+        <div
+            className={`${styles.lockedRow} nodrag`}
+            role="group"
+            title={`${label}由上游节点固定（${reason}），修改请在上游节点进行`}
+            aria-label={`${label}：${value}（由上游节点固定）`}
+        >
+            <Lock size={10} className={styles.lockIcon} aria-hidden="true" />
+            <span className={styles.lockedValue}>{value}</span>
+            <span className={styles.lockedSource}>上游</span>
+        </div>
+    );
+}
+
+/**
+ * 运行时选项可能已自带空值项（Model ID 由工作台注入「未选择模型」）；
+ * 这里只在缺失时补一条，避免下拉里出现两个同名选项。
+ */
+function withEmptyOption(
+    options: readonly CanvasFieldOption[],
+    label: string,
+): CanvasFieldOption[] {
+    return options.some((option) => option.value === "")
+        ? [...options]
+        : [{ value: "", label }, ...options];
 }
 
 function writeConfig(
@@ -951,31 +1293,39 @@ function ConstantInline({
 
         return (
             <Tooltip label={tooltipText}>
-                <p className={styles.constantPreview} tabIndex={0}>
-                    {previewText}
+                <p
+                    className={
+                        valueType === "json"
+                            ? `${styles.constantPreview} ${styles.constantJsonPreview}`
+                            : styles.constantPreview
+                    }
+                    tabIndex={0}
+                >
+                    {valueType === "json" ? (
+                        <JsonCodeText text={previewText} />
+                    ) : (
+                        previewText
+                    )}
                 </p>
             </Tooltip>
         );
     }
 
     const typeSelect = (
-        <select
-            className={`${styles.select} nodrag nowheel`}
+        <Select
+            className={INLINE_SELECT}
             value={valueType}
+            options={CONSTANT_TYPES}
             disabled={readOnly}
             aria-label="常量类型"
-            onChange={(event) => {
-                if (event.target.value === "json") {
+            onChange={(next) => {
+                if (next === "json") {
                     commitJson(value.type === "json" ? value.value : null);
                 } else {
                     commit(typeof value.text === "string" ? value.text : "");
                 }
             }}
-            onKeyDown={(event) => event.stopPropagation()}
-        >
-            <option value="text">text</option>
-            <option value="json">json</option>
-        </select>
+        />
     );
 
     if (valueType === "json") {

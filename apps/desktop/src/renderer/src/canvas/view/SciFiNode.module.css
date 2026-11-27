@@ -3,33 +3,105 @@
   width: var(--fh-node-width, 220px);
 }
 
-.handle {
-  width: var(--fh-port-size, 10px);
-  height: var(--fh-port-size, 10px);
-  border: 1px solid var(--node-accent, var(--fh-border-strong));
+/*
+ * 端口 = 透明小 Handle（决定连线端点）+ 独立视觉徽标。
+ * react-flow 对 Left / Right 句柄取外缘作为端点，所以 Handle 放在
+ * 方块中心（未连接）或实心点底部（已连接）；徽标只负责显示。
+ * 徽标与节点主体保持 5px 间距，上边缘对齐数据行。
+ */
+.wrapper > .handle {
+  position: absolute;
+  z-index: 1;
+  width: 6px;
+  height: 6px;
+  border: 0;
   border-radius: 50%;
-  background: var(--fh-node-bg);
-  transition: border-color var(--fh-motion-fast) var(--fh-ease-standard);
+  background: transparent;
+  transform: none;
 }
 
-/* 透明热区：视觉圆点保持 10px，命中区按 portHitSize 扩大。 */
-.handle::after {
+.wrapper > .handle.handleIn {
+  left: -15px;
+}
+
+.wrapper > .handle.handleOut {
+  left: calc(100% + 9px);
+}
+
+/* 命中区覆盖整块视觉徽标（20px），点击方块 / 圆环即可拖线。 */
+.wrapper > .handle::after {
   position: absolute;
-  inset: calc((var(--fh-port-size, 10px) - var(--fh-port-hit-size, 24px)) / 2);
-  border-radius: 50%;
   content: "";
 }
 
-.handle:hover {
-  border-color: var(--fh-accent);
+.wrapper > .handle.handleIn::after {
+  top: -10px;
+  left: -10px;
+  width: 20px;
+  height: 24px;
 }
 
-.in {
-  left: calc(var(--fh-port-size, 10px) / -2);
+.wrapper > .handle.handleOut::after {
+  top: -10px;
+  left: -4px;
+  width: 20px;
+  height: 24px;
 }
 
-.out {
-  right: calc(var(--fh-port-size, 10px) / -2);
+.wrapper > .handle:hover + .badge {
+  filter: brightness(1.18);
+}
+
+/* 视觉徽标：未连接 = 灰色 20px 方块；已连接 = 20px 空圆环 + 6px 实心点。 */
+.wrapper > .badge {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  pointer-events: none;
+  line-height: 0;
+}
+
+.wrapper > .badge.badgeIn {
+  right: calc(100% + 5px);
+}
+
+.wrapper > .badge.badgeOut {
+  left: calc(100% + 5px);
+}
+
+.wrapper > .badge.badgeOpen {
+  border: 1px solid var(--fh-port-idle);
+  border-radius: 5px;
+  background: var(--fh-node-bg);
+  color: var(--fh-port-idle);
+}
+
+.wrapper > .badge.badgeOpen > svg {
+  display: block;
+}
+
+.wrapper > .badge.badgeConnected {
+  background: transparent;
+}
+
+.wrapper > .badge > .ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--fh-port-connected);
+  border-radius: 50%;
+}
+
+.wrapper > .badge > .dot {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fh-port-connected);
 }
 
 .idle {
@@ -77,12 +149,4 @@
 
 .skipped {
   --node-accent: var(--fh-text-subtle);
-}
-
-.selected {
-  --node-accent: var(--fh-accent);
-}
-
-.selected .handle {
-  border-color: var(--fh-accent);
 }

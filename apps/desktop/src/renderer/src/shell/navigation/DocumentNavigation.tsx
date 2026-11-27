@@ -150,9 +150,10 @@ export function DocumentNavigation({
         if (event.shiftKey) {
             event.preventDefault();
             const ordered = filtered.map((item) => item.id);
-            const range = selectRange(ordered, anchorIdRef.current, document.id);
-            if (anchorIdRef.current === null) anchorIdRef.current = document.id;
-            // 打开中的工作流由 selectionIds 隐式包含，不进入额外集合。
+            // 锚点缺省取打开中的工作流：普通点击 / 打开后，Shift 从它开始连选。
+            const anchor = anchorIdRef.current ?? activeDocumentId;
+            const range = selectRange(ordered, anchor, document.id);
+            anchorIdRef.current = anchor ?? document.id;
             const extras = new Set(range);
             if (activeDocumentId !== null) extras.delete(activeDocumentId);
             setExtraIds((current) =>
@@ -173,6 +174,8 @@ export function DocumentNavigation({
         }
 
         clearSelection();
+        // 普通点击同时成为下一次 Shift 连选的锚点。
+        anchorIdRef.current = document.id;
         onSelectDocument(document.id);
     };
 

@@ -176,6 +176,7 @@ try {
         scenario === "designer-collapsed" ||
         scenario === "designer-workflow-select" ||
         scenario === "designer-workflow-batch" ||
+        scenario === "designer-workflow-shift" ||
         scenario === "designer-panel" ||
         scenario === "designer-slot-connect" ||
         scenario === "designer-import" ||
@@ -1255,6 +1256,46 @@ try {
             );
             console.log(`multi selected: ${JSON.stringify(selected.result?.value)}`);
             await settle(600);
+        }
+
+        if (scenario === "designer-workflow-shift") {
+            const countDocs = async () => {
+                const result = await evaluate(
+                    `document.querySelectorAll('[data-document-id]').length`,
+                );
+                return result.result?.value ?? 0;
+            };
+            let count = await countDocs();
+            while (count < 6) {
+                await clickElement(
+                    `document.querySelector('button[aria-label="新建工作流"]')`,
+                );
+                await settle(600);
+                count = await countDocs();
+            }
+
+            const clickRow = async (index, modifiers) => {
+                await evaluate(
+                    `(() => { const items = [...document.querySelectorAll('[data-document-id]')]; const item = items[${String(index)}]; if (!item) return false; item.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ${modifiers} })); return true; })()`,
+                );
+                await settle(300);
+            };
+            const state = async (label) => {
+                const result = await evaluate(
+                    `({ highlighted: document.querySelectorAll('[data-selected]').length, toolbar: document.querySelector('[role="toolbar"]')?.textContent?.trim() ?? null })`,
+                );
+                console.log(`${label}: ${JSON.stringify(result.result?.value)}`);
+            };
+
+            // 先普通点击打开第一行，再用 Shift 点第 4 行：期望从打开项到目标整段高亮。
+            await clickRow(0, "");
+            await state("after plain click");
+            await clickRow(3, "shiftKey: true");
+            await state("after shift click row 3");
+            await clickRow(5, "shiftKey: true");
+            await state("after shift click row 5");
+            await clickRow(1, "ctrlKey: true");
+            await state("after ctrl click row 1");
         }
 
         if (scenario === "designer-workflow-batch") {

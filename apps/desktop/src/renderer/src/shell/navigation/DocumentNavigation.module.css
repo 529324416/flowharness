@@ -63,16 +63,6 @@
   border-color: var(--fh-border);
 }
 
-.itemSelected {
-  border-color: var(--fh-accent);
-  background: var(--fh-surface-raised);
-}
-
-.selectedCheck {
-  flex: none;
-  color: var(--fh-accent);
-}
-
 .selectionBar {
   display: flex;
   flex: none;

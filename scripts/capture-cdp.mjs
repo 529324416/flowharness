@@ -1230,6 +1230,20 @@ try {
         }
 
         if (scenario === "designer-workflow-select") {
+            const countDocs = async () => {
+                const result = await evaluate(
+                    `document.querySelectorAll('[data-document-id]').length`,
+                );
+                return result.result?.value ?? 0;
+            };
+            let count = await countDocs();
+            while (count < 3) {
+                await clickElement(
+                    `document.querySelector('button[aria-label="新建工作流"]')`,
+                );
+                await settle(700);
+                count = await countDocs();
+            }
             const selected = await evaluate(
                 `(() => {
                     const items = [...document.querySelectorAll('[data-document-id]')].slice(0, 3);
@@ -1252,22 +1266,36 @@ try {
                 const result = await docCount();
                 console.log(`${label}: ${JSON.stringify(result.result?.value)}`);
             };
-            const selectFirstThree = async () => {
+            let ready = (await docCount()).result?.value ?? 0;
+            while (ready < 2) {
+                await clickElement(
+                    `document.querySelector('button[aria-label="新建工作流"]')`,
+                );
+                await settle(700);
+                ready = (await docCount()).result?.value ?? 0;
+            }
+            const selectIndexes = async (indexes) => {
                 await evaluate(
-                    `(() => { const items = [...document.querySelectorAll('[data-document-id]')].slice(0, 3); for (const item of items) item.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true })); return items.length; })()`,
+                    `(() => { const items = [...document.querySelectorAll('[data-document-id]')]; for (const index of ${JSON.stringify(indexes)}) items[index]?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true })); return items.length; })()`,
                 );
                 await settle(300);
             };
 
             await logCount("batch documents before");
-            await selectFirstThree();
+            // 打开中的工作流始终属于选择；额外选一条 → 复制两份。
+            await selectIndexes([1]);
             const duplicated = await clickElement(
                 `document.querySelector('button[aria-label="复制所选工作流"]')`,
             );
             await settle(1800);
             await logCount("batch documents after duplicate");
 
-            await selectFirstThree();
+            // 打开第一条副本（清空额外选择），再选第二条副本 → 删除这两份副本。
+            await clickElement(
+                `document.querySelector('[data-document-id]')`,
+            );
+            await settle(600);
+            await selectIndexes([1]);
             const deleteOpened = await clickElement(
                 `document.querySelector('button[aria-label="删除所选工作流"]')`,
             );

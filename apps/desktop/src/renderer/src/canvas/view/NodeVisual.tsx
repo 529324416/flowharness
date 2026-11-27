@@ -4,8 +4,8 @@ import {
     BotMessageSquare,
     Box,
     Check,
-    ChevronsDownUp,
-    ChevronsUpDown,
+    ChevronsDown,
+    ChevronsUp,
     GitBranch,
     LogIn,
     LogOut,
@@ -198,9 +198,9 @@ export function NodeVisual({
                         onClick={() => onToggleCollapsed(!collapsed)}
                     >
                         {collapsed ? (
-                            <ChevronsUpDown size={13} aria-hidden="true" />
+                            <ChevronsDown size={13} aria-hidden="true" />
                         ) : (
-                            <ChevronsDownUp size={13} aria-hidden="true" />
+                            <ChevronsUp size={13} aria-hidden="true" />
                         )}
                     </button>
                 )}

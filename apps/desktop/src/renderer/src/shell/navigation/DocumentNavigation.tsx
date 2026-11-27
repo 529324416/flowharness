@@ -7,7 +7,7 @@ import {
     useState,
     type ReactElement,
 } from "react";
-import { Check, Copy, FileText, Play, Plus, Search, Trash2, X } from "lucide-react";
+import { Copy, FileText, Play, Plus, Search, Trash2, X } from "lucide-react";
 import type { WorkbenchNavigationProps } from "../../workbench/types";
 import {
     Badge,
@@ -70,7 +70,8 @@ export function DocumentNavigation({
     onExportDocument,
 }: WorkbenchNavigationProps): ReactElement {
     const [query, setQuery] = useState("");
-    const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
+    // 额外的多选项；打开中的工作流始终属于选择集合，不进入这个集合。
+    const [extraIds, setExtraIds] = useState<ReadonlySet<string>>(
         () => new Set(),
     );
     const anchorIdRef = useRef<string | null>(null);
@@ -89,28 +90,38 @@ export function DocumentNavigation({
         );
     }, [documents, query]);
 
-    // 文档被删除 / 外部刷新后丢弃失效的选中项。
+    // 文档被删除 / 外部刷新后丢弃失效的选中项；打开中的工作流不重复计入。
     useEffect(() => {
-        setSelectedIds((current) =>
-            pruneSelection(
+        setExtraIds((current) => {
+            const pruned = pruneSelection(
                 current,
                 documents.map((document) => document.id),
-            ),
-        );
-    }, [documents]);
+            );
+            const next = new Set(pruned);
+            if (activeDocumentId !== null) next.delete(activeDocumentId);
+            return next.size === current.size ? current : next;
+        });
+    }, [documents, activeDocumentId]);
 
     const clearSelection = useCallback((): void => {
-        setSelectedIds(new Set());
+        setExtraIds(new Set());
         anchorIdRef.current = null;
     }, []);
+
+    /** 高亮即选中：打开中的工作流 + 额外多选项。 */
+    const selectionIds = useMemo(() => {
+        const next = new Set(extraIds);
+        if (activeDocumentId !== null) next.add(activeDocumentId);
+        return next;
+    }, [extraIds, activeDocumentId]);
 
     const selectedDocuments = useMemo(
         () =>
             orderedSelection(
-                selectedIds,
+                selectionIds,
                 documents.map((document) => document.id),
             ).map((id) => documents.find((document) => document.id === id)),
-        [documents, selectedIds],
+        [documents, selectionIds],
     );
 
     const selectionCount = selectedDocuments.length;
@@ -139,12 +150,15 @@ export function DocumentNavigation({
         if (event.shiftKey) {
             event.preventDefault();
             const ordered = filtered.map((item) => item.id);
-            const next = selectRange(ordered, anchorIdRef.current, document.id);
+            const range = selectRange(ordered, anchorIdRef.current, document.id);
             if (anchorIdRef.current === null) anchorIdRef.current = document.id;
-            setSelectedIds((current) =>
+            // 打开中的工作流由 selectionIds 隐式包含，不进入额外集合。
+            const extras = new Set(range);
+            if (activeDocumentId !== null) extras.delete(activeDocumentId);
+            setExtraIds((current) =>
                 event.ctrlKey || event.metaKey
-                    ? new Set([...current, ...next])
-                    : next,
+                    ? new Set([...current, ...extras])
+                    : extras,
             );
             return;
         }
@@ -152,7 +166,9 @@ export function DocumentNavigation({
         if (event.ctrlKey || event.metaKey) {
             event.preventDefault();
             anchorIdRef.current = document.id;
-            setSelectedIds((current) => toggleSelected(current, document.id));
+            // 打开中的工作流已经是选中状态，再次切换没有意义。
+            if (document.id === activeDocumentId) return;
+            setExtraIds((current) => toggleSelected(current, document.id));
             return;
         }
 
@@ -232,7 +248,7 @@ export function DocumentNavigation({
                     </div>
                 </div>
 
-                {selectionCount > 0 ? (
+                {selectionCount > 1 ? (
                     <div
                         className={styles.selectionBar}
                         role="toolbar"
@@ -246,8 +262,14 @@ export function DocumentNavigation({
                             className={styles.selectionAction}
                             disabled={busy || filtered.length === 0}
                             onClick={() => {
-                                setSelectedIds(
-                                    new Set(filtered.map((item) => item.id)),
+                                setExtraIds(
+                                    new Set(
+                                        filtered
+                                            .map((item) => item.id)
+                                            .filter(
+                                                (id) => id !== activeDocumentId,
+                                            ),
+                                    ),
                                 );
                             }}
                         >
@@ -294,7 +316,7 @@ export function DocumentNavigation({
                     ) : (
                         filtered.map((document) => {
                             const multiSelected =
-                                selectedIds.has(document.id) &&
+                                selectionIds.has(document.id) &&
                                 selectionCount > 1;
                             const actions = multiSelected
                                 ? buildWorkflowBatchActions({
@@ -330,7 +352,7 @@ export function DocumentNavigation({
                                             type="button"
                                             data-document-id={document.id}
                                             data-selected={
-                                                selectedIds.has(document.id) ||
+                                                selectionIds.has(document.id) ||
                                                 undefined
                                             }
                                             aria-current={
@@ -341,11 +363,8 @@ export function DocumentNavigation({
                                             title="Ctrl / Shift 点击可多选"
                                             className={cx(
                                                 styles.item,
-                                                document.id ===
-                                                    activeDocumentId &&
+                                                selectionIds.has(document.id) &&
                                                     styles.active,
-                                                selectedIds.has(document.id) &&
-                                                    styles.itemSelected,
                                             )}
                                             onClick={(event) =>
                                                 handleItemClick(event, document)
@@ -366,13 +385,6 @@ export function DocumentNavigation({
                                                     )}
                                                 </span>
                                             </span>
-                                            {selectedIds.has(document.id) ? (
-                                                <Check
-                                                    size={14}
-                                                    className={styles.selectedCheck}
-                                                    aria-hidden="true"
-                                                />
-                                            ) : null}
                                         </button>
                                     </ContextMenuTrigger>
                                     <ContextMenuContent>

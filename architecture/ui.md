@@ -310,7 +310,7 @@ CanvasCommand → GraphDocument
 
 - 节点折叠（ADR-042）：Header 右侧提供折叠按钮，状态写入 `node.ui.collapsed`（随文档自动保存、进入撤销栈、随「导出无布局」剥离）；折叠后只保留**已连接的端口**与**有数据且不等于节点默认值**的 config 字段——默认值来自 `configSchema.default` 与节点类型 `defaultConfig`（`designer/core/collapse.ts`）；未连接端口徽标、空字段、kind 标签同时隐藏，展开恢复；运行期只读时不提供折叠入口；
 - 折叠字段计算在 adapter 投影时完成（`collapsedFields`），Canvas 组件只按字段名过滤，不感知节点语义；Constant 以文本 / JSON 是否有内容判断；
-- 工作流多选（ADR-043）：`DocumentNavigation` 本地维护额外选中集合，打开中的工作流始终属于选择；Ctrl / Cmd 切换、Shift 区间；选中行与打开中的工作流共用同一高亮（不引入勾选 / 强调边框等第二视觉）；批量操作条提供全选 / 复制 / 删除；右键多选项切到批量菜单；
+- 工作流多选（ADR-043）：`DocumentNavigation` 本地维护额外选中集合，打开中的工作流始终属于选择；Ctrl / Cmd 切换、Shift 从「最近点击 / 打开」的锚点连选（普通点击后锚点即打开项）；选中行与打开中的工作流共用同一高亮（不引入勾选 / 强调边框等第二视觉）；批量操作条提供全选 / 复制 / 删除；右键多选项切到批量菜单；
 - 批量复制 / 删除在 `App` 层实现（`handleDuplicateDocuments` / `handleDeleteDocuments`，单选入口复用同一实现），逐条调用既有 IPC：删除仍会 flush 当前文档、等待工作台保存链、刷新工作台引用并回退到剩余文档；批量复制仅在单选时切换到副本。
 
 ## 7. 其他工作台

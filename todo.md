@@ -1,6 +1,6 @@
 # TODO
 
-> 当前主线：**节点交互约束**（Provider FH 菜单 / 连接锁定 / 模型目录校验 / Constant 阅读与编辑模式 / 图级浮动面板布局）；M9 已完成（2026-11-27），M8 剩余 — 节点预设库文件导入 / 导出。
+> 当前主线：**节点端口与表单控件收口已完成**（ADR-037 ~ ADR-041）；M9 已完成（2026-11-27），M8 剩余 — 节点预设库文件导入 / 导出；之后进入 M10 可观测性与工程化、M11 打包发布。
 > 原则：垂直切片；契约先行；工作台即视图；信息架构调整优先于新功能。
 
 ## 设计约束（M7 起）
@@ -323,6 +323,52 @@
 - [x] 浮动面板布局按 Graph 写入 `ui.panels`，打开 Graph 时恢复位置 / 尺寸 / 折叠 / 开关 / 层级
 - [x] 测试：45 文件 / 252 项；`pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 
+## 表单控件收口（2026-11-27）
+
+- [x] 节点内联枚举全部改用 FH `ui/Select`：Constant 的 text/json、Model Call 的 mode / modality、Agent 的 permission、Log 的 level；保留 22px 紧凑高度与默认边框
+- [x] 全局移除 `input` / `select` / `textarea` 的聚焦描边与 focus 期边框变化；输入框、下拉、JSON 代码区只显示默认边框与光标
+- [x] 原生 checkbox 全部替换为 `ui/Checkbox`：Value 的必填、Model Call / Agent 的思考、Loop 的失败重试、批量运行的图选择；节点使用新增的 `compact` 变体
+- [x] 上游连接固定的字段改为只读展示：Model 的 Provider 渲染锁图标 + 来源 Profile + 「上游」，不再渲染禁用下拉；`CanvasLockedField { value, reason }` 由工作台投影注入
+- [x] 新增 `ui/CodeArea` 与 `ui/json-highlight`：JSON 键 / 字符串 / 数字 / 字面量着色，透明 textarea + 高亮层滚动同步；节点内联、检查器表单 JSON 字段与「JSON」页签接入
+- [x] 新增 token `--fh-code-*`（深色 VS Code Dark+ 去饱和 / 亮色对应浅色）
+- [x] Model ID 下拉空值项去重：工作台已注入「未选择模型」，节点内联只在缺失时补一条（`withEmptyOption`）
+- [x] 「未选择模型」改为非阻断状态：不弹 Provider 横幅、不进运行日志问题行、不禁用运行，只在节点标题保留红色叹号与 tooltip（ADR-039）
+- [x] Constant 阅读态 JSON 预览使用 `ui/JsonCodeText` 着色，与编辑态同一套 token 颜色
+- [x] 测试：46 文件 / 259 项；`pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
+- [x] 视觉基线：`ui-form-controls.png`（锁定行 / FH 下拉 / 自绘勾选）、`ui-json-code.png`（JSON 编辑）、`ui-json-preview.png`（JSON 阅读态）、`ui-model-empty.png`（空模型提示）
+- [x] 新增截图场景 `designer-json` / `designer-json-read` / `designer-controls` / `designer-model-empty`
+
+## 模型节点数据端口化（2026-11-27）
+
+- [x] wireclaw `core.model.call` 新增 `system` / `parameters` 输入，config 新增 `providerId` / `modelId` / `prompt` / `attachments`
+- [x] wireclaw `core.agent.run` 新增 `system` / `hostTools` 输入，config 新增 `providerId` / `modelId` / `input` / `attachments` / `toolset`
+- [x] 执行期端口覆盖 + 本地 config 回退；`model` / `prompt` / `input` 的 `required` 移除，缺值在节点执行期报错
+- [x] 画布端口连接 → 字段锁定：只读行（锁图标 + 上游值 + 上游），检查器同字段禁用并显示锁定原因
+- [x] Model Call / Agent 本地 Provider + Model 下拉；连接 `model` 端口后锁定并保留本地回退值；切换 Provider 时清空不兼容模型
+- [x] 字段顺序：必要数据 → 必要参数 → 常用标量 → 低频枚举 → 结构数据（parameters / toolset / hostTools / attachments）
+- [x] 端口行移除装饰性圆点；Agent Run 图标改为 Bot、Model Call 改为 BotMessageSquare
+- [x] 测试：wireclaw 68/68；FH 46 文件 / 260 项；`pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
+- [x] 视觉基线：`devlog/assets/ui-form-controls.png`（锁定行 / 本地模型绑定 / 无圆点端口行 / Bot 图标）
+
+## 节点端口徽标与数据行（2026-11-27）
+
+- [x] 节点 Body 顶部增加数据行：输出优先，其次是没有对应字段的输入；移除底部端口列表
+- [x] 端口徽标与节点主体保持 5px 间距，上边缘严格对齐数据行；按 offsetTop 布局链测量并在测量后刷新 node internals，拖动 / 缩放不跳变
+- [x] 未连接 = 灰色 20px 圆角方块 + 10px 数据类型图标（居中）；已连接 = 20px 橙红空圆环 + 6px 实心点，不显示类型
+- [x] Handle 与视觉徽标解耦：6px 透明句柄（未连接对准方块中心、已连接对准实心点底部），命中区覆盖整块徽标
+- [x] 连线终点落在实心点底部；`SciFiEdge` 移除自绘端点小圆
+- [x] 端口颜色只由连接状态决定（灰色 / 橙红），节点边框与端口不随选中 / 运行状态变化
+- [x] 字段顺序：可接入端口的数据优先于只能本地编辑的参数；同组按必要数据 → 必要参数 → 常用标量 → 结构数据
+- [x] 输出徽标同构：有下游连线为橙红圆环 + 实心点，否则为灰色方块 + 类型图标
+- [x] Model / Model Call / Agent 的内联字段行作为端口锚点；Agent Run 图标 Bot、Model Call 图标 BotMessageSquare
+- [x] 截图场景 `designer-controls` 与视觉基线 `devlog/assets/ui-form-controls.png`
+- [x] 测试：FH 46 文件 / 260 项；`pnpm typecheck` / `pnpm test:wireclaw` / `pnpm build` / `pnpm smoke` 通过
+
+### 端口后续（可选）
+
+- [ ] 选中节点目前没有颜色高亮（按需求移除）；如需可选中性，补非颜色提示（如外侧虚线框）
+- [ ] `temperature` / `think` / `thinkingLv` / `modality` / `maxSteps` 仍为本地参数，未端口化
+- [ ] 输出数据行只做展示，暂不支持在节点上编辑输出
 
 ## 后续里程碑
 
@@ -487,6 +533,9 @@
 - [x] 43 个测试文件 / 242 个测试通过（2026-11-27；节点交互约束 / Constant 阅读模式）
 - [x] 44 个测试文件 / 246 个测试通过（2026-11-27；图级浮动面板布局）
 - [x] 45 个测试文件 / 252 个测试通过（2026-11-27；模型目录按需刷新）
+- [x] 46 个测试文件 / 259 个测试通过（2026-11-27；表单控件收口 / JSON 代码主题）
+- [x] 46 个测试文件 / 260 个测试通过（2026-11-27；本地模型绑定 / 节点数据端口化）
+- [x] 46 个测试文件 / 260 个测试通过（2026-11-28；端口徽标 / 连线端点收口）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
 

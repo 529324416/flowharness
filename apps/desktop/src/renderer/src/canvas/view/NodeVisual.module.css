@@ -161,9 +161,34 @@
   --node-border: color-mix(in srgb, var(--fh-warning) 35%, var(--fh-border));
 }
 
+/* 运行中：边框进入「过热」状态，配合外层警戒线动画。 */
+.running {
+  --node-accent: var(--fh-text-muted);
+  --node-border: var(--fh-port-connected);
+}
+
 .completed {
   --node-accent: var(--fh-success);
-  --node-border: color-mix(in srgb, var(--fh-success) 32%, var(--fh-border));
+  /* 冷却动画的终点：回到默认描边，而不是保留绿色。 */
+  --node-border: var(--fh-border-strong);
+}
+
+/*
+ * 完成后的冷却：边框从运行时的橙红渐变回默认色，约 1.5s。
+ * animation-fill-mode: forwards 保证动画结束后停在默认描边。
+ */
+.cooling {
+  animation: fh-node-cool 1.5s var(--fh-ease-standard) forwards;
+}
+
+@keyframes fh-node-cool {
+  from {
+    border-color: var(--fh-port-connected);
+  }
+
+  to {
+    border-color: var(--node-border);
+  }
 }
 
 .failed {
@@ -175,4 +200,10 @@
   --node-accent: var(--fh-text-subtle);
   --node-border: var(--fh-border);
   color: var(--fh-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cooling {
+    animation: none;
+  }
 }

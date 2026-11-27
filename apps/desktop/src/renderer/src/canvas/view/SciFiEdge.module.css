@@ -10,8 +10,7 @@
 }
 
 .active {
-  --edge-tone: color-mix(in srgb, var(--fh-edge-active) 70%, var(--fh-border));
-  stroke-opacity: 0.9;
+  stroke-opacity: 0.86;
 }
 
 .error {
@@ -24,23 +23,37 @@
   stroke-width: 2;
 }
 
+/*
+ * 数据正在输出时叠加的「白色进度段」。
+ *
+ * pathLength=100 把路径归一化为百分比：用 stroke-dasharray 让白色段从 0
+ * 增长到整条线，再由 stroke-dashoffset 从 -100 走到 0 实现 0%→100% 循环；
+ * 每个周期 500ms，灰色底由 BaseEdge 提供。
+ */
 .flow {
   fill: none;
-  stroke: var(--fh-edge-active);
+  stroke: var(--fh-text);
   stroke-width: var(--fh-edge-width, 1.4);
-  stroke-dasharray: 3 10;
-  animation: fh-edge-flow 1.2s linear infinite;
+  stroke-linecap: butt;
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: -100;
+  animation: fh-edge-sweep 500ms linear infinite;
   pointer-events: none;
 }
 
-@keyframes fh-edge-flow {
+@keyframes fh-edge-sweep {
+  from {
+    stroke-dashoffset: -100;
+  }
+
   to {
-    stroke-dashoffset: -16;
+    stroke-dashoffset: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .flow {
     animation: none;
+    stroke-dashoffset: 0;
   }
 }

@@ -8,6 +8,7 @@ import type {
     CanvasNode,
     CanvasNodeData,
     CanvasNodeNotice,
+    CanvasRunMetrics,
     CanvasStatus,
 } from "../../canvas/core/types";
 import { edgeKeyFromPorts } from "../../canvas/core/edge-key";
@@ -39,6 +40,8 @@ export type ToCanvasDocumentOptions = {
     >;
     /** 已连接输入端口在节点 Body 内的显示值；按 nodeId → 端口名注入。 */
     slotLabels?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+    /** 运行中节点的 token / 耗时指标；用于节点上的运行 HUD。 */
+    nodeMetrics?: Readonly<Record<string, CanvasRunMetrics>>;
 };
 
 /**
@@ -87,6 +90,9 @@ export function toCanvasDocument(
             ...(options.slotLabels?.[node.id] === undefined
                 ? {}
                 : { slotLabels: options.slotLabels[node.id] }),
+            ...(options.nodeMetrics?.[node.id] === undefined
+                ? {}
+                : { runMetrics: options.nodeMetrics[node.id] }),
         };
 
         return {

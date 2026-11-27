@@ -27,8 +27,9 @@ export function SciFiEdge({
 
     const active = data?.status === "active";
     const error = data?.status === "error";
+    // 动画态用中性灰做底，白色扫过段由 `.flow` 叠加，形成「半白半灰」的进度感。
     const tone = active
-        ? "var(--fh-edge-active)"
+        ? "var(--fh-border-strong)"
         : error
           ? "var(--fh-danger)"
           : "var(--fh-edge)";
@@ -49,13 +50,19 @@ export function SciFiEdge({
                 interactionWidth={20}
                 style={{
                     stroke: tone,
-                    strokeWidth: active ? 1.6 : 1.4,
-                    strokeOpacity: active ? 0.92 : 0.75,
+                    strokeWidth: 1.4,
+                    strokeOpacity: active ? 0.86 : 0.75,
                     strokeDasharray: error ? "5 5" : undefined,
                 }}
             />
 
-            {active ? <path d={path} className={styles.flow} /> : null}
+            {active ? (
+                <path
+                    d={path}
+                    pathLength={100}
+                    className={styles.flow}
+                />
+            ) : null}
         </g>
     );
 }

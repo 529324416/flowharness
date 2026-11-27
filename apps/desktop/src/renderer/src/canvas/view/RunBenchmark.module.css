@@ -1,0 +1,41 @@
+.benchmark {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 3;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 7px 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--fh-surface) 72%, transparent);
+  color: var(--fh-text-subtle);
+  font-family: var(--fh-font-mono);
+  font-size: 9px;
+  line-height: 1.45;
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--fh-text-muted);
+}
+
+.tail {
+  display: flex;
+  max-height: 80px;
+  align-items: flex-end;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .benchmark {
+    opacity: 0.7;
+  }
+}

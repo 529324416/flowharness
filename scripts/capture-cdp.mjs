@@ -1,4 +1,5 @@
 import { writeFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -71,6 +72,111 @@ socket.addEventListener("message", (event) => {
     }
 });
 
+const MOCK_OLLAMA_MODEL = "qwen3.5:9b";
+/** 40 个片段，每 120ms 一个，约 4.8s，足够截取运行中 / 冷却两帧。 */
+const MOCK_OLLAMA_TOKENS = Array.from(
+    { length: 40 },
+    (_, index) => `tok${String(index).padStart(2, "0")} `,
+);
+
+/**
+ * 本地 mock Ollama：/api/tags + /api/show + 流式 /api/chat。
+ *
+ * 只用于截图场景 `designer-stream`，让真实的 Model Call 节点产生
+ * `node:stream` 事件，从而验证运行 HUD、连线动画与冷却动画。
+ */
+async function startMockOllama() {
+    const server = createServer((request, response) => {
+        const url = request.url ?? "";
+
+        if (url === "/api/tags") {
+            response.writeHead(200, { "content-type": "application/json" });
+            response.end(
+                JSON.stringify({
+                    models: [
+                        {
+                            name: MOCK_OLLAMA_MODEL,
+                            model: MOCK_OLLAMA_MODEL,
+                            size: 5_000_000_000,
+                            details: {
+                                family: "qwen2",
+                                parameter_size: "9B",
+                                quantization_level: "Q4_K_M",
+                            },
+                        },
+                    ],
+                }),
+            );
+            return;
+        }
+
+        if (url === "/api/show") {
+            response.writeHead(200, { "content-type": "application/json" });
+            response.end(
+                JSON.stringify({
+                    capabilities: ["completion"],
+                    details: {
+                        family: "qwen2",
+                        parameter_size: "9B",
+                        quantization_level: "Q4_K_M",
+                    },
+                }),
+            );
+            return;
+        }
+
+        if (url === "/api/chat") {
+            request.resume();
+            response.writeHead(200, {
+                "content-type": "application/x-ndjson",
+                "cache-control": "no-cache",
+            });
+            let index = 0;
+            const timer = setInterval(() => {
+                if (index < MOCK_OLLAMA_TOKENS.length) {
+                    response.write(
+                        `${JSON.stringify({
+                            model: MOCK_OLLAMA_MODEL,
+                            message: {
+                                role: "assistant",
+                                content: MOCK_OLLAMA_TOKENS[index],
+                            },
+                            done: false,
+                        })}\n`,
+                    );
+                    index += 1;
+                    return;
+                }
+                response.write(
+                    `${JSON.stringify({
+                        model: MOCK_OLLAMA_MODEL,
+                        message: { role: "assistant", content: "" },
+                        done: true,
+                        done_reason: "stop",
+                        prompt_eval_count: 12,
+                        eval_count: MOCK_OLLAMA_TOKENS.length,
+                    })}\n`,
+                );
+                response.end();
+                clearInterval(timer);
+            }, 120);
+            response.on("close", () => clearInterval(timer));
+            return;
+        }
+
+        response.writeHead(404);
+        response.end();
+    });
+
+    await new Promise((resolve, reject) => {
+        server.once("error", reject);
+        server.listen(11434, "127.0.0.1", resolve);
+    });
+    return server;
+}
+
+let mockOllama = null;
+
 try {
     await send("Page.enable");
     await send("Runtime.enable");
@@ -82,6 +188,10 @@ try {
     // canvas (panels closed) | canvas-zoom | styleguide | styleguide-nodes |
     // designer-form | designer-library | designer-documents (nav actions).
     const scenario = process.env.FH_CAPTURE_SCENARIO;
+    if (scenario === "designer-stream") {
+        mockOllama = await startMockOllama();
+        console.log("mock ollama: listening on 127.0.0.1:11434");
+    }
     const evaluate = (expression) =>
         send("Runtime.evaluate", {
             expression,
@@ -118,6 +228,15 @@ try {
             clickCount: 1,
         });
         return true;
+    };
+    const captureTo = async (path) => {
+        const shot = await send("Page.captureScreenshot", {
+            format: "png",
+            fromSurface: true,
+            captureBeyondViewport: false,
+        });
+        writeFileSync(path, Buffer.from(shot.data, "base64"));
+        console.log(`captured: ${path}`);
     };
 
     const openNodeLibrary = async () => {
@@ -177,6 +296,7 @@ try {
         scenario === "designer-workflow-select" ||
         scenario === "designer-workflow-batch" ||
         scenario === "designer-workflow-shift" ||
+        scenario === "designer-stream" ||
         scenario === "designer-panel" ||
         scenario === "designer-slot-connect" ||
         scenario === "designer-import" ||
@@ -1357,6 +1477,158 @@ try {
             );
         }
 
+        if (scenario === "designer-stream") {
+            const fixture = join(tmpdir(), `fh-stream-${process.pid}.json`);
+            writeFileSync(
+                fixture,
+                `${JSON.stringify({
+                    version: 1,
+                    id: "stream-fixture",
+                    title: "运行动画",
+                    nodes: [
+                        {
+                            id: "provider",
+                            type: "core.provider",
+                            typeVersion: 1,
+                            config: { providerId: "ollama" },
+                            ui: { x: 80, y: 80 },
+                        },
+                        {
+                            id: "model",
+                            type: "core.model",
+                            typeVersion: 1,
+                            config: {
+                                providerId: "ollama",
+                                modelId: MOCK_OLLAMA_MODEL,
+                            },
+                            ui: { x: 340, y: 80 },
+                        },
+                        {
+                            id: "call",
+                            type: "core.model.call",
+                            typeVersion: 1,
+                            config: {
+                                mode: "chat",
+                                prompt: "hello from mock ollama",
+                                system: "You are a helper.",
+                            },
+                            ui: { x: 620, y: 80 },
+                        },
+                        {
+                            id: "output",
+                            type: "core.output",
+                            typeVersion: 1,
+                            ui: { x: 940, y: 80 },
+                        },
+                    ],
+                    edges: [
+                        {
+                            from: { nodeId: "provider", port: "provider" },
+                            to: { nodeId: "model", port: "provider" },
+                        },
+                        {
+                            from: { nodeId: "model", port: "model" },
+                            to: { nodeId: "call", port: "model" },
+                        },
+                        {
+                            from: { nodeId: "call", port: "text" },
+                            to: { nodeId: "output", port: "text" },
+                        },
+                    ],
+                })}\n`,
+            );
+
+            const root = await send("DOM.getDocument", { depth: -1 });
+            const input = await send("DOM.querySelector", {
+                nodeId: root.root.nodeId,
+                selector: 'input[type="file"]',
+            });
+            if (input.nodeId === 0) {
+                console.log("stream import input: not found");
+            } else {
+                await send("DOM.setFileInputFiles", {
+                    files: [fixture],
+                    nodeId: input.nodeId,
+                });
+                await settle(1600);
+            }
+
+            const refreshed = await evaluateAsync(
+                `window.flowharness.refreshProviderModels({ profileId: "ollama" })`,
+            );
+            const refreshValue = refreshed.result?.value;
+            console.log(
+                `stream refresh: ${JSON.stringify(refreshValue?.ok === true ? refreshValue.data : refreshValue?.error)}`,
+            );
+            await settle(900);
+
+            await evaluate(
+                `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '运行')?.click()`,
+            );
+            console.log("stream: run clicked");
+            await settle(520);
+            // 运行会自动打开会话历史，外加属性 / 运行日志面板；截图时全部关掉。
+            // 注意不要匹配到标题栏的「关闭」窗口按钮。
+            await evaluate(
+                `["关闭会话历史", "关闭运行日志", "关闭属性"].forEach((label) => document.querySelector(\`button[aria-label="\${label}"]\`)?.click())`,
+            );
+            console.log("stream: panels closed");
+            await settle(320);
+
+            const runningState = async (label) => {
+                const result = await evaluate(`(() => {
+                    const benchmark = document.querySelector('[data-run-benchmark]');
+                    const running = document.querySelectorAll('[data-status="running"]');
+                    const flow = document.querySelectorAll('.react-flow__edge path[pathLength="100"]');
+                    const firstFlow = flow[0] ?? null;
+                    const flowStyle = firstFlow ? getComputedStyle(firstFlow) : null;
+                    const wrapper = document.querySelector('[data-node-id]:has([data-status="running"])');
+                    const ringStyle = wrapper ? getComputedStyle(wrapper, '::after') : null;
+                    return {
+                        running: running.length,
+                        benchmark: benchmark?.textContent?.trim() ?? null,
+                        flowEdges: flow.length,
+                        animation: flowStyle?.animationName ?? null,
+                        duration: flowStyle?.animationDuration ?? null,
+                        dashoffset: flowStyle?.strokeDashoffset ?? null,
+                        ringDuration: ringStyle?.animationDuration ?? null,
+                    };
+                })()`);
+                console.log(`${label}: ${JSON.stringify(result.result?.value)}`);
+            };
+
+            await runningState("stream running");
+            await captureTo(out.replace(/\.png$/, "-running.png"));
+            await settle(700);
+            await runningState("stream running +700ms");
+
+            // 等 Model Call 完成（Provider / Model 早已 completed），冷却动画开始后截图。
+            for (let index = 0; index < 50; index += 1) {
+                const completed = await evaluate(
+                    `document.querySelector('[data-node-id="call"] [data-status="completed"]') !== null`,
+                );
+                if (completed.result?.value === true) break;
+                await settle(150);
+            }
+            await settle(120);
+
+            const cooling = await evaluate(
+                `document.querySelector('[data-node-id="call"] [data-cooling="true"]') !== null`,
+            );
+            console.log(`cooling nodes: ${JSON.stringify(cooling.result?.value)}`);
+            const borderColor = async (label) => {
+                const result = await evaluate(
+                    `(() => { const el = document.querySelector('[data-node-id="call"] [data-status]'); return el ? getComputedStyle(el).borderTopColor : null; })()`,
+                );
+                console.log(`${label}: ${JSON.stringify(result.result?.value)}`);
+            };
+            await borderColor("cooling border +120ms");
+            await captureTo(out.replace(/\.png$/, "-cooling.png"));
+            await settle(700);
+            await borderColor("cooling border +820ms");
+            await settle(1200);
+        }
+
         if (scenario === "designer-model-empty") {
             const fixture = join(tmpdir(), `fh-model-empty-${process.pid}.json`);
             writeFileSync(
@@ -2249,5 +2521,6 @@ try {
     writeFileSync(out, Buffer.from(result.data, "base64"));
     console.log(`captured: ${out}`);
 } finally {
+    mockOllama?.close();
     socket.close();
 }

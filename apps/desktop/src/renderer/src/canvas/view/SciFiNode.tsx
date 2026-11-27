@@ -12,7 +12,11 @@ import { cx } from "../../ui/cx";
 import type { FlowNode } from "./flow-types";
 import { NodeVisual } from "./NodeVisual";
 import { PortTypeIcon } from "./PortTypeIcon";
+import { RunBenchmark } from "./RunBenchmark";
 import styles from "./SciFiNode.module.css";
+
+/** 完成节点从「过热」边框冷却回默认色所需时间（与 CSS 动画一致）。 */
+const COOLING_MS = 1500;
 
 function sameAnchors(
     a: Readonly<Record<string, number>>,
@@ -94,6 +98,24 @@ export function SciFiNode({
     const connectedInputs = new Set(data.connectedPorts?.inputs ?? []);
     const connectedOutputs = new Set(data.connectedPorts?.outputs ?? []);
     const collapsed = data.collapsed === true;
+
+    // 完成瞬间播放一次冷却动画：边框从运行时的橙红过渡回默认色。
+    const [cooling, setCooling] = useState(false);
+    const lastStatusRef = useRef(data.status);
+    useEffect(() => {
+        const previous = lastStatusRef.current;
+        lastStatusRef.current = data.status;
+
+        if (data.status !== "completed") {
+            setCooling(false);
+            return;
+        }
+        if (previous === "completed") return;
+
+        setCooling(true);
+        const timer = window.setTimeout(() => setCooling(false), COOLING_MS);
+        return () => window.clearTimeout(timer);
+    }, [data.status]);
     // 折叠态只保留已连接的端口：未连接参数与空端口由 NodeVisual 一并收起，
     // 这里同时隐藏它们的徽标，避免徽标堆在节点顶部。
     const inputs = collapsed
@@ -172,6 +194,7 @@ export function SciFiNode({
                 onUpdateConfig={data.onUpdateConfig}
                 collapsed={collapsed}
                 collapsedFields={data.collapsedFields}
+                cooling={cooling}
                 onToggleCollapsed={data.onToggleCollapsed}
                 inputs={inputs}
                 outputs={outputs}
@@ -183,6 +206,14 @@ export function SciFiNode({
                 lockedFields={data.lockedFields}
                 slotLabels={data.slotLabels}
             />
+
+            {data.status === "running" && data.runMetrics !== undefined ? (
+                <RunBenchmark
+                    startedAt={data.runMetrics.startedAt}
+                    tokens={data.runMetrics.tokens}
+                    tail={data.runMetrics.tail}
+                />
+            ) : null}
 
             {inputs.map((port) =>
                 renderPort("in", port, connectedInputs.has(port.name)),

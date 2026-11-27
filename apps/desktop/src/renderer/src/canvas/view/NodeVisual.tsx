@@ -56,6 +56,8 @@ export type NodeVisualProps = {
     collapsed?: boolean;
     /** 折叠态需要保留的 config 字段；展开时不使用。 */
     collapsedFields?: readonly string[];
+    /** 完成瞬间的冷却动画：边框从过热色渐变回默认色。 */
+    cooling?: boolean;
     /** 折叠 / 展开切换；缺省不渲染按钮（例如 Styleguide 静态样张）。 */
     onToggleCollapsed?: (collapsed: boolean) => void;
     /** 已连接端口：徽标由方块切换为圆点。 */
@@ -120,6 +122,7 @@ export function NodeVisual({
     slotLabels,
     collapsed = false,
     collapsedFields,
+    cooling = false,
     onToggleCollapsed,
     connectedPorts,
 }: NodeVisualProps): ReactElement {
@@ -139,8 +142,15 @@ export function NodeVisual({
 
     return (
         <article
-            className={cx(styles.node, styles[status], selected && styles.selected, className)}
+            className={cx(
+                styles.node,
+                styles[status],
+                selected && styles.selected,
+                cooling && styles.cooling,
+                className,
+            )}
             data-status={status}
+            data-cooling={cooling ? "true" : undefined}
             style={minHeight === undefined ? undefined : { minHeight }}
         >
             <header className={styles.header}>

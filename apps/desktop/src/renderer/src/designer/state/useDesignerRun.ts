@@ -5,7 +5,7 @@ import type {
     RunStatus,
 } from "@flowharness/contracts";
 import type { GraphDocument, HarnessIssue } from "wireclaw";
-import type { CanvasEdgeStatus, CanvasStatus } from "../../canvas/core/types";
+import type { CanvasEdgeStatus, CanvasRunMetrics, CanvasStatus } from "../../canvas/core/types";
 import {
     applyRunEventsToView,
     createRunView,
@@ -24,6 +24,8 @@ export type UseDesignerRunResult = {
     error: string | null;
     nodeStatuses: Readonly<Record<string, CanvasStatus>>;
     edgeStatuses: Readonly<Record<string, CanvasEdgeStatus>>;
+    /** 运行中节点的 token / 耗时指标；结束或重置后清空。 */
+    nodeMetrics: Readonly<Record<string, CanvasRunMetrics>>;
     start: (
         graph: GraphDocument,
         workspaceId: string,
@@ -36,7 +38,11 @@ export type UseDesignerRunResult = {
     clearMessages: () => void;
 };
 
-const EMPTY_VIEW: RunViewState = { nodeStatuses: {}, edgeStatuses: {} };
+const EMPTY_VIEW: RunViewState = {
+    nodeStatuses: {},
+    edgeStatuses: {},
+    nodeMetrics: {},
+};
 
 /**
  * 设计器的运行控制。
@@ -240,6 +246,7 @@ export function useDesignerRun(
         error,
         nodeStatuses: view.nodeStatuses,
         edgeStatuses: view.edgeStatuses,
+        nodeMetrics: view.nodeMetrics,
         start,
         pause,
         resume,

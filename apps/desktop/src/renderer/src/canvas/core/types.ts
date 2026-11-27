@@ -43,6 +43,17 @@ export type CanvasFieldOption = {
 };
 
 /**
+ * 运行中节点的轻量指标：只用于画布动画与 benchmark HUD，不写回文档。
+ *
+ * `tokens` 是增量计数（收到多少个 stream 片段），`tail` 是最近的输出文本。
+ */
+export type CanvasRunMetrics = {
+    startedAt: number;
+    tokens: number;
+    tail: string;
+};
+
+/**
  * 被上游连接固定的字段：只读展示来源值，不在当前节点提供编辑入口。
  */
 export type CanvasLockedField = {
@@ -86,6 +97,8 @@ export type CanvasNodeData = {
     collapsed?: boolean;
     /** 折叠态需要保留的 config 字段（已按默认值过滤）；展开时忽略。 */
     collapsedFields?: readonly string[];
+    /** 运行中节点的 token / 耗时指标；空闲节点没有。 */
+    runMetrics?: CanvasRunMetrics;
 };
 
 export type CanvasNode = {

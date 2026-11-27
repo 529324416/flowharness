@@ -112,6 +112,41 @@
   --node-accent: var(--fh-text-muted);
 }
 
+/*
+ * 运行中警戒线：2px 斜纹环，中间完全镂空，条纹沿边框持续移动。
+ * 用 padding + mask 只保留外圈 2px；与外层节点描边叠加成「过热」状态。
+ */
+.wrapper.running::after {
+  position: absolute;
+  z-index: 0;
+  inset: -3px;
+  padding: 2px;
+  border-radius: 9px;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--fh-port-connected) 0 6px,
+    transparent 6px 12px
+  );
+  content: "";
+  pointer-events: none;
+  animation: fh-node-ring 500ms linear infinite;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+@keyframes fh-node-ring {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    /* 45° 斜纹一个周期（12px）在坐标轴上的投影，保证循环无缝。 */
+    background-position: 8.49px -8.49px;
+  }
+}
+
 /* 运行态脉冲：只作用于节点本体，屏幕空间不随 zoom 缩放。 */
 .running > div {
   animation: fh-node-pulse 1.6s var(--fh-ease-standard) infinite;
@@ -119,7 +154,7 @@
 
 @keyframes fh-node-pulse {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--fh-accent) 42%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--fh-port-connected) 34%, transparent);
   }
   70% {
     box-shadow: 0 0 0 7px transparent;
@@ -130,6 +165,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .wrapper.running::after {
+    animation: none;
+  }
+
   .running > div {
     animation: none;
   }

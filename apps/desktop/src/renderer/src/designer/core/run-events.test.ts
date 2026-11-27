@@ -114,22 +114,48 @@ const wiredGraph: GraphDocument = {
 const edgeId = "a:value->b:text";
 
 describe("designer run edge projection", () => {
-    it("initializes nodes and edges as idle", () => {
+    it("initializes nodes, edges and metrics as idle", () => {
         expect(createRunView(wiredGraph)).toEqual({
             nodeStatuses: { a: "idle", b: "idle" },
             edgeStatuses: { [edgeId]: "idle" },
+            nodeMetrics: {},
         });
     });
 
-    it("activates incoming and outgoing edges across node lifecycle", () => {
+    it("animates the outgoing edge only while the source streams", () => {
         let view = createRunView(wiredGraph);
 
         view = applyRunEventsToView(wiredGraph, view, [
             event({ type: "node:start", runId: "run", nodeId: "a", at: 1 }),
         ]);
         expect(view.nodeStatuses.a).toBe("running");
-        // 节点执行中还没有产出，出边保持 idle。
+        // 节点开始执行时数据已经送达，入边（这里是出边的另一端）不流动。
         expect(view.edgeStatuses[edgeId]).toBe("idle");
+
+        view = applyRunEventsToView(wiredGraph, view, [
+            event({
+                type: "node:stream",
+                runId: "run",
+                nodeId: "a",
+                port: "text",
+                chunk: { type: "text", text: "he" },
+                at: 2,
+            }),
+            event({
+                type: "node:stream",
+                runId: "run",
+                nodeId: "a",
+                port: "text",
+                chunk: { type: "text", text: "llo" },
+                at: 3,
+            }),
+        ]);
+        expect(view.edgeStatuses[edgeId]).toBe("active");
+        expect(view.nodeMetrics.a).toEqual({
+            startedAt: 1,
+            tokens: 2,
+            tail: "hello",
+        });
 
         view = applyRunEventsToView(wiredGraph, view, [
             event({
@@ -137,21 +163,29 @@ describe("designer run edge projection", () => {
                 runId: "run",
                 nodeId: "a",
                 outputs: {},
-                at: 2,
+                at: 4,
             }),
         ]);
         expect(view.nodeStatuses.a).toBe("completed");
-        expect(view.edgeStatuses[edgeId]).toBe("active");
-
-        view = applyRunEventsToView(wiredGraph, view, [
-            event({ type: "node:start", runId: "run", nodeId: "b", at: 3 }),
-            event({ type: "node:end", runId: "run", nodeId: "b", outputs: {}, at: 4 }),
-        ]);
+        // 输出结束，连线动画立即停止。
         expect(view.edgeStatuses[edgeId]).toBe("idle");
+    });
 
+    it("does not animate edges when a node starts without streaming", () => {
+        let view = createRunView(wiredGraph);
         view = applyRunEventsToView(wiredGraph, view, [
-            event({ type: "run:end", runId: "run", status: "completed", outputs: {}, at: 5 }),
+            event({ type: "node:start", runId: "run", nodeId: "a", at: 1 }),
+            event({
+                type: "node:end",
+                runId: "run",
+                nodeId: "a",
+                outputs: {},
+                at: 2,
+            }),
+            event({ type: "node:start", runId: "run", nodeId: "b", at: 3 }),
         ]);
+
+        expect(view.nodeStatuses.b).toBe("running");
         expect(view.edgeStatuses[edgeId]).toBe("idle");
     });
 
@@ -171,50 +205,55 @@ describe("designer run edge projection", () => {
         expect(view.edgeStatuses[edgeId]).toBe("error");
     });
 
-    it("clears active edges when a run is cancelled", () => {
+    it("clears active edges and metrics when a run is cancelled", () => {
         let view = createRunView(wiredGraph);
         view = applyRunEventsToView(wiredGraph, view, [
+            event({ type: "node:start", runId: "run", nodeId: "a", at: 1 }),
             event({
-                type: "node:end",
+                type: "node:stream",
                 runId: "run",
                 nodeId: "a",
-                outputs: {},
-                at: 1,
+                port: "text",
+                chunk: "x",
+                at: 2,
             }),
         ]);
         expect(view.edgeStatuses[edgeId]).toBe("active");
 
         view = applyRunEventsToView(wiredGraph, view, [
-            event({ type: "run:end", runId: "run", status: "cancelled", outputs: {}, at: 2 }),
+            event({ type: "run:end", runId: "run", status: "cancelled", outputs: {}, at: 3 }),
         ]);
         expect(view.edgeStatuses[edgeId]).toBe("idle");
+        expect(view.nodeMetrics).toEqual({});
     });
 
-    it("keeps the same view object when stream events do not change status", () => {
+    it("keeps the same view object when events change nothing", () => {
         let view = createRunView(wiredGraph);
         view = applyRunEventsToView(wiredGraph, view, [
-            event({ type: "node:start", runId: "run", nodeId: "a", at: 1 }),
+            event({ type: "node:skipped", runId: "run", nodeId: "a", at: 1 }),
         ]);
 
-        const afterStream = applyRunEventsToView(wiredGraph, view, [
+        const repeated = applyRunEventsToView(wiredGraph, view, [
+            event({ type: "node:skipped", runId: "run", nodeId: "a", at: 2 }),
+        ]);
+        expect(repeated).toBe(view);
+    });
+
+    it("resets metrics on start and keeps the tail capped", () => {
+        let view = createRunView(wiredGraph);
+        view = applyRunEventsToView(wiredGraph, view, [
+            event({ type: "node:start", runId: "run", nodeId: "a", at: 10 }),
             event({
                 type: "node:stream",
                 runId: "run",
                 nodeId: "a",
                 port: "text",
-                chunk: "he",
-                at: 2,
-            }),
-            event({
-                type: "node:stream",
-                runId: "run",
-                nodeId: "a",
-                port: "text",
-                chunk: "llo",
-                at: 3,
-            }),
-        ]);
+                chunk: "x".repeat(300),
+                at: 11,
+            }),        ]);
 
-        expect(afterStream).toBe(view);
+        expect(view.nodeMetrics.a?.tokens).toBe(1);
+        expect(view.nodeMetrics.a?.startedAt).toBe(10);
+        expect(view.nodeMetrics.a?.tail).toHaveLength(240);
     });
 });

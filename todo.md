@@ -375,7 +375,7 @@
 - [x] 节点折叠：Header 右侧按钮切换，状态写入 `node.ui.collapsed`；`setNodeCollapsed` 命令进撤销栈（ADR-042）
 - [x] 折叠字段过滤：只保留已连接端口与「有数据且不等于默认值」的 config；默认值取 `configSchema.default` / 类型 `defaultConfig`（`designer/core/collapse.ts`）
 - [x] 折叠态隐藏 kind 标签与未连接端口徽标；Constant 空正文、空参数字段不再占位；运行期只读不提供折叠入口
-- [x] 工作流多选：Ctrl / Cmd 切换、Shift 区间、普通点击打开并清空；选中行强调边框 + 对勾（ADR-043）
+- [x] 工作流多选：Ctrl / Cmd 切换、Shift 区间、普通点击打开并清空；打开中的工作流即选中，多选复用同一高亮（ADR-043）
 - [x] 批量操作条：全选 / 复制 / 删除 / 清除；批量删除确认 Dialog 列出数量与标题
 - [x] 批量右键菜单：打开 / 复制所选 / 删除所选 / 清除选择
 - [x] App 批量复制 / 删除：单选入口复用批量实现；删除逐条 IPC + 一次刷新 / 回退；复制仅在单选时切换

@@ -100,6 +100,7 @@
 | 节点折叠模式 / 折叠字段过滤 | ✅ 已实现（2026-11-28，ADR-042） |
 | 工作流多选与批量复制·删除 | ✅ 已实现（2026-11-28，ADR-043） |
 | 运行态动画：流式边进度 / 节点冷却 / 警戒环 / benchmark | ✅ 已实现（2026-11-28，ADR-044） |
+| Filter / Combine 节点拆分；旧 Merge 迁移与兼容 | ✅ 已实现（2026-11-28，ADR-045） |
 | M6.2 wireclaw checkpoint v2（graphHash + nodeVersions） | ✅ 已实现（M6.2） |
 | M6.2 工作区文件工具 / 运行前 requirements catalog | ✅ 已实现（M6.2） |
 | SessionService（AttachmentFileManager / SessionStore 装配） | ✅ 已实现（Phase 2 附件；M6.2 会话） |

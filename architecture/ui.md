@@ -280,6 +280,7 @@ CanvasCommand → GraphDocument
 - 上游锁定字段（2026-11-27）：被连接固定的字段（当前为 Model 的 Provider）不再渲染禁用下拉，而是只读行——锁图标 + 来源值 + 「上游」，hover 提示修改位置；来源值由工作台以 `CanvasLockedField { value, reason }` 投影注入，Canvas 只透传（ADR-037）；
 - JSON 字段（2026-11-27）：节点内联与检查器使用 `ui/CodeArea`（透明 textarea + JSON 高亮层，滚动同步），键 / 字符串 / 数字 / 字面量分别着色，颜色走 `--fh-code-*`；节点内联为 10px 紧凑变体；Constant 阅读态的 JSON 截断预览同样用 `ui/JsonCodeText` 着色，与编辑态一致（ADR-038）；
 - Constant（2026-11-27）：非编辑态渲染为 p 标签，正文按 200 字符裁剪并最多显示 3 行；hover 用半透面板 Tooltip 展示最多 400 字符。标题栏铅笔按钮进入编辑模式，正文切换为随内容自增高的 TextArea（上限 180px），再次点击退出；编辑态可切换 text / json 类型，json 使用紧凑 JSON TextArea；两种模式都关闭拼写检查；
+- Filter / Combine（2026-11-28，ADR-045）：Filter 无 config，只渲染端口行；Combine 在 Body 内提供「分隔符」输入（默认空串），输出端口是单个 `text`；旧 `core.merge` 不在节点库出现，旧图加载时递归迁移为 `core.filter`；
 - Provider（2026-11-27）：Provider 节点 Body 直接提供 Provider 下拉，不再只显示摘要；
 - 节点内容组件通过 `canvas/view/node-registry.ts` 的 registry 注册，Canvas 不感知；当前所有类型都回落到 `SciFiNode`。
 

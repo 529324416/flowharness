@@ -397,6 +397,17 @@
 - [x] Merge / Branch / Loop 等上游锁定字段显示节点标题 + 输出，不再显示 `core.merge` 原始 type id
 - [x] HUD 指标 150ms 节流写入画布；警戒环改为四条 2px 边框（移除 mask-composite）
 
+## Filter / Combine 节点（2026-11-28）
+
+- [x] `core.merge` 更名为 `core.filter`（FilterNode，行为不变：a ?? b），节点库只提供 Filter（ADR-045）
+- [x] 新增 `core.combine`：两个 text 输入 + `separator`，按顺序拼接为 text；单路透传、双路缺失执行期 MissingValue
+- [x] `core.merge` 保留为 legacy 别名：registry 仍注册，FH 节点库隐藏，旧图 / 旧 run 可继续运行
+- [x] 文档加载时递归迁移 `core.merge → core.filter`（含 Loop / ForEach / Subgraph 内嵌图），保存后写回新类型
+- [x] 图标：Filter 漏斗 / Combine 合并图标；Combine 内联分隔符字段，折叠态按默认值隐藏
+- [x] wireclaw 测试：`harness-filter-combine.ts`（Filter 取 a / 单路 b、Combine 分隔符 / 单路 / 缺值、旧 Merge 别名）；69/69
+- [x] FH 测试：catalog（18 项、隐藏 legacy）/ document 迁移；`pnpm test` 49 文件 / 285 项
+- [x] 截图场景 `designer-filter-combine` 与基线 `devlog/assets/ui-filter-combine.png`
+
 ## 后续里程碑
 
 ### M10 — 可观测性与工程化（原 M9）
@@ -566,6 +577,7 @@
 - [x] 47 个测试文件 / 272 个测试通过（2026-11-28；节点折叠字段过滤 / 折叠命令）
 - [x] 49 个测试文件 / 280 个测试通过（2026-11-28；工作流多选；补跑 shell 测试）
 - [x] 49 个测试文件 / 282 个测试通过（2026-11-28；运行态动画语义 / 运行指标）
+- [x] 49 个测试文件 / 285 个测试通过（2026-11-28；Filter / Combine / 旧类型迁移；wireclaw 69/69）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
 

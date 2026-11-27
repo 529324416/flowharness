@@ -1219,5 +1219,33 @@ Model Call / Agent Run 的 `model`、`prompt`（Agent 为 `input`）、`attachme
 - 用 CSS 虚线滚动表达流动：只能表达方向，不能表达「输出进度」，且无法与数据实际开始 / 结束对齐。
 - 把 benchmark 放进节点 Body：会改变节点高度，运行开始 / 结束引起画布跳动，也会挤压端口锚点。
 
+## ADR-045：Filter 与 Combine 拆分（Merge 更名）
+
+**背景**
+
+`core.merge` 的名称暗示「把两个值合并」，但实现是二选一透传（有 a 取 a，否则 b）；真正需要把两段文本拼起来时反而没有节点，用户容易误以为 Merge 无效。
+
+**决定**
+
+- 新增 `core.filter`（`FilterNode`）：行为与旧 Merge 一致（`inputs.a ?? inputs.b`），名称表达「从两路分支中过滤出一路值」；节点库只提供 Filter。
+- 新增 `core.combine`（`CombineNode`）：输入 `a` / `b` 两个 `text`，输出单个 `text`；`config.separator`（默认空串）作为两段文本之间的分隔符；只连接一路时直接透传，两路都未连接时执行期 `MissingValue`。
+- `core.merge` 保留为 **legacy 别名**：registry 仍然注册（旧图、旧 run 快照、Diagnostics 恢复可继续运行），但 FH 节点库 / 插入菜单隐藏。
+- FH 加载文档时递归迁移 `core.merge → core.filter`（含 Loop / ForEach / Subgraph 的内嵌图）；保存后写回新类型。迁移在 `designer/core/document.ts`，不改变 id / typeVersion / config。
+- 图标：Filter 用漏斗（`Filter`），Combine 用合并图标（`Combine`）；Combine 在节点 Body 内提供分隔符输入（折叠态按默认值规则隐藏）。
+
+**后果**
+
+- 旧图打开后即显示为 Filter；未编辑时磁盘上仍是旧类型，首次编辑 / 自动保存后写回 `core.filter`。
+- 旧 run 的 `graph.json` 快照含 `core.merge` 时，legacy 别名保证恢复可用；新图不会再产生 `core.merge`。
+- 分隔符只在两路都有值时生效，单路输出不带首尾分隔符。
+- 节点库不再展示旧 Merge；`describeDesignerNode` 仍能渲染旧图的 Merge 节点。
+
+**否决**
+
+- 直接删除 `core.merge`：旧图与旧 run 快照会打不开 / 无法恢复。
+- 让 Merge 同时承担「二选一」和「拼接」：名称与行为继续错位，且旧图语义会变。
+- 在 Filter 内做拼接：无法表达「只取一路」，两种意图应拆成两个节点。
+
+
 
 

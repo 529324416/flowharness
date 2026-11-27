@@ -168,6 +168,8 @@ try {
         scenario === "canvas-selection-random" ||
         scenario === "designer-inline" ||
         scenario === "designer-inline-type" ||
+        scenario === "designer-provider" ||
+        scenario === "designer-panel" ||
         scenario === "designer-slot-connect" ||
         scenario === "designer-import" ||
         scenario === "designer-history" ||
@@ -712,7 +714,11 @@ try {
 
         if (scenario === "designer-inline-type") {
             await evaluate(
-                `document.querySelector('input[aria-label="常量文本"]')?.focus()`,
+                `document.querySelector('button[aria-label="编辑常量文本"]')?.click()`,
+            );
+            await settle(300);
+            await evaluate(
+                `document.querySelector('textarea[aria-label="常量文本"]')?.focus()`,
             );
             await settle(200);
 
@@ -737,7 +743,7 @@ try {
             await settle(1200);
 
             const domValue = await evaluateAsync(
-                `document.querySelector('input[aria-label="常量文本"]')?.value`,
+                `document.querySelector('textarea[aria-label="常量文本"]')?.value`,
             );
             const config = await evaluateAsync(`(async () => {
                 const list = await window.flowharness.listWorkspaces();
@@ -753,8 +759,12 @@ try {
         }
 
         if (scenario === "designer-inline") {
+            await evaluate(
+                `document.querySelector('button[aria-label="编辑常量文本"]')?.click()`,
+            );
+            await settle(300);
             const changed = await evaluate(
-                `(() => { const input = document.querySelector('input[aria-label="常量文本"]'); if (!input) return false; const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; setter.call(input, 'inline edited'); input.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`,
+                `(() => { const input = document.querySelector('textarea[aria-label="常量文本"]'); if (!input) return false; const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; setter.call(input, 'inline edited'); input.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`,
             );
             await settle(1200);
 
@@ -773,6 +783,206 @@ try {
             console.log(`inline changed: ${JSON.stringify(changed.result?.value)}`);
             console.log(`inline config: ${JSON.stringify(config.result?.value)}`);
             console.log(`inline save: ${JSON.stringify(save.result?.value)}`);
+        }
+
+        if (scenario === "designer-provider") {
+            const fixture = join(tmpdir(), `fh-provider-${process.pid}.json`);
+            writeFileSync(
+                fixture,
+                `${JSON.stringify({
+                    version: 1,
+                    id: "provider-fixture",
+                    title: "Provider 约束",
+                    nodes: [
+                        {
+                            id: "provider",
+                            type: "core.provider",
+                            typeVersion: 1,
+                            config: { providerId: "ollama" },
+                            ui: { x: 120, y: 160 },
+                        },
+                        {
+                            id: "model",
+                            type: "core.model",
+                            typeVersion: 1,
+                            config: {
+                                providerId: "ollama",
+                                modelId: "deepseek-flash",
+                            },
+                            ui: { x: 460, y: 160 },
+                        },
+                        {
+                            id: "constant",
+                            type: "core.constant",
+                            typeVersion: 1,
+                            config: {
+                                value: {
+                                    type: "text",
+                                    text: "hello from flowharness, this is only a test information.",
+                                },
+                            },
+                            ui: { x: 120, y: 360 },
+                        },
+                        {
+                            id: "call",
+                            type: "core.model.call",
+                            typeVersion: 1,
+                            config: { mode: "chat" },
+                            ui: { x: 760, y: 300 },
+                        },
+                        {
+                            id: "output",
+                            type: "core.output",
+                            typeVersion: 1,
+                            ui: { x: 1080, y: 160 },
+                        },
+                    ],
+                    edges: [
+                        {
+                            from: { nodeId: "provider", port: "provider" },
+                            to: { nodeId: "model", port: "provider" },
+                        },
+                        {
+                            from: { nodeId: "model", port: "model" },
+                            to: { nodeId: "call", port: "model" },
+                        },
+                        {
+                            from: { nodeId: "constant", port: "value" },
+                            to: { nodeId: "call", port: "prompt" },
+                        },
+                        {
+                            from: { nodeId: "call", port: "text" },
+                            to: { nodeId: "output", port: "text" },
+                        },
+                    ],
+                })}\n`,
+            );
+
+            const root = await send("DOM.getDocument", { depth: -1 });
+            const input = await send("DOM.querySelector", {
+                nodeId: root.root.nodeId,
+                selector: 'input[type="file"]',
+            });
+            if (input.nodeId === 0) {
+                console.log("provider import input: not found");
+            } else {
+                await send("DOM.setFileInputFiles", {
+                    files: [fixture],
+                    nodeId: input.nodeId,
+                });
+                await settle(1500);
+            }
+
+            const clicked = await clickElement(
+                `document.querySelector('button[aria-label="Provider"]')`,
+            );
+            await settle(500);
+            const menu = await evaluateAsync(
+                `[...document.querySelectorAll('[role="menu"]')].map((node) => node.textContent?.trim())`,
+            );
+            console.log(`provider menu opened: ${JSON.stringify(clicked)}`);
+            console.log(`provider menu: ${JSON.stringify(menu.result?.value)}`);
+            await settle(1200);
+            const catalog = await evaluateAsync(
+                `(async () => { const result = await window.flowharness.getProviderLibrary(); if (!result.ok) return null; return result.data.profiles.map((item) => ({ id: item.profile.id, models: item.profile.models.map((model) => model.id), fetchedAt: item.profile.modelsFetchedAt ?? null })); })()`,
+            );
+            console.log(`provider catalog: ${JSON.stringify(catalog.result?.value)}`);
+            await send("Input.dispatchKeyEvent", {
+                type: "keyDown",
+                key: "Escape",
+                code: "Escape",
+                windowsVirtualKeyCode: 27,
+            });
+            await send("Input.dispatchKeyEvent", {
+                type: "keyUp",
+                key: "Escape",
+                code: "Escape",
+                windowsVirtualKeyCode: 27,
+            });
+            await settle(300);
+        }
+
+        if (scenario === "designer-panel") {
+            const activeDocument = await evaluate(
+                `document.querySelector('[data-document-id][aria-current="page"]')?.getAttribute('data-document-id')`,
+            );
+            const activeDocumentId = activeDocument.result?.value;
+            const header = await evaluate(
+                `(() => {
+                    const header = [...document.querySelectorAll('header')].find((node) => node.textContent?.includes('运行日志'));
+                    if (!header) return null;
+                    const rect = header.getBoundingClientRect();
+                    return { x: rect.left + 30, y: rect.top + 14 };
+                })()`,
+            );
+            const start = header.result?.value;
+            if (start) {
+                await send("Input.dispatchMouseEvent", {
+                    type: "mousePressed",
+                    x: start.x,
+                    y: start.y,
+                    button: "left",
+                    clickCount: 1,
+                });
+                for (let step = 1; step <= 8; step += 1) {
+                    await send("Input.dispatchMouseEvent", {
+                        type: "mouseMoved",
+                        x: start.x + 180 * (step / 8),
+                        y: start.y - 160 * (step / 8),
+                        button: "left",
+                        buttons: 1,
+                    });
+                    await settle(40);
+                }
+                await send("Input.dispatchMouseEvent", {
+                    type: "mouseReleased",
+                    x: start.x + 180,
+                    y: start.y - 160,
+                    button: "left",
+                    clickCount: 1,
+                });
+                await settle(1200);
+            }
+
+            const saved = await evaluateAsync(`(async () => {
+                const active = ${JSON.stringify(activeDocumentId)};
+                if (!active) return null;
+                const list = await window.flowharness.listWorkspaces();
+                if (!list.ok) return null;
+                for (const workspace of list.data) {
+                    const documents = await window.flowharness.listDocuments(workspace.id);
+                    if (!documents.ok || !documents.data.some((document) => document.id === active)) continue;
+                    const snapshot = await window.flowharness.readDocument(workspace.id, { kind: 'harness', id: active });
+                    if (!snapshot.ok || snapshot.data === null) return null;
+                    return snapshot.data.document.ui?.panels?.['run-log'] ?? null;
+                }
+                return null;
+            })()`);
+            console.log(`panel layout saved: ${JSON.stringify(saved.result?.value)}`);
+
+            const other = await evaluate(
+                `(() => { const item = [...document.querySelectorAll('[data-document-id]')].find((node) => node.getAttribute('aria-current') !== 'page'); if (!item) return null; item.click(); return item.getAttribute('data-document-id'); })()`,
+            );
+            await settle(1200);
+            await evaluate(
+                `document.querySelector('[data-document-id="${activeDocumentId}"]')?.click()`,
+            );
+            await settle(1600);
+
+            const restoredActive = await evaluate(
+                `document.querySelector('[data-document-id][aria-current="page"]')?.getAttribute('data-document-id')`,
+            );
+            const restored = await evaluate(
+                `(() => {
+                    const header = [...document.querySelectorAll('header')].find((node) => node.textContent?.includes('运行日志'));
+                    const layer = document.querySelector('[aria-label="浮动面板层"]');
+                    if (!header || !layer) return null;
+                    const rect = header.getBoundingClientRect();
+                    const layerRect = layer.getBoundingClientRect();
+                    return { x: Math.round(rect.left - layerRect.left), y: Math.round(rect.top - layerRect.top) };
+                })()`,
+            );
+            console.log(`panel layout restore: ${JSON.stringify(restored.result?.value)} / active ${JSON.stringify(restoredActive.result?.value)} / other ${JSON.stringify(other.result?.value)}`);
         }
 
         if (scenario === "designer-import") {

@@ -36,11 +36,17 @@ export type CanvasNodeNotice = {
     message: string;
 };
 
+/** 节点内联字段的运行时下拉选项；Canvas 不解释字段语义。 */
+export type CanvasFieldOption = {
+    value: string;
+    label: string;
+};
+
 /**
  * 节点渲染数据。
  *
- * 这是 GraphDocument 的投影，不持有运行身份；config 只用于检查器展示，
- * Canvas 组件不解释它。
+ * 这是 GraphDocument 的投影，不持有运行身份；config 只供节点 Body 内联编辑与
+ * 检查器展示，Canvas 组件不解释它的业务语义。
  */
 export type CanvasNodeData = {
     kind: string;
@@ -55,6 +61,12 @@ export type CanvasNodeData = {
     error?: string;
     /** Provider / 配置健康提示；不改变运行状态。 */
     notice?: CanvasNodeNotice;
+    /** 内联字段下拉选项（按 config 字段名），由工作台在投影时注入。 */
+    fieldOptions?: Readonly<Record<string, readonly CanvasFieldOption[]>>;
+    /** 被连接固定、不可编辑的字段及原因。 */
+    lockedFields?: Readonly<Record<string, string>>;
+    /** 已连接输入端口在节点内的显示值；缺省显示端口名。 */
+    slotLabels?: Readonly<Record<string, string>>;
 };
 
 export type CanvasNode = {

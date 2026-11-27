@@ -15,6 +15,12 @@ export type NodeConfigFormProps = {
     disabled?: boolean;
     /** 运行时下拉覆盖：key 是字段名（如 providerId / modelId）。 */
     fieldOptions?: Readonly<Record<string, readonly SelectOption[]>>;
+    /** 运行时只读覆盖值（Provider 已连接时显示来源 Provider）。 */
+    fieldValues?: Readonly<Record<string, JsonValue | undefined>>;
+    /** 特定字段的额外提示（例如 Provider 模型目录为空）。 */
+    fieldHints?: Readonly<Record<string, string>>;
+    /** 被连接固定、不可编辑的字段及原因。 */
+    fieldLocks?: Readonly<Record<string, string>>;
     onChange: (config: JsonValue) => void;
 };
 
@@ -30,6 +36,9 @@ export function NodeConfigForm({
     config,
     disabled = false,
     fieldOptions,
+    fieldValues,
+    fieldHints,
+    fieldLocks,
     onChange,
 }: NodeConfigFormProps): ReactElement {
     const issues = useMemo(
@@ -73,10 +82,16 @@ export function NodeConfigForm({
                         name={key}
                         schema={property}
                         path={[key]}
-                        value={readConfigPath(config, [key])}
+                        value={
+                            fieldValues !== undefined && key in fieldValues
+                                ? fieldValues[key]
+                                : readConfigPath(config, [key])
+                        }
                         required={required.has(key)}
                         issues={issues}
                         disabled={disabled}
+                        lockReason={fieldLocks?.[key]}
+                        extraHint={fieldHints?.[key]}
                         options={fieldOptions?.[key]}
                         onChange={(path, next) => {
                             onChange(writeConfigPath(config, path, next));
@@ -96,6 +111,8 @@ type SchemaFieldProps = {
     required: boolean;
     issues: readonly NodeConfigIssue[];
     disabled: boolean;
+    lockReason?: string | undefined;
+    extraHint?: string | undefined;
     options?: readonly SelectOption[] | undefined;
     onChange: (path: ConfigPath, value: JsonValue | undefined) => void;
 };
@@ -108,17 +125,23 @@ function SchemaField({
     required,
     issues,
     disabled,
+    lockReason,
+    extraHint,
     options,
     onChange,
 }: SchemaFieldProps): ReactElement {
     const label = readString(schema.title) ?? name;
     const description = readString(schema.description);
+    const hint = [description, extraHint, lockReason]
+        .filter((part): part is string => part !== undefined)
+        .join(" · ");
     const pathKey = pathToString(path);
     const error = issues.find((issue) => issue.path === pathKey)?.message;
     const id = `config-${pathKey}`;
     const format = readString(schema.format);
     const enumOptions = readEnumOptions(schema);
     const types = readTypes(schema);
+    const fieldDisabled = disabled || lockReason !== undefined;
 
     // 用 JSON 文本域兜底：显式 format、联合类型、缺 type 都落到这里。
     if (format === "json" || format === "graph" || types.length !== 1) {
@@ -147,7 +170,7 @@ function SchemaField({
         return (
             <Field
                 label={label}
-                hint={description}
+                hint={hint}
                 error={error}
                 required={required}
                 htmlFor={id}
@@ -156,9 +179,11 @@ function SchemaField({
                     id={id}
                     value={typeof value === "string" ? value : undefined}
                     options={options}
-                    disabled={disabled}
+                    disabled={fieldDisabled}
                     placeholder="请选择"
-                    onChange={(next) => onChange(path, next)}
+                    onChange={(next) =>
+                        onChange(path, next === "" ? undefined : next)
+                    }
                 />
             </Field>
         );
@@ -321,7 +346,7 @@ function SchemaField({
     return (
         <Field
             label={label}
-            hint={description}
+            hint={hint}
             error={error}
             required={required}
             htmlFor={id}
@@ -329,7 +354,7 @@ function SchemaField({
             <Input
                 id={id}
                 value={typeof value === "string" ? value : ""}
-                disabled={disabled}
+                disabled={fieldDisabled}
                 onChange={(event) => onChange(path, event.target.value)}
             />
         </Field>

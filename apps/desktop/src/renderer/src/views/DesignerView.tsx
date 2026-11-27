@@ -11,17 +11,35 @@ import {
     Button,
     EmptyState,
 } from "../ui";
-import type { CanvasEdgeStatus, CanvasNodeNotice } from "../canvas/core/types";
+import type {
+    CanvasCommand,
+    CanvasEdgeStatus,
+    CanvasNodeNotice,
+} from "../canvas/core/types";
 import { edgeKeyFromPorts } from "../canvas/core/edge-key";
 import { CanvasView } from "../canvas/view/CanvasView";
+import {
+    DEFAULT_PANEL_LAYOUT,
+    type PanelLayoutState,
+} from "../layout-metrics";
 import { toCanvasDocument, type CanvasPresentation } from "../designer/core/adapter";
-import { collectProviderProblems, resolveModelProvider } from "../designer/core/provider-problems";
+import {
+    collectProviderProblems,
+    findIncompatibleModels,
+    resolveModelProvider,
+} from "../designer/core/provider-problems";
+import { collectProviderCatalogRequests } from "../designer/core/provider-catalog";
 import { findInvalidEdges } from "../designer/core/edges";
 import {
     copyNodes,
     pasteNodes,
     type NodeClipboard,
 } from "../designer/core/commands";
+import {
+    readPanelLayout,
+    samePanelLayout,
+    withPanelLayout,
+} from "../designer/core/panel-layout";
 import { findNodeCatalogEntry } from "../designer/core/catalog";
 import { BUILTIN_PRESETS } from "../designer/core/presets";
 import {
@@ -76,6 +94,10 @@ export type DesignerViewProps = {
     onControllerChange: (controller: WorkbenchController | null) => void;
     /** 保存冲突时把当前内存文档另存为副本。 */
     onSaveConflictCopy: (graph: GraphDocument) => void;
+    /** 浮动面板当前布局；由 Shell 的 useFloatingPanels 提供。 */
+    panels: readonly PanelLayoutState[];
+    /** 应用当前图保存的浮动面板布局；null 表示默认布局。 */
+    onApplyPanelLayout: (layout: readonly PanelLayoutState[] | null) => void;
 };
 
 /** 设计器视图：加载 / 编辑 / 自动保存一份 Harness GraphDocument。 */
@@ -95,6 +117,8 @@ export function DesignerView({
     onDocumentActionsChange,
     onControllerChange,
     onSaveConflictCopy,
+    panels,
+    onApplyPanelLayout,
 }: DesignerViewProps): ReactElement {
     const {
         status,
@@ -110,11 +134,14 @@ export function DesignerView({
         addNode,
         addNodeFromPreset,
         updateNodeConfig,
+        updateGraphUi,
         replaceDocument,
         flush,
     } = useDesignerDocument(workspace?.id ?? null, documentId);
     const canvasRef = useRef<HTMLDivElement>(null);
     const clipboardRef = useRef<NodeClipboard | null>(null);
+    const panelHydratedDocumentRef = useRef<string | null>(null);
+    const panelBaselineRef = useRef<readonly PanelLayoutState[] | null>(null);
     const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
     const [selectionRequest, setSelectionRequest] = useState<{
         nodeIds: string[];
@@ -142,7 +169,19 @@ export function DesignerView({
         }));
     }, []);
     const { entries: recentNodes, record: recordRecentNode } = useRecentNodes();
-    const { view: providerLibrary } = useProviderLibrary();
+    const {
+        view: providerLibrary,
+        refresh: refreshProviderLibrary,
+    } = useProviderLibrary();
+    /** 连接 / 切换 Provider 后清空不兼容模型，并向用户说明原因。 */
+    const [modelResetNotice, setModelResetNotice] = useState<string[] | null>(
+        null,
+    );
+    /** 空模型目录的实机刷新状态；key 是 Provider profile id。 */
+    const [catalogRefreshes, setCatalogRefreshes] = useState<
+        Record<string, { status: "loading" | "error"; error?: string }>
+    >({});
+    const attemptedCatalogRefreshRef = useRef<Set<string>>(new Set());
 
     const requirementCatalog = useMemo<RequirementCatalog>(
         () => ({
@@ -156,6 +195,25 @@ export function DesignerView({
                 })),
             ),
         }),
+        [providerLibrary],
+    );
+
+    const providerOptions = useMemo<InspectorFieldOption[]>(
+        () =>
+            providerLibrary.profiles.map((status) => ({
+                value: status.profile.id,
+                label: profileOptionLabel(status),
+            })),
+        [providerLibrary],
+    );
+
+    /** 节点内联下拉只显示短标签，避免 220px 节点被适配器名撑满。 */
+    const inlineProviderOptions = useMemo<InspectorFieldOption[]>(
+        () =>
+            providerLibrary.profiles.map((status) => ({
+                value: status.profile.id,
+                label: status.profile.label,
+            })),
         [providerLibrary],
     );
 
@@ -187,6 +245,11 @@ export function DesignerView({
         setLibraryInsert(null);
         setFocusNode(null);
         clipboardRef.current = null;
+        setModelResetNotice(null);
+        setCatalogRefreshes({});
+        attemptedCatalogRefreshRef.current = new Set();
+        panelHydratedDocumentRef.current = null;
+        panelBaselineRef.current = null;
     }, [documentId]);
 
     useEffect(() => {
@@ -292,6 +355,165 @@ export function DesignerView({
         return presentation;
     }, [graph, providerLibrary]);
 
+    // 模型目录为空且未检测过时，在后台实机刷新一次；成功后 main 持久化并广播。
+    useEffect(() => {
+        if (graph === null) return;
+        const requests = collectProviderCatalogRequests(graph, providerLibrary);
+
+        for (const request of requests) {
+            if (attemptedCatalogRefreshRef.current.has(request.profileId)) {
+                continue;
+            }
+            attemptedCatalogRefreshRef.current.add(request.profileId);
+            setCatalogRefreshes((current) => ({
+                ...current,
+                [request.profileId]: { status: "loading" },
+            }));
+
+            void (async () => {
+                const result = await window.flowharness.refreshProviderModels({
+                    profileId: request.profileId,
+                });
+                if (!result.ok) {
+                    setCatalogRefreshes((current) => ({
+                        ...current,
+                        [request.profileId]: {
+                            status: "error",
+                            error: result.error.message,
+                        },
+                    }));
+                    return;
+                }
+                if (result.data.error !== undefined) {
+                    setCatalogRefreshes((current) => ({
+                        ...current,
+                        [request.profileId]: {
+                            status: "error",
+                            error: result.data.error,
+                        },
+                    }));
+                    return;
+                }
+
+                setCatalogRefreshes((current) => {
+                    const next = { ...current };
+                    delete next[request.profileId];
+                    return next;
+                });
+                await refreshProviderLibrary();
+            })();
+        }
+    }, [graph, providerLibrary, refreshProviderLibrary]);
+
+    const providerFieldOptions = useMemo<
+        Record<string, Record<string, InspectorFieldOption[]>>
+    >(() => {
+        const map: Record<string, Record<string, InspectorFieldOption[]>> = {};
+        if (graph === null) return map;
+
+        for (const node of graph.nodes) {
+            const config = isRecord(node.config) ? node.config : {};
+
+            if (node.type === "core.provider") {
+                const providerId =
+                    typeof config.providerId === "string" &&
+                    config.providerId.length > 0
+                        ? config.providerId
+                        : undefined;
+                map[node.id] = {
+                    providerId: withCurrentOption(
+                        inlineProviderOptions,
+                        providerId,
+                        "缺失的 Provider",
+                    ),
+                };
+                continue;
+            }
+
+            if (node.type !== "core.model") continue;
+
+            const binding = resolveModelProvider(graph, node);
+            const configProviderId =
+                typeof config.providerId === "string" &&
+                config.providerId.length > 0
+                    ? config.providerId
+                    : undefined;
+            const effectiveProviderId =
+                binding.connected && binding.sourceIsProvider
+                    ? binding.providerId
+                    : configProviderId;
+            const profile = providerLibrary.profiles.find(
+                (status) => status.profile.id === effectiveProviderId,
+            );
+            const modelOptions: InspectorFieldOption[] =
+                profile?.profile.models.map((model) => ({
+                    value: model.id,
+                    label: model.name || model.id,
+                })) ?? [];
+            const modelId =
+                typeof config.modelId === "string" && config.modelId.length > 0
+                    ? config.modelId
+                    : undefined;
+
+            map[node.id] = {
+                providerId: withCurrentOption(
+                    inlineProviderOptions,
+                    effectiveProviderId,
+                    "缺失的 Provider",
+                ),
+                modelId: [
+                    { value: "", label: "未选择模型" },
+                    ...withCurrentOption(
+                        modelOptions,
+                        modelId,
+                        "不在目录中的模型",
+                    ),
+                ],
+            };
+        }
+
+        return map;
+    }, [graph, inlineProviderOptions, providerLibrary]);
+
+    const providerFieldLocks = useMemo<
+        Record<string, Record<string, string>>
+    >(() => {
+        const map: Record<string, Record<string, string>> = {};
+        if (graph === null) return map;
+
+        for (const node of graph.nodes) {
+            if (node.type !== "core.model") continue;
+            const binding = resolveModelProvider(graph, node);
+            if (!binding.connected || !binding.sourceIsProvider) continue;
+            map[node.id] = { providerId: "由 Provider 节点连接固定" };
+        }
+
+        return map;
+    }, [graph]);
+
+    const providerSlotLabels = useMemo<Record<string, Record<string, string>>>(
+        () => {
+            const labels: Record<string, Record<string, string>> = {};
+            if (graph === null) return labels;
+
+            for (const node of graph.nodes) {
+                if (node.type !== "core.model") continue;
+                const binding = resolveModelProvider(graph, node);
+                if (!binding.connected || !binding.sourceIsProvider) continue;
+                const status = providerLibrary.profiles.find(
+                    (item) => item.profile.id === binding.providerId,
+                );
+                labels[node.id] = {
+                    provider:
+                        status?.profile.label ?? binding.providerId ?? "已连接",
+                };
+            }
+
+            return labels;
+        },
+        [graph, providerLibrary],
+    );
+
     const canvas = useMemo(
         () =>
             graph === null
@@ -300,14 +522,75 @@ export function DesignerView({
                       edgeStatuses,
                       notices: providerNotices,
                       presentation: providerPresentation,
+                      fieldOptions: providerFieldOptions,
+                      lockedFields: providerFieldLocks,
+                      slotLabels: providerSlotLabels,
                   }),
-        [edgeStatuses, graph, providerNotices, providerPresentation],
+        [
+            edgeStatuses,
+            graph,
+            providerFieldLocks,
+            providerFieldOptions,
+            providerNotices,
+            providerPresentation,
+            providerSlotLabels,
+        ],
     );
 
     const problems = useMemo(
         () => [...baseProblems, ...providerProblems],
         [baseProblems, providerProblems],
     );
+
+    // 每张图拥有自己的浮动面板布局：打开文档时恢复，拖动 / 缩放后写回 ui.panels。
+    useEffect(() => {
+        if (
+            graph === null ||
+            documentId === null ||
+            graph.id !== documentId
+        ) {
+            return;
+        }
+
+        const key = `${workspace?.id ?? ""}:${documentId}`;
+        if (panelHydratedDocumentRef.current === key) return;
+        panelHydratedDocumentRef.current = key;
+
+        const saved = readPanelLayout(graph.ui);
+        // 旧图没有保存布局时，先记录默认布局；只有用户真正改动后才写回。
+        panelBaselineRef.current = saved ?? DEFAULT_PANEL_LAYOUT;
+        onApplyPanelLayout(saved);
+    }, [documentId, graph, onApplyPanelLayout, workspace?.id]);
+
+    useEffect(() => {
+        if (
+            graph === null ||
+            documentId === null ||
+            graph.id !== documentId
+        ) {
+            return;
+        }
+
+        const key = `${workspace?.id ?? ""}:${documentId}`;
+        if (panelHydratedDocumentRef.current !== key) return;
+
+        const stored = readPanelLayout(graph.ui);
+        if (stored === null) {
+            if (samePanelLayout(panelBaselineRef.current, panels)) return;
+        } else if (samePanelLayout(stored, panels)) {
+            return;
+        }
+
+        // 拖动过程中会连续更新，等停稳后再写回文档，避免每个 pointermove 都保存。
+        const timer = window.setTimeout(() => {
+            updateGraphUi((current) => ({
+                ...current,
+                ui: withPanelLayout(current.ui, panels),
+            }));
+        }, 400);
+
+        return () => window.clearTimeout(timer);
+    }, [documentId, graph, panels, updateGraphUi, workspace?.id]);
 
     const selectProblem = useCallback(
         (problem: DesignerProblem): void => {
@@ -343,6 +626,204 @@ export function DesignerView({
     useEffect(() => {
         return () => onProblemsChange(null);
     }, [onProblemsChange]);
+
+    const notifyModelResets = useCallback(
+        (resets: readonly { modelId: string; providerLabel: string }[]): void => {
+            if (resets.length === 0) return;
+            setModelResetNotice(
+                resets.map(
+                    (reset) =>
+                        `模型 “${reset.modelId}” 不在 Provider “${reset.providerLabel}” 的模型目录中，已清空，请重新选择模型。`,
+                ),
+            );
+        },
+        [],
+    );
+
+    /**
+     * Provider 输入连接后，立即固定连接值并清空不兼容的模型。
+     * 连接优先于 config.providerId，因此需要把来源 Provider 的目录作为约束。
+     */
+    const handleCanvasCommand = useCallback(
+        (command: CanvasCommand): void => {
+            applyCommand(command);
+
+            if (
+                command.type !== "connect" ||
+                command.to.port !== "provider" ||
+                graph === null
+            ) {
+                return;
+            }
+
+            const target = graph.nodes.find(
+                (node) => node.id === command.to.nodeId,
+            );
+            const source = graph.nodes.find(
+                (node) => node.id === command.from.nodeId,
+            );
+            if (target?.type !== "core.model" || source?.type !== "core.provider") {
+                return;
+            }
+
+            const sourceConfig = isRecord(source.config) ? source.config : {};
+            const targetConfig = isRecord(target.config) ? target.config : {};
+            const providerId = readStringField(sourceConfig, "providerId");
+            const modelId = readStringField(targetConfig, "modelId");
+            const resets = findIncompatibleModels(providerLibrary, [
+                { nodeId: target.id, providerId, modelId },
+            ]);
+            const nextConfig: Record<string, unknown> = { ...targetConfig };
+            if (providerId !== undefined) {
+                nextConfig.providerId = providerId;
+            }
+            if (resets.length > 0) {
+                delete nextConfig.modelId;
+            }
+
+            const changed =
+                resets.length > 0 ||
+                (providerId !== undefined &&
+                    targetConfig.providerId !== providerId);
+            if (!changed) return;
+
+            updateNodeConfig(target.id, nextConfig);
+            notifyModelResets(resets);
+        },
+        [
+            applyCommand,
+            graph,
+            notifyModelResets,
+            providerLibrary,
+            updateNodeConfig,
+        ],
+    );
+
+    /**
+     * 节点内联 / 检查器统一的 config 写入：
+     * - 连接中 Model 的 providerId 不可被改写；
+     * - 连接中 Model 选择不兼容模型时清空并提示；
+     * - Provider 节点切换 Provider 后，级联清理下游不兼容模型。
+     */
+    const handleNodeConfigChange = useCallback(
+        (nodeId: string, config: unknown): void => {
+            if (graph === null) {
+                updateNodeConfig(nodeId, config);
+                return;
+            }
+
+            const node = graph.nodes.find((candidate) => candidate.id === nodeId);
+            if (node === undefined) {
+                updateNodeConfig(nodeId, config);
+                return;
+            }
+
+            let nextConfig = config;
+
+            if (node.type === "core.model") {
+                const binding = resolveModelProvider(graph, node);
+                const configBefore = isRecord(node.config) ? node.config : {};
+                if (binding.connected && binding.sourceIsProvider) {
+                    nextConfig = lockModelProviderId(node.config, nextConfig);
+                    const next = isRecord(nextConfig) ? nextConfig : {};
+                    const modelId = readStringField(next, "modelId");
+                    const resets = findIncompatibleModels(providerLibrary, [
+                        {
+                            nodeId,
+                            providerId: binding.providerId,
+                            modelId,
+                        },
+                    ]);
+                    if (resets.length > 0) {
+                        nextConfig = withoutModelId(next);
+                        notifyModelResets(resets);
+                    }
+                } else {
+                    // 未连接时切换 config.providerId 也要按新目录校验旧模型。
+                    const previousProviderId = readStringField(
+                        configBefore,
+                        "providerId",
+                    );
+                    const next = isRecord(nextConfig) ? nextConfig : {};
+                    const nextProviderId = readStringField(next, "providerId");
+                    if (nextProviderId !== previousProviderId) {
+                        const modelId = readStringField(next, "modelId");
+                        const resets = findIncompatibleModels(providerLibrary, [
+                            {
+                                nodeId,
+                                providerId: nextProviderId,
+                                modelId,
+                            },
+                        ]);
+                        if (resets.length > 0) {
+                            nextConfig = withoutModelId(next);
+                            notifyModelResets(resets);
+                        }
+                    }
+                }
+            }
+
+            updateNodeConfig(nodeId, nextConfig);
+
+            if (node.type !== "core.provider") return;
+
+            const providerConfig = isRecord(nextConfig) ? nextConfig : {};
+            const providerId = readStringField(providerConfig, "providerId");
+            if (providerId === undefined) return;
+
+            const targets = new Map<string, Record<string, unknown>>();
+            const candidates: {
+                nodeId: string;
+                providerId: string;
+                modelId?: string;
+            }[] = [];
+
+            for (const edge of graph.edges) {
+                if (edge.from.nodeId !== nodeId || edge.from.port !== "provider") {
+                    continue;
+                }
+                const target = graph.nodes.find(
+                    (candidate) => candidate.id === edge.to.nodeId,
+                );
+                if (target?.type !== "core.model") continue;
+
+                const targetConfig = isRecord(target.config)
+                    ? target.config
+                    : {};
+                targets.set(target.id, targetConfig);
+                candidates.push({
+                    nodeId: target.id,
+                    providerId,
+                    modelId: readStringField(targetConfig, "modelId"),
+                });
+            }
+
+            const resets = findIncompatibleModels(providerLibrary, candidates);
+            const resetIds = new Set(resets.map((reset) => reset.nodeId));
+
+            // 连接来源是权威值：同步 config.providerId，作为断开连接后的回退。
+            for (const [targetId, targetConfig] of targets) {
+                const changedProvider = targetConfig.providerId !== providerId;
+                const resetModel = resetIds.has(targetId);
+                if (!changedProvider && !resetModel) continue;
+
+                const nextConfig: Record<string, unknown> = {
+                    ...targetConfig,
+                    providerId,
+                };
+                if (resetModel) delete nextConfig.modelId;
+                updateNodeConfig(targetId, nextConfig);
+            }
+
+            notifyModelResets(resets);
+        },
+        [
+            graph,
+            notifyModelResets,
+            providerLibrary,
+            updateNodeConfig,
+        ],
+    );
 
     const documentActions = useMemo<DesignerDocumentActions>(
         () => ({ flush, reload }),
@@ -595,7 +1076,7 @@ export function DesignerView({
         const selectedConfig = isRecord(selectedGraphNode?.config)
             ? selectedGraphNode.config
             : {};
-        const selectedProviderId =
+        const configProviderId =
             typeof selectedConfig.providerId === "string"
                 ? selectedConfig.providerId
                 : undefined;
@@ -603,11 +1084,18 @@ export function DesignerView({
             typeof selectedConfig.modelId === "string"
                 ? selectedConfig.modelId
                 : undefined;
-        const providerOptions: InspectorFieldOption[] =
-            providerLibrary.profiles.map((status) => ({
-                value: status.profile.id,
-                label: profileOptionLabel(status),
-            }));
+        const selectedType = selectedGraphNode?.type;
+        const isModelNode = selectedType === "core.model";
+        const isProviderNode = selectedType === "core.provider";
+        const modelBinding =
+            isModelNode && graph !== null && selectedGraphNode !== null
+                ? resolveModelProvider(graph, selectedGraphNode)
+                : undefined;
+        const modelProviderLocked =
+            modelBinding?.connected === true && modelBinding.sourceIsProvider;
+        const selectedProviderId = modelProviderLocked
+            ? modelBinding.providerId
+            : configProviderId;
         const selectedProfile = providerLibrary.profiles.find(
             (status) => status.profile.id === selectedProviderId,
         );
@@ -616,9 +1104,9 @@ export function DesignerView({
                 value: model.id,
                 label: model.name || model.id,
             })) ?? [];
-        const selectedType = selectedGraphNode?.type;
-        const isModelNode = selectedType === "core.model";
-        const isProviderNode = selectedType === "core.provider";
+        const modelCatalogEmpty =
+            selectedProfile !== undefined &&
+            selectedProfile.profile.models.length === 0;
         const fieldOptions =
             isModelNode || isProviderNode
                 ? {
@@ -629,15 +1117,41 @@ export function DesignerView({
                       ),
                       ...(isModelNode
                           ? {
-                                modelId: withCurrentOption(
-                                    modelOptionList,
-                                    selectedModelId,
-                                    "不在目录中的模型",
-                                ),
+                                modelId: [
+                                    { value: "", label: "未选择模型" },
+                                    ...withCurrentOption(
+                                        modelOptionList,
+                                        selectedModelId,
+                                        "不在目录中的模型",
+                                    ),
+                                ],
                             }
                           : {}),
                   }
                 : undefined;
+        const fieldValues =
+            modelProviderLocked &&
+            selectedProviderId !== undefined &&
+            selectedProviderId.length > 0
+                ? { providerId: selectedProviderId }
+                : undefined;
+        const catalogRefresh = selectedProviderId
+            ? catalogRefreshes[selectedProviderId]
+            : undefined;
+        const fieldHints =
+            isModelNode && modelCatalogEmpty
+                ? {
+                      modelId:
+                          catalogRefresh?.status === "loading"
+                              ? "正在刷新该 Provider 的模型目录…"
+                              : catalogRefresh?.status === "error"
+                                ? `模型目录刷新失败：${catalogRefresh.error ?? "未知错误"}。可在设置页手动刷新。`
+                                : "该 Provider 的模型目录为空，请先在设置页刷新模型。",
+                  }
+                : undefined;
+        const fieldLocks = modelProviderLocked
+            ? { providerId: "由 Provider 节点连接固定" }
+            : undefined;
 
         const node =
             selectedGraphNode !== null && selectedCanvasNode !== null
@@ -652,11 +1166,21 @@ export function DesignerView({
                       requirements: (selectedGraphNode.requires ?? []).map(
                           formatRequirement,
                       ),
-                      config: selectedGraphNode.config,
+                      config:
+                          modelProviderLocked &&
+                          selectedProviderId !== undefined
+                              ? {
+                                    ...selectedConfig,
+                                    providerId: selectedProviderId,
+                                }
+                              : selectedGraphNode.config,
                       ...(selectedCanvasNode.data.error === undefined
                           ? {}
                           : { error: selectedCanvasNode.data.error }),
                       ...(fieldOptions === undefined ? {} : { fieldOptions }),
+                      ...(fieldValues === undefined ? {} : { fieldValues }),
+                      ...(fieldHints === undefined ? {} : { fieldHints }),
+                      ...(fieldLocks === undefined ? {} : { fieldLocks }),
                       ...(entry?.configSchema === undefined
                           ? {}
                           : { configSchema: entry.configSchema }),
@@ -682,18 +1206,20 @@ export function DesignerView({
             },
             node,
             canEdit: !editingDisabled,
-            onUpdateConfig: updateNodeConfig,
+            onUpdateConfig: handleNodeConfigChange,
         };
     }, [
         canvas,
+        catalogRefreshes,
         editingDisabled,
         graph,
+        handleNodeConfigChange,
         nodeStatuses,
+        providerOptions,
         providerLibrary,
         selectedCanvasNode,
         selectedGraphNode,
         status,
-        updateNodeConfig,
     ]);
 
     useEffect(() => {
@@ -901,6 +1427,7 @@ export function DesignerView({
         issues.length > 0 ||
         hasProviderErrors ||
         displayError !== null ||
+        modelResetNotice !== null ||
         saveState.status === "conflict" ||
         saveState.status === "error";
 
@@ -913,7 +1440,7 @@ export function DesignerView({
                 selectedNodeIds={selectedNodeIds}
                 selectionRequest={selectionRequest}
                 onSelectionChange={setSelectedNodeIds}
-                onCommand={applyCommand}
+                onCommand={handleCanvasCommand}
                 nodeStatuses={nodeStatuses}
                 readOnly={editingDisabled}
                 onAddNode={openNodeLibrary}
@@ -921,7 +1448,7 @@ export function DesignerView({
                 onDropNode={handleDropNode}
                 dropMimeType={NODE_DRAG_MIME}
                 focusNode={focusNode}
-                onUpdateNodeConfig={updateNodeConfig}
+                onUpdateNodeConfig={handleNodeConfigChange}
             />
 
             {libraryOpen && !editingDisabled ? (
@@ -1023,6 +1550,24 @@ export function DesignerView({
                         </Alert>
                     ) : null}
 
+                    {modelResetNotice !== null ? (
+                        <Alert tone="warning" title="模型已清空">
+                            <ul className={styles.issues}>
+                                {modelResetNotice.map((message) => (
+                                    <li key={message}>{message}</li>
+                                ))}
+                            </ul>
+                            <div className={styles.actions}>
+                                <Button
+                                    size="sm"
+                                    onClick={() => setModelResetNotice(null)}
+                                >
+                                    知道了
+                                </Button>
+                            </div>
+                        </Alert>
+                    ) : null}
+
                     {saveState.status === "conflict" ? (
                         <Alert tone="warning" title="保存冲突">
                             <p>{saveMessage}</p>
@@ -1065,6 +1610,40 @@ function withCurrentOption(
     if (value === undefined || value.length === 0) return [...options];
     if (options.some((option) => option.value === value)) return [...options];
     return [{ value, label: `${value}（${missingLabel}）` }, ...options];
+}
+
+/** 连接固定时保留原 providerId，阻止表单 / JSON 改写连接来源。 */
+function lockModelProviderId(
+    currentConfig: unknown,
+    nextConfig: unknown,
+): Record<string, unknown> {
+    const current = isRecord(currentConfig) ? currentConfig : {};
+    const next = isRecord(nextConfig) ? { ...nextConfig } : {};
+
+    if (current.providerId === undefined) {
+        delete next.providerId;
+    } else {
+        next.providerId = current.providerId;
+    }
+
+    return next;
+}
+
+/** 只移除 modelId，保留 config 的其余字段。 */
+function withoutModelId(config: unknown): Record<string, unknown> {
+    const next = isRecord(config) ? { ...config } : {};
+    delete next.modelId;
+    return next;
+}
+
+function readStringField(
+    value: Record<string, unknown>,
+    key: string,
+): string | undefined {
+    const candidate = value[key];
+    return typeof candidate === "string" && candidate.length > 0
+        ? candidate
+        : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -115,4 +115,20 @@ describe("toCanvasDocument", () => {
         expect(provider?.data.outputs[0]?.type).toBe("provider");
         expect(provider?.data.summary).toBe("deepseek");
     });
+
+    it("injects inline field options and connected slot labels", () => {
+        const document = toCanvasDocument(makeGraph(), {
+            fieldOptions: {
+                n1: { providerId: [{ value: "p", label: "Provider" }] },
+            },
+            slotLabels: { n2: { text: "Constant · value" } },
+        });
+
+        expect(document.nodes[0]?.data.fieldOptions).toEqual({
+            providerId: [{ value: "p", label: "Provider" }],
+        });
+        expect(document.nodes[1]?.data.slotLabels).toEqual({
+            text: "Constant · value",
+        });
+    });
 });

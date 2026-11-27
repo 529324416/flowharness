@@ -62,6 +62,10 @@ export type UseDesignerDocumentResult = DesignerDocumentState & {
     addNode: (type: string, position?: Vec2) => void;
     addNodeFromPreset: (preset: NodePresetDocument, position?: Vec2) => void;
     updateNodeConfig: (nodeId: string, config: unknown) => void;
+    /** 只改 ui 子结构（例如浮动面板布局），不进入撤销栈。 */
+    updateGraphUi: (
+        mutate: (current: GraphDocument) => GraphDocument,
+    ) => void;
     replaceDocument: (next: GraphDocument, options?: CommitOptions) => void;
     flush: () => Promise<SaveState>;
 };
@@ -363,6 +367,18 @@ export function useDesignerDocument(
         [commit],
     );
 
+    const updateGraphUi = useCallback(
+        (mutate: (current: GraphDocument) => GraphDocument) => {
+            const current = documentRef.current;
+            if (current === null) return;
+
+            const next = mutate(current);
+            if (next === current) return;
+            commit(next, { history: false });
+        },
+        [commit],
+    );
+
     const flush = useCallback(async (): Promise<SaveState> => {
         const coordinator = coordinatorRef.current;
         if (coordinator === null) return SAVED_STATE;
@@ -381,6 +397,7 @@ export function useDesignerDocument(
         addNode: addNodeByType,
         addNodeFromPreset,
         updateNodeConfig,
+        updateGraphUi,
         replaceDocument,
         flush,
     };

@@ -59,6 +59,8 @@ function HarnessDesignerView({
                         onDocumentActionsChange={shell.onDocumentActionsChange}
                         onControllerChange={shell.onControllerChange}
                         onSaveConflictCopy={() => undefined}
+                        panels={shell.panels}
+                        onApplyPanelLayout={shell.onApplyPanelLayout}
                     />
                 </div>
             </div>

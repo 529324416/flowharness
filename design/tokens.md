@@ -50,7 +50,7 @@
 
 - 组件 CSS Modules 只引用变量；**禁止**出现 `#hex`、`rgb()`、任意 px 间距（几何常量除外）。已知例外：Dialog scrim、窗口关闭按钮色、画布小地图状态色，待补 token。
 - 状态色成对使用：`--fh-danger`（前景/边框）+ `--fh-danger-soft`（底色）。
-- 浮层统一 `--fh-surface-overlay` + `--fh-shadow-3`；浮动面板使用更深的 `--fh-panel-bg` / `--fh-panel-header-bg`（比节点底色更深，保持“沉默”）。
+- 浮层统一 `--fh-surface-overlay` + `--fh-shadow-3`；浮动面板使用更深的 `--fh-panel-bg` / `--fh-panel-header-bg`（比节点底色更深，保持“沉默”）。Tooltip 与浮动面板同材质：`--fh-panel-bg` 按 `--fh-panel-alpha` 混色 + `--fh-shadow-2`。
 - 画布元素只使用 `--fh-canvas-*` 与 `--fh-node-*`，不直接复用 shell 表面色；画布内字号与节点几何按画布视觉直接写 px（不参与 125% 缩放）。
 - 尺寸用 4 的倍数；控件高度用 `--fh-control-height`（32px）/ `-sm`（28px）。
 - 非画布文字统一走字号 token：基准比 Phase 2.6 放大 125%（`--fh-ui-scale`），图标按同一比例放大；画布内部字号保持不变。

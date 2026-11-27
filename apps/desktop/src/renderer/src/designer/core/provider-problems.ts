@@ -60,6 +60,70 @@ export function resolveModelProvider(
 }
 
 /**
+ * 某个 Provider 目录中是否有该模型。
+ *
+ * 目录为空时视为“尚未刷新”，不做兼容性判断，避免误清空旧图。
+ */
+export function isModelInProviderCatalog(
+    view: ProviderLibraryView,
+    providerId: string,
+    modelId: string,
+): boolean {
+    const status = view.profiles.find((item) => item.profile.id === providerId);
+    if (status === undefined || status.profile.models.length === 0) return true;
+    return status.profile.models.some((model) => model.id === modelId);
+}
+
+export type IncompatibleModel = {
+    nodeId: string;
+    providerId: string;
+    providerLabel: string;
+    modelId: string;
+};
+
+/**
+ * 找出与 Provider 目录不兼容的 Model 配置。
+ *
+ * 用于“连接 Provider / 切换 Provider”时清空失效模型并提示用户；
+ * Provider 目录为空、或节点未绑定 Provider 时返回空。
+ */
+export function findIncompatibleModels(
+    view: ProviderLibraryView,
+    candidates: readonly {
+        nodeId: string;
+        providerId?: string;
+        modelId?: string;
+    }[],
+): readonly IncompatibleModel[] {
+    const resets: IncompatibleModel[] = [];
+
+    for (const candidate of candidates) {
+        if (
+            candidate.providerId === undefined ||
+            candidate.modelId === undefined
+        ) {
+            continue;
+        }
+        const status = view.profiles.find(
+            (item) => item.profile.id === candidate.providerId,
+        );
+        if (status === undefined || status.profile.models.length === 0) continue;
+        if (status.profile.models.some((model) => model.id === candidate.modelId)) {
+            continue;
+        }
+
+        resets.push({
+            nodeId: candidate.nodeId,
+            providerId: candidate.providerId,
+            providerLabel: status.profile.label,
+            modelId: candidate.modelId,
+        });
+    }
+
+    return resets;
+}
+
+/**
  * 设计期 Provider 健康问题。
  *
  * - `core.provider`：Provider 节点自身必须绑定有效 profile；

@@ -1,6 +1,6 @@
 # TODO
 
-> 当前主线：**M8 剩余 — 节点预设库文件导入 / 导出**；**M9 — Provider 与 API Key 库** M9.0–M9.6 已完成（2026-11-27）。
+> 当前主线：**节点交互约束**（Provider FH 菜单 / 连接锁定 / 模型目录校验 / Constant 阅读与编辑模式 / 图级浮动面板布局）；M9 已完成（2026-11-27），M8 剩余 — 节点预设库文件导入 / 导出。
 > 原则：垂直切片；契约先行；工作台即视图；信息架构调整优先于新功能。
 
 ## 设计约束（M7 起）
@@ -309,6 +309,21 @@
 - [x] 文档 / 视觉基线 / 兼容：README、architecture、ADR-029/030/031、devlog、6 张 UI 基线
 - [ ] 可搜索下拉（模型目录很大时再补）
 
+## 节点交互约束（2026-11-27）
+
+- [x] Provider 节点 Body 内联 Provider 下拉，直接切换 config.providerId；使用 FH Select（保留默认边框、移除 focus 边框）
+- [x] Model 的 `provider` 输入连接后锁定 Inspector Provider 字段（JSON 写入同样保留原值），槽位显示来源 Profile
+- [x] 连接 / 切换 Provider 时按持久化模型目录校验：不兼容的 `modelId` 自动清空，并显示可关闭的警告
+- [x] Model ID 下拉始终提供「未选择模型」，可清除失效模型；Provider 目录为空且未检测过时后台调用真实模型目录、持久化并广播，失败时检查器提示
+- [x] 节点内联属性全量覆盖：Model 的 Provider / Model ID，Model Call / Agent / ToolSet / Loop / ForEach / Subgraph / Event Trigger 的全部 config 字段；对象与内嵌图使用紧凑 JSON TextArea
+- [x] Provider 下拉保留默认边框，仅移除 focus 边框，并改用 FH Select 菜单
+- [x] Constant 非编辑态改为 p 标签（200 字符 / 3 行裁剪），hover Tooltip 显示最多 400 字符
+- [x] Constant 标题栏编辑按钮：TextArea 自增高（上限 180px），退出后回到 p 标签；两种模式关闭拼写检查
+- [x] Tooltip 材质改为与浮动面板一致的半透面板
+- [x] 浮动面板布局按 Graph 写入 `ui.panels`，打开 Graph 时恢复位置 / 尺寸 / 折叠 / 开关 / 层级
+- [x] 测试：45 文件 / 252 项；`pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
+
+
 ## 后续里程碑
 
 ### M10 — 可观测性与工程化（原 M9）
@@ -469,6 +484,9 @@
 - [x] 42 个测试文件 / 225 个测试通过（2026-11-27；Provider 编辑会话回退）
 - [x] 42 个测试文件 / 229 个测试通过（2026-11-27；M9.5 Provider 节点 / 连线 / 健康）
 - [x] 42 个测试文件 / 234 个测试通过（2026-11-27；M9.6 能力不匹配 / 真实 DeepSeek 调用）
+- [x] 43 个测试文件 / 242 个测试通过（2026-11-27；节点交互约束 / Constant 阅读模式）
+- [x] 44 个测试文件 / 246 个测试通过（2026-11-27；图级浮动面板布局）
+- [x] 45 个测试文件 / 252 个测试通过（2026-11-27；模型目录按需刷新）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
 

@@ -1,8 +1,23 @@
-import type { ReactElement } from "react";
-import { Box, GitBranch, LogIn, LogOut, ScrollText, Sparkles, TriangleAlert } from "lucide-react";
+import { useEffect, useState, type ReactElement } from "react";
+import {
+    Box,
+    Check,
+    GitBranch,
+    LogIn,
+    LogOut,
+    Pencil,
+    ScrollText,
+    Sparkles,
+    TriangleAlert,
+} from "lucide-react";
 import { StatusDot, type StatusTone } from "../../ui";
 import { cx } from "../../ui/cx";
-import type { CanvasNodeNotice, CanvasPort, CanvasStatus } from "../core/types";
+import type {
+    CanvasFieldOption,
+    CanvasNodeNotice,
+    CanvasPort,
+    CanvasStatus,
+} from "../core/types";
 import { InlineNodeConfig } from "./InlineNodeConfig";
 import styles from "./NodeVisual.module.css";
 
@@ -24,6 +39,12 @@ export type NodeVisualProps = {
     minHeight?: number;
     /** Provider / 配置健康提示；显示在标题右侧，不改变节点尺寸。 */
     notice?: CanvasNodeNotice;
+    /** 内联字段下拉；目前用于 core.provider 的 providerId。 */
+    fieldOptions?: Readonly<Record<string, readonly CanvasFieldOption[]>>;
+    /** 被连接固定、不可编辑的字段及原因。 */
+    lockedFields?: Readonly<Record<string, string>>;
+    /** 已连接输入端口在节点内的显示值；缺省显示端口名。 */
+    slotLabels?: Readonly<Record<string, string>>;
 };
 
 const ICONS = {
@@ -71,8 +92,17 @@ export function NodeVisual({
     showInputSlots = false,
     minHeight,
     notice,
+    fieldOptions,
+    lockedFields,
+    slotLabels,
 }: NodeVisualProps): ReactElement {
     const Icon = iconFor(kind);
+    const canEditConstant = kind === "core.constant" && onUpdateConfig !== undefined;
+    const [constantEditing, setConstantEditing] = useState(false);
+
+    useEffect(() => {
+        if (readOnly) setConstantEditing(false);
+    }, [readOnly]);
 
     return (
         <article
@@ -97,6 +127,28 @@ export function NodeVisual({
                         <TriangleAlert size={13} aria-hidden="true" />
                     </span>
                 )}
+                {canEditConstant ? (
+                    <button
+                        type="button"
+                        className={cx(
+                            styles.headerAction,
+                            "nodrag",
+                            constantEditing && styles.headerActionActive,
+                        )}
+                        aria-label={constantEditing ? "退出常量编辑" : "编辑常量文本"}
+                        aria-pressed={constantEditing}
+                        title={constantEditing ? "退出编辑" : "编辑常量文本"}
+                        disabled={readOnly}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={() => setConstantEditing((current) => !current)}
+                    >
+                        {constantEditing ? (
+                            <Check size={12} aria-hidden="true" />
+                        ) : (
+                            <Pencil size={12} aria-hidden="true" />
+                        )}
+                    </button>
+                ) : null}
                 <StatusDot
                     tone={status as StatusTone}
                     pulse={status === "running"}
@@ -112,29 +164,38 @@ export function NodeVisual({
                     summary={summary}
                     readOnly={readOnly}
                     onChange={onUpdateConfig}
+                    fieldOptions={fieldOptions}
+                    lockedFields={lockedFields}
+                    editing={constantEditing && !readOnly}
                 />
 
                 {showInputSlots && inputs.length > 0 ? (
                     <div className={styles.slots}>
-                        {inputs.map((port) => (
-                            <div
-                                key={port.name}
-                                className={cx(
-                                    styles.slot,
-                                    readOnly && styles.slotReadOnly,
-                                )}
-                                data-input-port={port.name}
-                                title={
-                                    readOnly
-                                        ? `输入端口 ${port.name}`
-                                        : `拖拽连线到输入端口 ${port.name}`
-                                }
-                            >
-                                <span className={styles.slotDot} aria-hidden="true" />
-                                <span className={styles.slotName}>{port.name}</span>
-                                <span className={styles.slotType}>{port.type}</span>
-                            </div>
-                        ))}
+                        {inputs.map((port) => {
+                            const label = slotLabels?.[port.name];
+                            return (
+                                <div
+                                    key={port.name}
+                                    className={cx(
+                                        styles.slot,
+                                        label !== undefined && styles.slotConnected,
+                                        readOnly && styles.slotReadOnly,
+                                    )}
+                                    data-input-port={port.name}
+                                    title={
+                                        readOnly
+                                            ? `输入端口 ${port.name}`
+                                            : `拖拽连线到输入端口 ${port.name}`
+                                    }
+                                >
+                                    <span className={styles.slotDot} aria-hidden="true" />
+                                    <span className={styles.slotName}>
+                                        {label ?? port.name}
+                                    </span>
+                                    <span className={styles.slotType}>{port.type}</span>
+                                </div>
+                            );
+                        })}
                     </div>
                 ) : null}
             </div>

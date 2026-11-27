@@ -10,6 +10,7 @@ import type {
 } from "@flowharness/contracts";
 import type { DesignerProblemsModel } from "../designer/core/problems";
 import type { DesignerDocumentActions } from "../designer/state/useDesignerDocument";
+import type { PanelLayoutState } from "../layout-metrics";
 import type { InspectorModel } from "../inspector/model";
 import type { RunControls } from "../run/run-controls";
 
@@ -29,6 +30,10 @@ export type WorkbenchController = {
 
 /** 工作台向 Shell 汇报的 UI 模型；由 App 提供并转交 TitleBar / PanelLayer。 */
 export type WorkbenchShell = {
+    /** 浮动面板当前布局；由 App 的 useFloatingPanels 提供。 */
+    panels: readonly PanelLayoutState[];
+    /** 应用当前图保存的浮动面板布局；null 表示恢复默认。 */
+    onApplyPanelLayout: (layout: readonly PanelLayoutState[] | null) => void;
     onRunWillStart: () => void | Promise<void>;
     onRunStarted: (snapshot: RunSnapshot) => void;
     onRunControlsChange: (controls: RunControls | null) => void;

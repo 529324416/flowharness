@@ -46,6 +46,7 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | M9.4 Model 节点下拉 / Provider 健康提示 | ✅ |
 | M9.5 Provider 节点 / 连线 | ✅（`core.provider` + Model `provider` 输入） |
 | M9.6 Provider 收口 / 真实调用 / 能力校验 | ✅（DeepSeek Live 完成） |
+| 节点交互约束：Provider 内联 / 连接锁定 / Constant 阅读模式 / 图级浮动面板布局 / 模型目录按需刷新 | ✅ |
 | 用户节点预设库文件导入 / 导出 | ⬜ |
 | 打包分发 | ⬜ |
 
@@ -67,7 +68,7 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 - 撤销栈只覆盖画布结构编辑与 config，重启后不保留；
 - Agent 节点已接 Provider / 审批 / 用户输入，并注册工作区 LocalToolProvider（readFile / writeFile）；MCP 等更多工具待后续；
 - WorkbenchPlan 目前在 renderer 侧顺序调用 `run:start`，尚未下沉 RuntimeHost；`plan.bindings` 与 `layout.overrides` 未接线；
-- 内联编辑覆盖 Constant / Model Call / Log / Value / Agent / Loop / ForEach，复杂字段仍走检查器 JSON；
+- 节点内联编辑覆盖全部内建节点 config：Constant / Provider / Model / Model Call / Agent / ToolSet / Value / Loop / ForEach / Subgraph / Event Trigger / Log；对象与内嵌图走紧凑 JSON TextArea，复杂字段仍可在检查器 JSON 中查看；Constant 默认是截断正文 + hover Tooltip，标题栏按钮进入 TextArea 编辑；Provider 节点直接在下拉中切换；模型目录为空时会按需在后台刷新并持久化；
 - 亮色 token 与切换已接入（`ThemeProvider` + `config:update`），尚未做视觉走查；
 - 表单覆盖标量 / 枚举 / 字符串数组；HarnessValue、内嵌图、hostTools 等复杂字段仍是 JSON 文本域；
 - 300 节点性能基线、真实桌面可读性验收未完成；
@@ -148,7 +149,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core + designer core/state + workbench + 节点库 + Provider 库单测（42 files / 234 tests） |
+| `pnpm test` | main 数据层 + canvas core/view + designer core/state + workbench + 节点库 + Provider 库单测（45 files / 252 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

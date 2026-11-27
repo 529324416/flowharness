@@ -46,6 +46,7 @@ import {
     SIDEBAR_DEFAULT_WIDTH,
     SIDEBAR_MAX_WIDTH,
     SIDEBAR_MIN_WIDTH,
+    type PanelLayoutState,
 } from "./layout-metrics";
 import { StatusBar } from "./shell/StatusBar";
 import { PanelLayer } from "./shell/panels/PanelLayer";
@@ -323,6 +324,7 @@ export function App(): ReactElement {
         close: closePanel,
         focus: focusPanel,
         update: updatePanel,
+        applyLayout: applyPanelLayout,
     } = useFloatingPanels();
 
     const panelsEnabled = view === "designer" && activeWorkspace !== null;
@@ -1745,6 +1747,9 @@ export function App(): ReactElement {
 
     const workbenchShell = useMemo<WorkbenchShell>(
         () => ({
+            panels,
+            onApplyPanelLayout: (layout: readonly PanelLayoutState[] | null) =>
+                applyPanelLayout(layout),
             onRunWillStart: handleDesignerRunWillStart,
             onRunStarted: handleDesignerRunStarted,
             onRunControlsChange: setDesignerRunControls,
@@ -1760,11 +1765,13 @@ export function App(): ReactElement {
                 void handleSaveConflictCopy(graph),
         }),
         [
+            applyPanelLayout,
             handleDesignerRunStarted,
             handleDesignerRunWillStart,
             handleDocumentActionsChange,
             handleSaveConflictCopy,
             handleWorkbenchModeChange,
+            panels,
         ],
     );
 

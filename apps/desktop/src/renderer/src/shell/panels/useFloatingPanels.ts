@@ -1,53 +1,19 @@
 import { useCallback, useRef, useState } from "react";
-import { PANEL_DEFAULTS, type PanelId } from "../../layout-metrics";
+import {
+    DEFAULT_PANEL_LAYOUT,
+    PANEL_DEFAULTS,
+    type PanelId,
+    type PanelLayoutState,
+} from "../../layout-metrics";
 
 export type { PanelId };
 export { PANEL_DEFAULTS };
 
-export type FloatingPanelState = {
-    id: PanelId;
-    open: boolean;
-    collapsed: boolean;
-    /** null 表示使用 PanelLayer 根据容器尺寸计算的默认位置。 */
-    x: number | null;
-    y: number | null;
-    width: number;
-    height: number;
-    z: number;
-};
+export type FloatingPanelState = PanelLayoutState;
 
-const INITIAL_PANELS: FloatingPanelState[] = [
-    {
-        id: "inspector",
-        open: true,
-        collapsed: false,
-        x: null,
-        y: null,
-        width: PANEL_DEFAULTS.inspector.width,
-        height: PANEL_DEFAULTS.inspector.height,
-        z: 2,
-    },
-    {
-        id: "run-log",
-        open: true,
-        collapsed: false,
-        x: null,
-        y: null,
-        width: PANEL_DEFAULTS["run-log"].width,
-        height: PANEL_DEFAULTS["run-log"].height,
-        z: 1,
-    },
-    {
-        id: "session-history",
-        open: false,
-        collapsed: false,
-        x: null,
-        y: null,
-        width: PANEL_DEFAULTS["session-history"].width,
-        height: PANEL_DEFAULTS["session-history"].height,
-        z: 0,
-    },
-];
+function cloneDefaultLayout(): FloatingPanelState[] {
+    return DEFAULT_PANEL_LAYOUT.map((panel) => ({ ...panel }));
+}
 
 export type FloatingPanelsApi = {
     panels: FloatingPanelState[];
@@ -57,10 +23,12 @@ export type FloatingPanelsApi = {
     close: (id: PanelId) => void;
     focus: (id: PanelId) => void;
     update: (id: PanelId, patch: Partial<FloatingPanelState>) => void;
+    /** 应用某张图保存的布局；null / 缺失面板恢复默认。 */
+    applyLayout: (layout: readonly FloatingPanelState[] | null) => void;
 };
 
 export function useFloatingPanels(): FloatingPanelsApi {
-    const [panels, setPanels] = useState<FloatingPanelState[]>(INITIAL_PANELS);
+    const [panels, setPanels] = useState<FloatingPanelState[]>(cloneDefaultLayout);
     const topZ = useRef(2);
 
     const focus = useCallback((id: PanelId) => {
@@ -120,5 +88,27 @@ export function useFloatingPanels(): FloatingPanelsApi {
         [panels],
     );
 
-    return { panels, isOpen, toggle, open, close, focus, update };
+    const applyLayout = useCallback(
+        (layout: readonly FloatingPanelState[] | null) => {
+            setPanels(() => {
+                const saved = new Map(
+                    (layout ?? []).map((panel) => [panel.id, panel]),
+                );
+                const next = DEFAULT_PANEL_LAYOUT.map((panel) => {
+                    const override = saved.get(panel.id);
+                    return override === undefined
+                        ? { ...panel }
+                        : { ...panel, ...override, id: panel.id };
+                });
+                topZ.current = Math.max(
+                    2,
+                    ...next.map((panel) => panel.z),
+                );
+                return next;
+            });
+        },
+        [],
+    );
+
+    return { panels, isOpen, toggle, open, close, focus, update, applyLayout };
 }

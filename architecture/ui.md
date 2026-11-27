@@ -272,7 +272,10 @@ CanvasCommand → GraphDocument
 ### 6.5 NodeContent
 
 - 一期（M2 已完成）：`inspector/NodeConfigForm.tsx` 根据 `configSchema` 生成通用表单（wireclaw 的 JSON Schema 子集：object / string / number / integer / boolean / array / enum / required / minimum / maximum…）；无法表达的字段用 JSON 文本域兜底，整份 config 仍可在「JSON」页签编辑；
-- 二期（M5 已完成）：节点 Body 内联编辑 Constant / Model Call / Log / Value / Agent / Loop / ForEach；节点 Body 显示输入端口槽，连线可直接拖到槽上（同时保留左侧 Handle）；复杂字段仍走检查器表单 / JSON；
+- 二期（M5）：节点 Body 开始支持常用参数内联编辑；节点 Body 显示输入端口槽，连线可直接拖到槽上（同时保留左侧 Handle）；
+- 全量内联属性（2026-11-27）：节点 Body 覆盖所有内建节点的可编辑 config 字段——Constant 文本、Provider / Model 的 Provider / Model 下拉、Model Call 的 mode / system / think / thinkingLv / temperature / modality / parameters、Agent 的权限 / 步数 / system / think / thinkingLv / temperature / hostTools、ToolSet 的 include / exclude / hostTools、Value、Loop 的迭代 / 失败重试 / graph、ForEach 的 resultPort / graph、Subgraph 的 graph、Event Trigger 的 event、Log 的级别；对象 / 内嵌图使用紧凑 JSON TextArea（失焦解析、失败就地提示），节点高度随字段增长；
+- Constant（2026-11-27）：非编辑态渲染为 p 标签，正文按 200 字符裁剪并最多显示 3 行；hover 用半透面板 Tooltip 展示最多 400 字符。标题栏铅笔按钮进入编辑模式，正文切换为随内容自增高的 TextArea（上限 180px），再次点击退出；编辑态可切换 text / json 类型，json 使用紧凑 JSON TextArea；两种模式都关闭拼写检查；
+- Provider（2026-11-27）：Provider 节点 Body 直接提供 Provider 下拉，不再只显示摘要；
 - 节点内容组件通过 `canvas/view/node-registry.ts` 的 registry 注册，Canvas 不感知；当前所有类型都回落到 `SciFiNode`。
 
 ### 6.6 Provider 设置与运行交互
@@ -284,6 +287,8 @@ CanvasCommand → GraphDocument
 - renderer `ProviderLibraryProvider` 通过 `provider:library` 读取只读视图，并监听 main 的 `provider` topic；
 - `core.model` 检查器的 `providerId` / `modelId` 变为 Provider / 模型下拉；节点标题右侧显示 Provider 健康三角（红色 / 黄色，带 tooltip）；
 - 节点库新增 `Provider`（`core.provider`）：检查器用同一个 Provider 下拉；输出 `provider` 端口可拖到 Model 的 `provider` 输入，连接后以来源为准、config.providerId 只作回退；
+- Provider 连接是只读约束（2026-11-27）：Model 的 `provider` 输入存在来源 Provider 时，检查器 Provider 字段显示来源并禁用（JSON 写入也会保留原 providerId）；节点内 Provider 槽显示来源 Profile 名称；连接或切换 Provider 后，目录中不存在的 `modelId` 会被清空并弹出「模型已清空」提示；
+- Provider 节点的内联下拉使用 `ui/Select`（FH 菜单，保留默认边框并去掉 focus outline）；Model ID 下拉始终带「未选择模型」项，可清除当前模型；Provider 目录为空且未检测过时，设计器后台刷新并持久化模型目录，检查器在刷新中 / 失败时给出提示；
 - Provider 节点自身显示健康问题；连接后的 Model 摘要显示“来源 Profile · modelId”；右键「添加节点」按画布坐标落点，不会在平移 / 缩放后插到视口外；
 - provider 问题合并进运行日志；缺 profile / model 为 error 并阻断运行，key 失效 / 未验证为 warning，允许尝试运行；
 - Model Call 的 chat / generate / modality 与目录 capabilities 不匹配为 error；旧目录没有 capabilities 时不误报；
@@ -333,13 +338,13 @@ smoke 模式默认打开诊断视图，保证自检 run 仍会被触发；普通
 | `PanelFrame` | Header / Body / 可选 Footer；Header 拖拽，右侧折叠与关闭 |
 | `FloatingPanel` | 拖动、右/下/右下缩放、z-index 聚焦、折叠、关闭；位置钳制在画布容器 |
 | `PanelLayer` | 铺在 Main 之上；属性面板默认右上 280×432、运行日志左下 448×224（`PANEL_DEFAULTS`，最小宽度 280） |
-| 状态 | `useFloatingPanels` 管理 open / collapsed / x / y / size / z；首版不做 docking |
+| 状态 | `useFloatingPanels` 管理 open / collapsed / x / y / size / z；布局按图写入 `GraphDocument.ui.panels`，打开文档时恢复；首版不做 docking |
 | 材质 | 面板默认 78% 不透明（`--fh-panel-alpha`），底色 `--fh-panel-bg` / 头部 `--fh-panel-header-bg`，比节点更深；后续设置 UI 只调整 alpha；不使用 backdrop-filter |
 | 接入 | 属性检查（节点信息 + configSchema 表单，JSON 页签兜底）、运行日志（`RunLogContent`，问题与事件合并为一条列表，校验 / 失效连线 / 运行错误可点击定位；Footer runId） |
 | 开关 | TitleBar 图标、命令中心、`Ctrl J`；条件为**当前视图是设计器且已打开工作区**（与会话选择无关） |
 | 窗口状态 | `WindowStateStore` 写入 `userData/window-state.json`；校验显示器可见性、尺寸/位置钳制、400ms 防抖 + close 保存 |
 
-Panel 的位置目前只在内存中（刷新/重启恢复默认布局）；布局持久化留到 Workbench UI state。
+Panel 布局按 Graph 持久化：`GraphDocument.ui.panels` 保存每个面板的 open / collapsed / x / y / width / height / z；打开文档时恢复，拖动 / 缩放 / 折叠停稳 400ms 后写回，不进入撤销栈；没有保存布局的图使用默认布局。
 
 ## 9.2 窗口材质与透明（Step 4）
 

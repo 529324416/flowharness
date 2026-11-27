@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ProviderLibraryView } from "@flowharness/contracts";
 import type { GraphDocument } from "wireclaw";
-import { collectProviderProblems } from "./provider-problems";
+import { collectProviderProblems, findIncompatibleModels } from "./provider-problems";
 
 const AT = "2026-11-27T00:00:00.000Z";
 
@@ -256,6 +256,50 @@ describe("provider problems", () => {
         legacy.profiles[0]!.profile.models[0]!.capabilities = undefined;
         expect(
             collectProviderProblems(modelCallGraph("generate", "video"), legacy),
+        ).toEqual([]);
+    });
+});
+
+describe("findIncompatibleModels", () => {
+    it("returns nothing for a model that exists in the provider catalog", () => {
+        expect(
+            findIncompatibleModels(view(), [
+                { nodeId: "model", providerId: "p", modelId: "model-a" },
+            ]),
+        ).toEqual([]);
+    });
+
+    it("returns the reset payload for a missing model", () => {
+        expect(
+            findIncompatibleModels(view(), [
+                { nodeId: "model", providerId: "p", modelId: "gone" },
+            ]),
+        ).toEqual([
+            {
+                nodeId: "model",
+                providerId: "p",
+                providerLabel: "Provider",
+                modelId: "gone",
+            },
+        ]);
+    });
+
+    it("keeps the model when the provider catalog has not been refreshed", () => {
+        const empty = view();
+        empty.profiles[0]!.profile.models = [];
+        expect(
+            findIncompatibleModels(empty, [
+                { nodeId: "model", providerId: "p", modelId: "gone" },
+            ]),
+        ).toEqual([]);
+    });
+
+    it("ignores candidates without a provider or model", () => {
+        expect(
+            findIncompatibleModels(view(), [
+                { nodeId: "model", modelId: "gone" },
+                { nodeId: "model", providerId: "p" },
+            ]),
         ).toEqual([]);
     });
 });

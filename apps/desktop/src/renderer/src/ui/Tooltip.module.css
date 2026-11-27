@@ -1,19 +1,29 @@
 .content {
   z-index: var(--fh-z-overlay);
+  max-width: 320px;
   padding: 5px 8px;
-  border: 1px solid var(--fh-border);
+  border: 1px solid var(--fh-border-strong);
   border-radius: var(--fh-radius-sm);
-  background: var(--fh-surface-overlay);
+  background: color-mix(
+    in srgb,
+    var(--fh-panel-bg) calc(var(--fh-panel-alpha) * 100%),
+    transparent
+  );
   color: var(--fh-text);
   font-size: var(--fh-text-xs);
   line-height: 1.4;
-  box-shadow: var(--fh-shadow-3);
+  overflow-wrap: anywhere;
+  box-shadow: var(--fh-shadow-2);
   user-select: none;
   animation: fh-tooltip-in var(--fh-motion-fast) var(--fh-ease-standard);
 }
 
 .arrow {
-  fill: var(--fh-surface-overlay);
+  fill: color-mix(
+    in srgb,
+    var(--fh-panel-bg) calc(var(--fh-panel-alpha) * 100%),
+    transparent
+  );
 }
 
 @keyframes fh-tooltip-in {

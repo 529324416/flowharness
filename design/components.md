@@ -18,7 +18,7 @@
 | `EmptyState` | — | 图标 + 标题 + 描述 + 可选主操作 |
 | `Alert` | info / success / warning / danger | 内联提示，不用 toast 承载错误 |
 | `Tabs` | 下划线 | Radix 行为；键盘左右切换 |
-| `Tooltip` | — | Radix；延迟 300ms；不承载关键信息 |
+| `Tooltip` | — | Radix；延迟 300ms；不承载关键信息；半透面板材质（与浮动面板一致） |
 | `Menu` | Radix DropdownMenu；支持快捷键提示与分隔线 |
 | `ContextMenu` | — | Radix；用于画布节点/边/空白 |
 | `Dialog` | — | Radix；标题 + 描述 + 底部操作；Esc 关闭 |

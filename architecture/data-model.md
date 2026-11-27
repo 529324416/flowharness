@@ -99,6 +99,7 @@
 
 - **连线没有独立 id**，由 `from` + `to` 的端口地址唯一确定；画布侧用稳定 key（如 `n1:text->n2:in`）作为边 id，不要另造一份会漂移的 id；
 - **布局放在 `ui`**：wireclaw 明确约定 `ui` 供设计器存放坐标、运行时忽略。因此布局随 graph 一起导出/导入，天然可移植；
+- `ui.panels`（2026-11-27）保存该图内部浮动面板的布局：`inspector` / `run-log` / `session-history` 的 `open / collapsed / x / y / width / height / z`；打开文档时恢复，面板操作停稳后写回；
 - 节点级 `ui` 与图级 `ui` 都是自由 `JsonObject`，FH 需定义自己的子结构并做版本兼容；
 - 节点 `type` 必须使用 wireclaw 内建名（`HarnessBuiltinNodeType`，如 `core.constant` / `core.model.call` / `core.log`），不是显示名；
 - `inputs` / `requires` 由 wireclaw 管理，FH 只透传。

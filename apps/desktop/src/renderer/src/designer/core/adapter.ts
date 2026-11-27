@@ -3,6 +3,7 @@ import type {
     CanvasDocument,
     CanvasEdge,
     CanvasEdgeStatus,
+    CanvasFieldOption,
     CanvasNode,
     CanvasNodeData,
     CanvasNodeNotice,
@@ -26,6 +27,14 @@ export type ToCanvasDocumentOptions = {
     presentation?: Readonly<Record<string, CanvasPresentation>>;
     /** 节点级健康提示；来自 Provider / 依赖检查，不写回文档。 */
     notices?: Readonly<Record<string, CanvasNodeNotice>>;
+    /** 节点内联字段下拉；按 nodeId → config 字段名注入。 */
+    fieldOptions?: Readonly<
+        Record<string, Readonly<Record<string, readonly CanvasFieldOption[]>>>
+    >;
+    /** 被连接固定、不可编辑的字段；按 nodeId → config 字段名注入。 */
+    lockedFields?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+    /** 已连接输入端口在节点 Body 内的显示值；按 nodeId → 端口名注入。 */
+    slotLabels?: Readonly<Record<string, Readonly<Record<string, string>>>>;
 };
 
 /**
@@ -55,6 +64,15 @@ export function toCanvasDocument(
             ...(options.notices?.[node.id] === undefined
                 ? {}
                 : { notice: options.notices[node.id] }),
+            ...(options.fieldOptions?.[node.id] === undefined
+                ? {}
+                : { fieldOptions: options.fieldOptions[node.id] }),
+            ...(options.lockedFields?.[node.id] === undefined
+                ? {}
+                : { lockedFields: options.lockedFields[node.id] }),
+            ...(options.slotLabels?.[node.id] === undefined
+                ? {}
+                : { slotLabels: options.slotLabels[node.id] }),
         };
 
         return {

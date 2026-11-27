@@ -835,7 +835,149 @@ M9.4 的 Model 节点已能通过下拉选择 Provider，但同一 Provider 被�
 - B：只能把 provider + model 整体绑定，Model 节点无法复用 Provider 节点；语义也比 C 更窄。
 - 把完整 Provider 配置 / 密钥塞进图值：违反“密钥只在 main、图只引用 id”的边界，并会让 checkpoint / 导出泄漏敏感信息。
 
+---
 
+## ADR-032：Provider 连接期约束与节点内联选择
 
+**背景**
 
+M9.5 的 Provider 节点只在 Body 显示 Provider 摘要，切换 Provider 要进检查器；Model 的 `providerId` 是普通下拉，即使已经通过连线接入 Provider 节点仍然可改。连接来源与 config 值不一致时，Inspector 显示的 Provider 与运行实际使用的 Provider 不同；切换 Provider 后，旧 `modelId` 可能已经不在新目录中，却仍保留在 config 里直到运行前才报错。
+
+**决定**
+
+- Provider 节点 Body 直接渲染 Provider 下拉；选项来自 Provider 库，缺失的当前值用占位项保留，写入仍走 `updateNodeConfig`。
+- Model 的 `provider` 输入存在来源 Provider 时：
+  - 检查器 Provider 字段显示来源 Profile 并禁用，同步写入的 config 也保留原 `providerId`（连接仍优先，config 保留为断开后的回退）；
+  - 节点 Body 的 Provider 输入槽显示来源 Profile 名称，而不是端口名；
+  - Model 下拉使用来源 Provider 的模型目录。
+- 连接 Provider、切换 Provider 节点、或连接中改写 Model config 时，用 Provider 库的持久化模型目录校验 `modelId`；目录非空且不包含该模型时，删除 `modelId` 并弹出「模型已清空」警告，要求用户重新选择。
+- 目录为空（尚未刷新）时不做清空，避免把旧图误判为不兼容。
+
+**后果**
+
+- Provider 的权威值从“连线 + config 二选一”收敛为“连线优先且可观察”；检查器不再显示与应用实际选择不一致的值。
+- 连接 / 切换 Provider 可能修改多个 Model 节点并进入撤销栈；提示是可关闭的警告，不阻塞后续编辑。
+- 不兼容模型不会在运行前才暴露；但 Provider 目录未刷新时仍只能依赖运行期错误。
+- 不新增图字段，旧图与 `.fhws` 不需要迁移。
+
+**否决**
+
+- 只在运行前校验、不自动清空：用户仍会看到无效 modelId，且切换 Provider 后无法立即重新选择。
+- 连接时删除 config.providerId：断开连接后模型失去回退值，旧图的回退语义也会被破坏。
+- 把 Provider 目录写进图：目录属于应用级数据，会让导出与 checkpoint 携带易变信息。
+
+---
+
+## ADR-033：Constant 阅读态与编辑态分离
+
+**背景**
+
+Constant 一直是单行 `<input>`：正文被压成一行，长文本只能横向滚动；浏览器拼写检查会在节点里画出红色波浪线；想在节点上看全文或换行编辑都没有入口。节点宽度固定，直接换成 TextArea 会让所有 Constant 节点长期占据更大高度。
+
+**决定**
+
+- 非编辑态渲染 `<p>`：正文按 200 字符裁剪，CSS 最多显示 3 行；hover 用 Tooltip 展示最多 400 字符。
+- Tooltip 使用与浮动面板一致的半透材质（`--fh-panel-bg` + `--fh-panel-alpha`），不再使用不透明 `--fh-surface-overlay`。
+- 标题栏增加铅笔 / 对勾小按钮切换编辑态；编辑态把正文换成随内容自增高的 TextArea，高度上限 180px，超出后内部滚动；退出编辑态恢复 p 标签。
+- 两种模式都设置 `spellCheck={false}`、`autoCorrect="off"`、`autoCapitalize="off"`，移除浏览器拼写错误下划线。
+- 进入编辑态不清空节点高度状态；运行 / 只读时按钮禁用并自动退出编辑态。
+
+**后果**
+
+- 默认画布更紧凑，长文本有明确的查看与编辑路径；节点高度只在用户主动编辑时增长。
+- 200 / 400 字符是渲染裁剪，不修改 GraphDocument 中的真实文本；正文仍完整保存。
+- Tooltip 材质变化影响所有使用 `ui/Tooltip` 的位置，视觉上与浮动面板统一。
+- 依赖 Radix Tooltip 的 hover / focus 行为；画布中的 p 需要 `tabIndex` 才能获得键盘焦点。
+
+**否决**
+
+- 始终使用 TextArea：节点默认变高，画布密度下降，且只读时仍保留输入框语义。
+- 只做 CSS 省略号、不做字符裁剪：无法满足长文本 hover 查看的确定上限。
+- 用浏览器原生 title 做 Tooltip：样式不受 tokens 控制，无法统一半透材质。
+
+---
+
+## ADR-034：浮动面板布局按 Graph 持久化
+
+**背景**
+
+设计器内部的属性 / 运行日志 / 会话历史浮动面板此前只存在于 App 内存：切换 Graph、重载或重启后每次都回到默认位置，用户需要反复摆放。面板属于某张工作流的编辑上下文，不同 Graph 的节点密度与视口不同，布局也不应互相覆盖。
+
+**决定**
+
+- 布局写入 `GraphDocument.ui.panels`：按 `inspector` / `run-log` / `session-history` 记录 `open / collapsed / x / y / width / height / z`；`x` / `y` 为 `null` 表示使用容器计算的默认位置。
+- `useFloatingPanels` 增加 `applyLayout(layout | null)`：按 id 合并保存值，缺失面板恢复默认；同时把 z 栈顶抬到保存的最大值。
+- 设计器在文档加载完成后读取一次 `ui.panels` 并应用；切换文档时重置已恢复标记。面板拖动 / 缩放 / 折叠 / 开关变化后 400ms 写回当前文档，使用 `replaceDocument(..., { history: false })`，不进入撤销栈。
+- 保存布局时保留 `ui.viewport` 与其他未知键；没有保存布局的图应用默认布局，并在首次变化后写入。
+- 布局随 GraphDocument 导出 / 导入；`.fhws` 与 Harness JSON 均自然携带。面板只是 `ui` 子结构，不进入运行语义。
+
+**后果**
+
+- 同一 Graph 重新打开或重启后还原面板位置、尺寸、折叠与开关状态；不同 Graph 各自独立。
+- 面板操作会产生一次自动保存，但不产生撤销记录；拖动连续更新只在停稳后写一次。
+- 旧图没有 `ui.panels` 时按默认布局打开，首次打开可能写入一次默认布局。
+- 容器尺寸变化时仍由 `FloatingPanel` 钳制，并把钳制后的坐标写回。
+
+**否决**
+
+- 存到 AppConfig / localStorage：布局与 Graph 绑定，按工作区或应用全局保存会让不同图互相覆盖。
+- 存到 WorkbenchInstance：一个实例可绑定多张图，切换图时仍要额外键；`ui` 本来就是 wireclaw 预留的可移植设计器布局槽位。
+- 每次 pointermove 都保存：写入与画布重渲染过于频繁；改为 400ms 停稳防抖。
+
+---
+
+## ADR-035：模型目录按需自动刷新
+
+**背景**
+
+Provider Profile 的模型目录只在设置页显式刷新，新建 / 迁移的 Ollama profile 目录为 `[]`。用户把 Provider 接到 Model 后，Model 下拉只剩当前失效模型，无法从列表选择；用户也不一定知道要先去设置页刷新。
+
+**决定**
+
+- 设计器收集当前 Graph 中 Model 节点引用的 Provider Profile；仅当目录为空、没有 `modelsFetchedAt`、profile 可用且启用时，在后台调用 `provider:models:refresh`。
+- main 的 `refreshModels` 成功后把模型列表、`modelsFetchedAt`、`modelsSource` 写回 `provider-library.json` 并广播 `provider` topic；renderer 收到后更新下拉，列表跨重启保留。
+- 每个 profile 在一次文档会话内最多自动尝试一次，避免网络失败时反复请求；失败保留空目录，并在 Model 的 Model ID 字段下方显示错误，用户可到设置页手动重试。
+- `modelsFetchedAt` 已存在时空目录不再自动刷新，视为“已检测但没有模型”。
+- 自动刷新只在存在 Model 引用时触发，Provider 节点单独存在不联网；启动时仍不批量请求所有 Provider。
+
+**后果**
+
+- 首次打开 / 新建引用某个空白 Provider 的工作流时会产生一次实际模型目录请求；有 Ollama / 有效 key 时列表自动可用。
+- 刷新失败会让 Provider key 健康状态按 401/402/网络分类更新；Model 检查器显示失败原因。
+- 成功结果持久化在应用级 Provider 库，不进入 `.fhws`；不同工作区共享同一 Provider 目录。
+
+**否决**
+
+- 启动时刷新所有 Provider：违背“启动不联网”，且大量无关请求会拖慢启动。
+- 只在设置页刷新：用户从 Model 下拉看不到模型，容易误以为 Provider 不可用。
+- 失败后每次渲染重试：网络不可达时会形成请求风暴。
+
+---
+
+## ADR-036：节点内联属性覆盖全部内建 config
+
+**背景**
+
+此前节点 Body 只内联少数高频字段，Model 的 Provider / Model ID、Model Call 的 System / 思考参数、Agent 的工具与 temperature、ToolSet、Subgraph / Loop / ForEach 的内嵌图等仍要打开检查器。用户在画布上逐节点调整时需要频繁切换面板，且 Model ID 在节点上完全不可见。
+
+**决定**
+
+- 节点 Body 按节点类型渲染完整的可编辑 config 字段，不再依赖检查器才能修改。
+- Model 节点显示 Provider 与 Model 两个 FH 下拉；Provider 输入已连接时 Provider 下拉锁定，Model 仍可改。
+- 文本类字段使用紧凑输入 / TextArea；枚举用下拉；boolean 用勾选框；字符串数组用逗号分隔输入；对象与内嵌 Graph 使用紧凑 JSON TextArea，失焦解析、失败就地提示。
+- 复杂 JSON 字段不引入专用编辑器，避免在 220px 节点内做第二套图编辑器；检查器仍保留完整表单 / JSON 视图。
+- 只读（运行 / 冲突）期间保持同一套控件结构并禁用，节点高度和端口锚点不因运行状态跳变。
+
+**后果**
+
+- 节点默认高度随 config 字段增加；Model Call / Agent / 复合节点明显变高，密集画布需要更大的节点间距。
+- 所有编辑仍走 `updateNodeConfig` 与既有撤销 / 自动保存；JSON 字段只在失焦时提交，避免逐键写整图。
+- 新节点类型若不提供 configSchema，仍回落到摘要；新增字段时需在 `InlineNodeConfig` 补对应控件。
+- 内嵌 Graph 的 JSON 编辑仍不如检查器舒适，但满足“不打开属性栏也能改”的目标。
+
+**否决**
+
+- 把所有字段塞进检查器：用户已明确要求节点上直接修改。
+- 在节点内实现完整的 schema 表单：220px 宽度下标签 / 提示成本过高，且会重复检查器。
+- 为内嵌图单独做节点内图编辑器：交互复杂，当前 JSON 文本域足够表达且可回退。
 

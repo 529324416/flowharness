@@ -57,6 +57,9 @@ export function SciFiNode({
                 showInputSlots
                 minHeight={nodeMinHeight(data.inputs.length, data.outputs.length)}
                 notice={data.notice}
+                fieldOptions={data.fieldOptions}
+                lockedFields={data.lockedFields}
+                slotLabels={data.slotLabels}
             />
 
             {data.inputs.map((port, index) => (

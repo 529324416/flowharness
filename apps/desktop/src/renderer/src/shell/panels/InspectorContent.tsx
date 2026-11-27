@@ -181,6 +181,9 @@ function NodeInspector({
                                 config={node.config}
                                 disabled={!canEdit}
                                 fieldOptions={node.fieldOptions}
+                                fieldValues={node.fieldValues}
+                                fieldHints={node.fieldHints}
+                                fieldLocks={node.fieldLocks}
                                 onChange={(next) => onUpdateConfig(node.id, next)}
                             />
                         </TabsContent>

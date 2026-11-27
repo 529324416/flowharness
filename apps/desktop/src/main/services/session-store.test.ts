@@ -523,4 +523,79 @@ describe("SessionStore", () => {
             store.create({ folderId: "fld_missing" }),
         ).rejects.toMatchObject({ code: "E_NOT_FOUND" });
     });
+
+    it("keeps temporary sessions out of the tree and discards them on the next run", async () => {
+        const store = await makeStore();
+
+        const first = await store.create({
+            title: "临时运行",
+            temporary: true,
+        });
+        expect(first.temporary).toBe(true);
+        expect((await store.read(first.id)).temporary).toBe(true);
+        expect(await store.list()).toHaveLength(0);
+        const tree = await store.tree();
+        expect(findSession(tree.nodes, first.id)).toBeUndefined();
+
+        const second = await store.create({
+            title: "下一次运行",
+            temporary: true,
+        });
+        expect(second.id).not.toBe(first.id);
+        await expect(store.read(first.id)).rejects.toMatchObject({
+            code: "E_NOT_FOUND",
+        });
+    });
+
+    it("discards the previous temporary draft when a persistent run starts", async () => {
+        const store = await makeStore();
+        const temp = await store.create({
+            title: "旧临时草稿",
+            temporary: true,
+        });
+        const tree = await store.tree();
+        const persisted = await store.create({
+            title: "持久运行",
+            folderId: tree.draftFolderId,
+            discardTemporary: true,
+        });
+
+        await expect(store.read(temp.id)).rejects.toMatchObject({
+            code: "E_NOT_FOUND",
+        });
+        expect(persisted.folderId).toBe(tree.draftFolderId);
+        expect(persisted.temporary).toBeUndefined();
+    });
+
+    it("commits a temporary session into the draft folder", async () => {
+        const store = await makeStore();
+        const temp = await store.create({
+            title: "运行草稿",
+            temporary: true,
+        });
+
+        const committed = await store.commitTemporary(temp.id);
+
+        expect(committed.id).toBe(temp.id);
+        expect(committed.temporary).toBeUndefined();
+        expect(committed.folderId).not.toBeNull();
+
+        const tree = await store.tree();
+        expect(committed.folderId).toBe(tree.draftFolderId);
+        const node = findSession(tree.nodes, temp.id);
+        expect(node?.session.folderId).toBe(tree.draftFolderId);
+        expect(node?.session.temporary).toBeUndefined();
+        expect(await store.list()).toHaveLength(1);
+    });
+
+    it("does not move an already persisted session when committing", async () => {
+        const store = await makeStore();
+        const persisted = await store.create({ title: "普通会话" });
+
+        const committed = await store.commitTemporary(persisted.id);
+
+        expect(committed.id).toBe(persisted.id);
+        expect(committed.folderId).toBeNull();
+        expect(committed.temporary).toBeUndefined();
+    });
 });

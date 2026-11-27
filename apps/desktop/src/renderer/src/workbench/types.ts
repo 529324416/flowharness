@@ -84,6 +84,10 @@ export type WorkbenchNavigationProps = {
     onModeChange: (mode: WorkbenchMode) => void;
     /** 当前打开的会话；run 模式的 Session 树与历史面板共用。 */
     activeSessionId: string | null;
+    /** 批量删除会话后通知 Shell 清理当前打开的会话。 */
+    onSessionsDeleted?: (sessionIds: readonly string[]) => void;
+    /** 当前临时运行草稿；固定在 Session 树顶部，便于关闭面板后重新打开。 */
+    temporarySession?: SessionSummary | null;
     /** 外部新增 / 变更会话后递增，用于让 Session 树刷新。 */
     sessionRevision?: number;
     /** 上下分区中的槽位；由 Shell 注入，导航组件据此切换紧凑样式。 */

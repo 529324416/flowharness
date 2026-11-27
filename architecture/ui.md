@@ -234,7 +234,7 @@ type WorkbenchPlan = {
 - 文档入口：TitleBar 的文档菜单列出工作区内全部 Harness 文档，支持新建 / 重命名 / 复制 / 删除 / 最近打开 / 导入导出（`shell/DocumentMenu.tsx`）；
 - 当前：`createEditorCatalog(registry, { presets: designerPresetLibrary })` → `{ version: 2, nodeTypes, presets }`（`designer/core/catalog.ts`）；
 - `NodeCatalogEntry` 提供 `type / title / description / builtIn / category / keywords / inputs / outputs / requirements / configSchema / defaultConfig / error`；
-- **动态端口**：wireclaw 的 `describeNodeType(registry, type, { config })` 支持按 config 试创建并取端口，adapter 每次投影也按节点 config 调用；但 17 个内建节点的端口目前都是**静态**的（`get inputs/outputs` 不读 config），该能力尚未被任何节点使用；
+- **动态端口**：wireclaw 的 `describeNodeType(registry, type, { config })` 支持按 config 试创建并取端口，adapter 每次投影也按节点 config 调用；但当前节点库的 19 个类型（不含隐藏的 legacy Merge）端口都是**静态**的（`get inputs/outputs` 不读 config），该能力尚未被任何节点使用；
 - 用户节点库（M8.4）：工作区 `documents/presets/library.json`；插入菜单是画布内浮层（`presets/NodeLibraryPalette.tsx`），顺序为「最近使用（≤6 条，localStorage）→ 用户库（按文件夹）→ 内置预设 → 节点类型」，支持搜索、↑↓ + Enter、拖拽到画布；管理模式是独立 Modal（`PresetManagerDialog`，左文件夹树 / 右属性与参数表单），从标题栏「视图 → 管理节点库…」或插入菜单进入；
 - 画布节点右键「创建预设节点」捕获 `type / typeVersion / config`，命名后写入工作区库并打开管理 Modal；内置 4 条预设仍来自 `designer/core/presets.ts`。
 
@@ -274,6 +274,7 @@ CanvasCommand → GraphDocument
 - 一期（M2 已完成）：`inspector/NodeConfigForm.tsx` 根据 `configSchema` 生成通用表单（wireclaw 的 JSON Schema 子集：object / string / number / integer / boolean / array / enum / required / minimum / maximum…）；无法表达的字段用 JSON 文本域兜底，整份 config 仍可在「JSON」页签编辑；
 - 二期（M5）：节点 Body 开始支持常用参数内联编辑；2026-11-27 起端口改为贴边的方块 / 圆点徽标，与数据行顶部对齐，连线也可落在字段行上（ADR-041）；
 - 全量内联属性（2026-11-27）：节点 Body 覆盖所有内建节点的可编辑 config 字段——Constant 文本、Provider / Model 的 Provider / Model 下拉、Model Call 的 mode / system / think / thinkingLv / temperature / modality / parameters、Agent 的权限 / 步数 / system / think / thinkingLv / temperature / hostTools、ToolSet 的 include / exclude / hostTools、Value、Loop 的迭代 / 失败重试 / graph、ForEach 的 resultPort / graph、Subgraph 的 graph、Event Trigger 的 event、Log 的级别；对象 / 内嵌图使用紧凑 JSON TextArea（失焦解析、失败就地提示），节点高度随字段增长；
+- Replace（2026-11-28，ADR-046）：Body 提供 raw_text（多行）、keyword、replacement 三个可接入端口的字段与 count 数字输入；端口连接后对应字段变为上游锁定行，未连接时读本地 config；
 - 表单控件统一（2026-11-27）：节点 Body 的枚举字段全部改用 FH `ui/Select`（Radix 菜单），保留 22px 紧凑高度与默认边框；布尔字段统一 `ui/Checkbox`（自绘方框，`compact` 变体）；输入框、下拉与 JSON 区都不显示聚焦描边，焦点只由光标表达（ADR-037）；
 - 端口徽标与数据行（2026-11-27）：节点 Body 顶部先列输出数据、再列未挂字段的输入；端口徽标与节点主体保持 5px 间距，纵向与数据行上边缘对齐（按布局坐标测量，拖动 / 缩放不跳变）；未连接为灰色 20px 方块 + 居中类型图标，已连接为 20px 橙红空圆环 + 6px 实心点；连线终点落在实心点中心，且连线不再绘制端点小圆（Handle 与视觉徽标解耦）；颜色不随节点选中 / 运行状态变化；底部端口列表移除（ADR-041）；
 - 数据来源统一（2026-11-27）：Model Call / Agent Run 的每个数据字段都同时有输入端口与本地编辑——`core.model.call` 端口为 model / prompt / system / parameters / attachments，`core.agent.run` 为 model / input / system / hostTools / attachments / toolset；未连接时读 config（含 providerId / modelId），连接后对应字段变为只读锁定行；字段顺序为可接入端口的数据优先于只能本地编辑的参数，同组内按必要数据 → 必要参数 → 常用标量 → 低频枚举 → 结构数据（ADR-040 / ADR-041）；
@@ -304,7 +305,7 @@ CanvasCommand → GraphDocument
 - 工作台左栏由 `WorkbenchDefinition.navigation` 提供；`harness-designer` 声明 `splitNavigation: { top: "design", bottom: "run" }`，左栏为上下两区：上半区工作流列表（`DocumentNavigation`），下半区 Session 树（`SessionNavigation`），共用 `SplitSidebar` 宿主，横向分隔条可拖动比例；`plan-runner` 仍为单一 Plan 步骤列表；
 - Session 树按文件树缩进：文件夹按层级缩进，会话（文件）行比同层文件夹行多缩进一个展开箭头位，会话图标与文件夹图标对齐；
 - 会话历史已迁入 Canvas 浮动面板（`PanelLayer` 的 `session-history`），点击 Session 树节点即打开；M6.3 的 `SessionSerializer` 回放逻辑复用；M7.4 起 run 会话用 `RunResultView` 展示输出与条目；
-- 点击运行会在草稿目录自动创建一条 conversation 会话，自动打开「会话历史」面板；运行中 ModelCall / Agent entries 逐步追加为消息，结束时追加输出摘要；运行日志不再有「结果」页签，也没有手动保存按钮；
+- 点击运行会自动打开「会话历史」面板；默认创建**临时草稿**（`sessions/.tmp`，不进入会话树，下次运行丢弃），标题栏「存草稿」打开后才自动写入草稿目录；临时草稿可在历史面板点「存储草稿」移入草稿目录。运行中 ModelCall / Agent entries 逐步追加为消息，结束时追加输出摘要；运行日志不再有「结果」页签，也没有手动保存按钮；
 - 对外 UI 统一称 **工作流（workflow）**；`GraphDocument` 仅保留为 wireclaw / 契约内部类型名。
 - 文件菜单提供 `.fhws` 导入 / 导出：导入经系统打开对话框并创建新工作区副本，导出经系统保存对话框写档；不覆盖现有工作区。
 
@@ -324,6 +325,14 @@ CanvasCommand → GraphDocument
 - 完成节点播放 1.5s 冷却：边框从橙红渐变回默认色；`failed` 保留 danger 色不冷却。
 - 运行节点下方挂无边框暗淡 benchmark：标题栏 `tok N` + 毫秒计时（100ms 刷新），下方最多 80px 的尾部输出；`node:stream` 的 `HarnessValue.text` 进入指标，运行结束清空。
 - 指标在 `designer/core/run-events.ts` 的 `nodeMetrics` 中投影，adapter 注入 `CanvasNodeData.runMetrics`；Canvas 组件不解释节点语义。HUD 指标以 150ms 节流写入画布，节点 / 边状态仍逐批即时更新。
+
+### 6.9 运行草稿与会话多选（2026-11-28，ADR-047）
+
+- 标题栏运行按钮右侧新增「存草稿」开关，默认关闭；运行中 / 暂停时禁用。关闭时运行只创建 `.tmp` 临时草稿并打开「会话历史」面板，临时草稿不进入 Session 树、下次运行自动丢弃；打开后运行结果直接写入草稿目录；
+- 会话历史面板在临时草稿上显示「临时」标记和「存储草稿」按钮；点击后调用 `session:commitTemporary` 把 `.tmp` 会话移入草稿目录并清除 `temporary`，Session 树随即出现该会话；已持久化会话不显示该按钮；面板 footer 在临时态显示「临时草稿 · 下次运行会丢弃」；
+- Session 树顶部固定一条虚线「临时」草稿行（`data-temporary-session`），关闭历史面板后可点击重新打开；该行不属于持久化树 / 多选 / 批量操作；
+- 移除会话历史头部与空态的「打开设计器」按钮；
+- Session 树支持多选：Ctrl / Cmd 切换、Shift 从最近点击 / 打开项连选，打开中的会话始终属于选择；选中行复用同一高亮；批量操作条提供全选 / 移动 / 删除 / 清除，批量右键菜单提供移动所选 / 删除所选 / 清除；批量删除后由 App 清理已删除的当前会话。
 
 ## 7. 其他工作台
 

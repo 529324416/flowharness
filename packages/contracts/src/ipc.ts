@@ -30,6 +30,7 @@ import type {
 } from "./provider-library";
 import type {
     SessionCloseRequest,
+    SessionCommitTemporaryRequest,
     SessionCreateRequest,
     SessionDeleteRequest,
     SessionAppendEntriesRequest,
@@ -132,6 +133,7 @@ export const IpcChannel = {
     SessionAppendEntries: "session:appendEntries",
     SessionAppendMessage: "session:appendMessage",
     SessionSetDraftFolder: "session:setDraftFolder",
+    SessionCommitTemporary: "session:commitTemporary",
 
     RunStart: "run:start",
     RunPause: "run:pause",
@@ -383,6 +385,10 @@ export type IpcInvokeContracts = {
     [IpcChannel.SessionSetDraftFolder]: {
         request: SessionSetDraftFolderRequest;
         response: SessionTree;
+    };
+    [IpcChannel.SessionCommitTemporary]: {
+        request: SessionCommitTemporaryRequest;
+        response: SessionRecord;
     };
 
     [IpcChannel.RunStart]: { request: RunStartRequest; response: RunSnapshot };

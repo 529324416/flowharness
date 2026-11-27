@@ -40,6 +40,7 @@ import {
     type ProviderProfileCreateRequest,
     type ProviderProfileDeleteRequest,
     type ProviderProfileUpdateRequest,
+    type SessionCommitTemporaryRequest,
     type SessionCreateRequest,
     type SessionDeleteRequest,
     type SessionAppendEntriesRequest,
@@ -760,11 +761,21 @@ function registerIpcHandlers(): void {
 
     registerHandler(
         IpcChannel.SessionCreate,
-        async ({ workspaceId, title, folderId }: SessionCreateRequest) => {
+        async ({
+            workspaceId,
+            title,
+            folderId,
+            temporary,
+            discardTemporary,
+        }: SessionCreateRequest) => {
             const store = requireSessionStore(workspaceId);
             return store.create({
                 ...(title === undefined ? {} : { title }),
                 ...(folderId === undefined ? {} : { folderId }),
+                ...(temporary === undefined ? {} : { temporary }),
+                ...(discardTemporary === undefined
+                    ? {}
+                    : { discardTemporary }),
             });
         },
     );
@@ -871,6 +882,12 @@ function registerIpcHandlers(): void {
         IpcChannel.SessionSetDraftFolder,
         ({ workspaceId, folderId }: SessionSetDraftFolderRequest) =>
             requireSessionStore(workspaceId).setDraftFolder(folderId),
+    );
+
+    registerHandler(
+        IpcChannel.SessionCommitTemporary,
+        ({ workspaceId, sessionId }: SessionCommitTemporaryRequest) =>
+            requireSessionStore(workspaceId).commitTemporary(sessionId),
     );
 
     registerHandler(

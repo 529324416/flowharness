@@ -259,6 +259,9 @@ export function App(): ReactElement {
     const [runSnapshot, setRunSnapshot] = useState<RunSnapshot | null>(null);
     const [runEvents, setRunEvents] = useState<RunEventDto[]>([]);
     const [runResult, setRunResult] = useState<RunResult | null>(null);
+    /** 运行结果是否自动存入草稿目录；false 时只保留临时草稿。 */
+    const [storeRunDraft, setStoreRunDraft] = useState(false);
+    const [savingRunDraft, setSavingRunDraft] = useState(false);
     const [sessionHistoryRevision, setSessionHistoryRevision] = useState(0);
     const [sessionRevision, setSessionRevision] = useState(0);
     const fetchedRunResultId = useRef<string | null>(null);
@@ -1484,11 +1487,21 @@ export function App(): ReactElement {
         const title = runSessionTitle(
             documents.find((document) => document.id === activeDocumentId)?.title,
         );
-        const created = await bridge.createSession({
-            workspaceId: workspace.id,
-            folderId,
-            title,
-        });
+        const created = await bridge.createSession(
+            storeRunDraft
+                ? {
+                      workspaceId: workspace.id,
+                      folderId,
+                      title,
+                      discardTemporary: true,
+                  }
+                : {
+                      workspaceId: workspace.id,
+                      title,
+                      temporary: true,
+                      discardTemporary: true,
+                  },
+        );
         if (!created.ok) {
             setDataError(created.error.message);
             return;
@@ -1505,6 +1518,7 @@ export function App(): ReactElement {
         bridge,
         documents,
         openPanel,
+        storeRunDraft,
     ]);
 
     const handleDesignerRunStarted = useCallback((snapshot: RunSnapshot) => {
@@ -1658,6 +1672,32 @@ export function App(): ReactElement {
         runSnapshot,
         syncRunEntries,
     ]);
+
+    const handleSaveRunDraft = useCallback(
+        async (sessionId: string): Promise<void> => {
+            const workspace = activeWorkspace;
+            if (workspace === null || savingRunDraft) return;
+
+            setSavingRunDraft(true);
+            setDataError(null);
+            try {
+                const saved = await bridge.commitTemporarySession({
+                    workspaceId: workspace.id,
+                    sessionId,
+                });
+                if (!saved.ok) {
+                    setDataError(saved.error.message);
+                    return;
+                }
+                setActiveSession(saved.data);
+                setSessionRevision((current) => current + 1);
+                setSessionHistoryRevision((current) => current + 1);
+            } finally {
+                setSavingRunDraft(false);
+            }
+        },
+        [activeWorkspace, bridge, savingRunDraft],
+    );
 
     const handleRenameWorkbench = useCallback(
         async (workbenchId: string, title: string): Promise<void> => {
@@ -2009,8 +2049,14 @@ export function App(): ReactElement {
                                                       activeSession,
                                                   ),
                                                   revision: sessionHistoryRevision,
-                                                  onOpenDesigner: () =>
-                                                      setWorkbenchMode("design"),
+                                                  temporary:
+                                                      activeSession.temporary ===
+                                                      true,
+                                                  savingDraft: savingRunDraft,
+                                                  onSaveDraft: (sessionId) =>
+                                                      void handleSaveRunDraft(
+                                                          sessionId,
+                                                      ),
                                               }
                                             : null
                                     }
@@ -2071,10 +2117,20 @@ export function App(): ReactElement {
                   onCollapse: () => setSidebarOpen(false),
                   onModeChange: (mode) => void handleWorkbenchModeChange(mode),
                   activeSessionId: activeSession?.id ?? null,
+                  temporarySession:
+                      activeSession?.temporary === true ? activeSession : null,
                   sessionRevision,
                   onOpenSession: (session) => {
                       setActiveSession(session);
                       openPanel("session-history");
+                  },
+                  onSessionsDeleted: (sessionIds) => {
+                      if (
+                          activeSession !== null &&
+                          sessionIds.includes(activeSession.id)
+                      ) {
+                          setActiveSession(null);
+                      }
                   },
                   onSelectDocument: (id) => void handleSelectDocument(id),
                   onCreateDocument: () => void handleCreateDocument(),
@@ -2139,6 +2195,10 @@ export function App(): ReactElement {
                         onToggleRunLog={() => togglePanel("run-log")}
                         onToggleInspector={() => togglePanel("inspector")}
                         runControls={designerRunControls}
+                        storeRunDraft={storeRunDraft}
+                        onToggleStoreRunDraft={() =>
+                            setStoreRunDraft((current) => !current)
+                        }
                         workbenchMenu={
                             activeWorkspace === null ? undefined : (
                                 <WorkbenchMenu

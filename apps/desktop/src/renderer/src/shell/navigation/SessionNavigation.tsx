@@ -3,7 +3,9 @@ import {
     useCallback,
     useEffect,
     useMemo,
+    useRef,
     useState,
+    type MouseEvent as ReactMouseEvent,
     type ReactElement,
     type ReactNode,
 } from "react";
@@ -12,10 +14,13 @@ import {
     Folder,
     FolderCheck,
     FolderPlus,
+    History,
     MessageSquare,
     PenLine,
     Plus,
     RefreshCw,
+    Trash2,
+    X,
 } from "lucide-react";
 import type {
     SessionFolder,
@@ -40,6 +45,12 @@ import {
     Tooltip,
 } from "../../ui";
 import { cx } from "../../ui/cx";
+import {
+    orderedSelection,
+    pruneSelection,
+    selectRange,
+    toggleSelected,
+} from "../workflow-selection";
 import { NavigationPanel } from "./NavigationPanel";
 import styles from "./SessionNavigation.module.css";
 
@@ -119,6 +130,8 @@ function filterNodes(
 export function SessionNavigation({
     workspace,
     activeSessionId,
+    temporarySession,
+    onSessionsDeleted,
     busy,
     width,
     sessionRevision,
@@ -144,6 +157,12 @@ export function SessionNavigation({
     const [renameTitle, setRenameTitle] = useState("");
     const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+    const [extraSelected, setExtraSelected] = useState<Set<string>>(new Set());
+    const selectionAnchorRef = useRef<string | null>(null);
+    const [batchMove, setBatchMove] = useState<SessionSummary[] | null>(null);
+    const [batchDelete, setBatchDelete] = useState<SessionSummary[] | null>(
+        null,
+    );
 
     useEffect(() => {
         let cancelled = false;
@@ -191,6 +210,90 @@ export function SessionNavigation({
                 : filterNodes(tree.nodes, query.trim().toLowerCase()),
         [tree, query],
     );
+    const filteredSessions = useMemo(
+        () => flattenSessions(filtered),
+        [filtered],
+    );
+    /** 高亮即选中：打开中的会话 + 额外多选项。 */
+    const selectionIds = useMemo(() => {
+        const next = new Set(extraSelected);
+        if (activeSessionId !== null) next.add(activeSessionId);
+        return next;
+    }, [activeSessionId, extraSelected]);
+    const selectedSessions = useMemo(
+        () =>
+            orderedSelection(
+                selectionIds,
+                sessions.map((session) => session.id),
+            )
+                .map((id) => sessions.find((session) => session.id === id))
+                .filter((session): session is SessionSummary => session !== undefined),
+        [selectionIds, sessions],
+    );
+    const selectionCount = selectedSessions.length;
+
+    useEffect(() => {
+        setExtraSelected((current) => {
+            const pruned = pruneSelection(
+                current,
+                sessions.map((session) => session.id),
+            );
+            const next = new Set(pruned);
+            if (activeSessionId !== null) next.delete(activeSessionId);
+            return next.size === current.size ? current : next;
+        });
+    }, [activeSessionId, sessions]);
+
+    const clearSelection = useCallback((): void => {
+        setExtraSelected(new Set());
+        selectionAnchorRef.current = null;
+    }, []);
+
+    const selectAll = (): void => {
+        setExtraSelected(
+            new Set(
+                filteredSessions
+                    .map((session) => session.id)
+                    .filter((id) => id !== activeSessionId),
+            ),
+        );
+        selectionAnchorRef.current = activeSessionId;
+    };
+
+    const handleSessionClick = (
+        event: ReactMouseEvent<HTMLButtonElement>,
+        session: SessionSummary,
+    ): void => {
+        if (event.shiftKey) {
+            event.preventDefault();
+            const ordered = filteredSessions.map((item) => item.id);
+            const anchor = selectionAnchorRef.current ?? activeSessionId;
+            const range = selectRange(ordered, anchor, session.id);
+            selectionAnchorRef.current = anchor ?? session.id;
+            const extras = new Set(range);
+            if (activeSessionId !== null) extras.delete(activeSessionId);
+            setExtraSelected((current) =>
+                event.ctrlKey || event.metaKey
+                    ? new Set([...current, ...extras])
+                    : extras,
+            );
+            return;
+        }
+
+        if (event.ctrlKey || event.metaKey) {
+            event.preventDefault();
+            selectionAnchorRef.current = session.id;
+            if (session.id === activeSessionId) return;
+            setExtraSelected((current) =>
+                toggleSelected(current, session.id),
+            );
+            return;
+        }
+
+        clearSelection();
+        selectionAnchorRef.current = session.id;
+        onOpenSession(session);
+    };
 
     const runAction = async <T,>(
         action: () => Promise<{ ok: boolean; error?: { message: string }; data?: T }>,
@@ -270,6 +373,34 @@ export function SessionNavigation({
     };
 
     const submitMove = async (folderId: string | null): Promise<void> => {
+        if (batchMove !== null) {
+            const targets = batchMove;
+            setWorking(true);
+            setError(null);
+            try {
+                let moved = 0;
+                for (const session of targets) {
+                    const result = await window.flowharness.moveSession({
+                        workspaceId: workspace.id,
+                        sessionId: session.id,
+                        folderId,
+                    });
+                    if (!result.ok) {
+                        setError(result.error.message);
+                        break;
+                    }
+                    moved += 1;
+                }
+                if (moved > 0) {
+                    clearSelection();
+                    refresh();
+                }
+                setBatchMove(null);
+            } finally {
+                setWorking(false);
+            }
+            return;
+        }
         if (moveTarget === null) return;
         const moved =
             moveTarget.kind === "folder"
@@ -291,6 +422,34 @@ export function SessionNavigation({
     };
 
     const submitDelete = async (): Promise<void> => {
+        if (batchDelete !== null) {
+            const targets = batchDelete;
+            setWorking(true);
+            setError(null);
+            try {
+                const deletedIds: string[] = [];
+                for (const session of targets) {
+                    const result = await window.flowharness.deleteSession({
+                        workspaceId: workspace.id,
+                        sessionId: session.id,
+                    });
+                    if (!result.ok) {
+                        setError(result.error.message);
+                        break;
+                    }
+                    deletedIds.push(session.id);
+                }
+                if (deletedIds.length > 0) {
+                    onSessionsDeleted?.(deletedIds);
+                    clearSelection();
+                    refresh();
+                }
+                setBatchDelete(null);
+            } finally {
+                setWorking(false);
+            }
+            return;
+        }
         if (deleteTarget === null) return;
         const deleted =
             deleteTarget.kind === "folder"
@@ -306,7 +465,22 @@ export function SessionNavigation({
                           sessionId: deleteTarget.id,
                       }),
                   );
-        if (deleted !== null) setDeleteTarget(null);
+        if (deleted !== null) {
+            if (deleteTarget.kind === "session") {
+                onSessionsDeleted?.([deleteTarget.id]);
+            }
+            setDeleteTarget(null);
+        }
+    };
+
+    const moveSelected = (): void => {
+        if (selectedSessions.length === 0) return;
+        setBatchMove(selectedSessions);
+    };
+
+    const deleteSelected = (): void => {
+        if (selectedSessions.length === 0) return;
+        setBatchDelete(selectedSessions);
     };
 
     const toggleFolder = (folderId: string): void => {
@@ -382,12 +556,36 @@ export function SessionNavigation({
         </>
     );
 
-    const renderSessionActions = (session: SessionSummary): ReactElement => (
-        <>
-            <ContextMenuItem onSelect={() => onOpenSession(session)}>
-                <MessageSquare size={15} aria-hidden="true" />
-                打开
-            </ContextMenuItem>
+    const renderSessionActions = (session: SessionSummary): ReactElement => {
+        const batch = selectionCount > 1 && selectionIds.has(session.id);
+        if (batch) {
+            return (
+                <>
+                    <ContextMenuItem onSelect={() => onOpenSession(session)}>
+                        <MessageSquare size={15} aria-hidden="true" />
+                        打开当前项
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onSelect={moveSelected}>
+                        <Folder size={15} aria-hidden="true" />
+                        移动所选（{selectionCount}）
+                    </ContextMenuItem>
+                    <ContextMenuItem onSelect={deleteSelected}>
+                        删除所选（{selectionCount}）
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onSelect={clearSelection}>
+                        清除选择
+                    </ContextMenuItem>
+                </>
+            );
+        }
+        return (
+            <>
+                <ContextMenuItem onSelect={() => onOpenSession(session)}>
+                    <MessageSquare size={15} aria-hidden="true" />
+                    打开
+                </ContextMenuItem>
             <ContextMenuItem
                 onSelect={() => {
                     setRenameTitle(session.title);
@@ -425,8 +623,9 @@ export function SessionNavigation({
             >
                 删除
             </ContextMenuItem>
-        </>
-    );
+            </>
+        );
+    };
 
     const renderNodes = (
         nodes: readonly SessionTreeNode[],
@@ -439,8 +638,11 @@ export function SessionNavigation({
                         key={node.session.id}
                         session={node.session}
                         active={node.session.id === activeSessionId}
+                        selected={selectionIds.has(node.session.id)}
                         depth={depth}
-                        onOpen={() => onOpenSession(node.session)}
+                        onClick={(event) =>
+                            handleSessionClick(event, node.session)
+                        }
                         menu={renderSessionActions(node.session)}
                     />
                 );
@@ -559,6 +761,90 @@ export function SessionNavigation({
                     />
                 </div>
 
+                {selectionCount > 1 ? (
+                    <div
+                        className={styles.selectionBar}
+                        role="toolbar"
+                        aria-label="会话批量操作"
+                    >
+                        <span className={styles.selectionCount}>
+                            已选 {selectionCount}
+                        </span>
+                        <button
+                            type="button"
+                            className={styles.selectionAction}
+                            disabled={
+                                working || filteredSessions.length === 0
+                            }
+                            onClick={selectAll}
+                        >
+                            全选
+                        </button>
+                        <span className={styles.selectionSpacer} />
+                        <Tooltip label="移动所选会话">
+                            <IconButton
+                                label="移动所选会话"
+                                size="sm"
+                                disabled={working}
+                                onClick={moveSelected}
+                            >
+                                <Folder size={16} aria-hidden="true" />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip label="删除所选会话">
+                            <IconButton
+                                label="删除所选会话"
+                                size="sm"
+                                disabled={working}
+                                onClick={deleteSelected}
+                            >
+                                <Trash2 size={16} aria-hidden="true" />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip label="清除选择">
+                            <IconButton
+                                label="清除选择"
+                                size="sm"
+                                onClick={clearSelection}
+                            >
+                                <X size={16} aria-hidden="true" />
+                            </IconButton>
+                        </Tooltip>
+                    </div>
+                ) : null}
+
+                {temporarySession === null ||
+                temporarySession === undefined ? null : (
+                    <div className={styles.temporary}>
+                        <button
+                            type="button"
+                            data-temporary-session="true"
+                            aria-current={
+                                temporarySession.id === activeSessionId
+                                    ? "page"
+                                    : undefined
+                            }
+                            className={cx(
+                                styles.sessionRow,
+                                styles.temporaryRow,
+                                temporarySession.id === activeSessionId &&
+                                    styles.active,
+                            )}
+                            onClick={() => onOpenSession(temporarySession)}
+                        >
+                            <History
+                                size={15}
+                                className={styles.sessionIcon}
+                                aria-hidden="true"
+                            />
+                            <span className={styles.rowTitle}>
+                                {temporarySession.title}
+                            </span>
+                            <Badge variant="warning">临时</Badge>
+                        </button>
+                    </div>
+                )}
+
                 <div className={styles.list}>
                     {error !== null ? (
                         <Alert tone="danger" title="会话操作失败">
@@ -668,19 +954,29 @@ export function SessionNavigation({
             </Dialog>
 
             <Dialog
-                open={moveTarget !== null}
+                open={moveTarget !== null || batchMove !== null}
                 onOpenChange={(open) => {
-                    if (!open) setMoveTarget(null);
+                    if (!open) {
+                        setMoveTarget(null);
+                        setBatchMove(null);
+                    }
                 }}
             >
                 <DialogContent
-                    title="移动"
-                    description={`选择「${moveTarget?.title ?? ""}」的目标文件夹。`}
+                    title={batchMove === null ? "移动" : "移动所选会话"}
+                    description={
+                        batchMove === null
+                            ? `选择「${moveTarget?.title ?? ""}」的目标文件夹。`
+                            : `选择 ${String(batchMove.length)} 条会话的目标文件夹。`
+                    }
                     footer={
                         <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => setMoveTarget(null)}
+                            onClick={() => {
+                                setMoveTarget(null);
+                                setBatchMove(null);
+                            }}
                         >
                             取消
                         </Button>
@@ -704,20 +1000,28 @@ export function SessionNavigation({
             </Dialog>
 
             <Dialog
-                open={deleteTarget !== null}
+                open={deleteTarget !== null || batchDelete !== null}
                 onOpenChange={(open) => {
-                    if (!open) setDeleteTarget(null);
+                    if (!open) {
+                        setDeleteTarget(null);
+                        setBatchDelete(null);
+                    }
                 }}
             >
                 <DialogContent
-                    title="删除"
+                    title={
+                        batchDelete === null ? "删除" : "删除所选会话"
+                    }
                     description="删除后无法恢复；文件夹会递归删除其中内容。"
                     footer={
                         <>
                             <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => setDeleteTarget(null)}
+                                onClick={() => {
+                                    setDeleteTarget(null);
+                                    setBatchDelete(null);
+                                }}
                             >
                                 取消
                             </Button>
@@ -731,7 +1035,24 @@ export function SessionNavigation({
                         </>
                     }
                 >
-                    <p>确定删除「{deleteTarget?.title ?? ""}」？</p>
+                    {batchDelete === null ? (
+                        <p>确定删除「{deleteTarget?.title ?? ""}」？</p>
+                    ) : (
+                        <>
+                            <p>
+                                确定删除 {batchDelete.length} 条会话？
+                            </p>
+                            <p className={styles.empty}>
+                                {batchDelete
+                                    .slice(0, 4)
+                                    .map((session) => session.title)
+                                    .join("、")}
+                                {batchDelete.length > 4
+                                    ? ` 等 ${String(batchDelete.length)} 条`
+                                    : ""}
+                            </p>
+                        </>
+                    )}
                 </DialogContent>
             </Dialog>
         </>
@@ -741,14 +1062,16 @@ export function SessionNavigation({
 function SessionRow({
     session,
     active,
+    selected,
     depth,
-    onOpen,
+    onClick,
     menu,
 }: {
     session: SessionSummary;
     active: boolean;
+    selected: boolean;
     depth: number;
-    onOpen: () => void;
+    onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void;
     menu: ReactNode;
 }): ReactElement {
     return (
@@ -757,15 +1080,21 @@ function SessionRow({
                 <button
                     type="button"
                     data-session-id={session.id}
+                    data-selected={selected}
                     aria-current={active ? "page" : undefined}
-                    className={cx(styles.sessionRow, active && styles.active)}
+                    aria-pressed={selected}
+                    className={cx(
+                        styles.sessionRow,
+                        active && styles.active,
+                        selected && styles.selected,
+                    )}
                     style={{
                         paddingLeft:
                             TREE_BASE_PADDING +
                             TREE_FILE_OFFSET +
                             depth * TREE_INDENT_STEP,
                     }}
-                    onClick={onOpen}
+                    onClick={onClick}
                 >
                     <MessageSquare
                         size={15}

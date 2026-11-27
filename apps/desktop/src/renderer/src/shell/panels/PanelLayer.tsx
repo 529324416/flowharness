@@ -25,7 +25,10 @@ export type SessionHistoryPanelInput = {
     session: SessionSummary;
     /** 追加消息后递增，触发历史面板重新读取。 */
     revision?: number;
-    onOpenDesigner: () => void;
+    /** 临时运行草稿：显示「存储草稿」而不是持久化提示。 */
+    temporary?: boolean;
+    savingDraft?: boolean;
+    onSaveDraft?: (sessionId: string) => void;
 };
 
 export type PanelLayerProps = {
@@ -120,7 +123,13 @@ export function PanelLayer({
                                       {sessionHistory?.session.title ?? "未选择"}
                                   </Badge>
                               }
-                              footer={<span>会话已持久化到工作区</span>}
+                              footer={
+                                  <span>
+                                      {sessionHistory?.session.temporary === true
+                                          ? "临时草稿 · 下次运行会丢弃"
+                                          : "会话已持久化到工作区"}
+                                  </span>
+                              }
                               onUpdate={onUpdate}
                               onClose={() => onClose(panel.id)}
                               onFocus={() => onFocus(panel.id)}
@@ -129,11 +138,19 @@ export function PanelLayer({
                                   <SessionHistoryView
                                       workspace={sessionHistory.workspace}
                                       session={sessionHistory.session}
-                                      onOpenDesigner={sessionHistory.onOpenDesigner}
                                       embedded
                                       {...(sessionHistory.revision === undefined
                                           ? {}
                                           : { revision: sessionHistory.revision })}
+                                      {...(sessionHistory.temporary === undefined
+                                          ? {}
+                                          : { temporary: sessionHistory.temporary })}
+                                      {...(sessionHistory.savingDraft === undefined
+                                          ? {}
+                                          : { savingDraft: sessionHistory.savingDraft })}
+                                      {...(sessionHistory.onSaveDraft === undefined
+                                          ? {}
+                                          : { onSaveDraft: sessionHistory.onSaveDraft })}
                                   />
                               ) : (
                                   <EmptyState

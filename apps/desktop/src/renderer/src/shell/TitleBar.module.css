@@ -133,3 +133,10 @@
   padding-right: 6px;
   border-right: 1px solid var(--fh-border);
 }
+
+.draftToggle {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  white-space: nowrap;
+}

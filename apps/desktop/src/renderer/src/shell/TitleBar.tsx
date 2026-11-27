@@ -18,6 +18,7 @@ import {
 import type { ResolvedTheme } from "@flowharness/contracts";
 import {
     Button,
+    Checkbox,
     IconButton,
     Kbd,
     Menu,
@@ -58,6 +59,9 @@ export type TitleBarProps = {
     onToggleRunLog: () => void;
     onToggleInspector: () => void;
     runControls?: RunControls | null;
+    /** 运行结果是否自动存入草稿目录。 */
+    storeRunDraft?: boolean;
+    onToggleStoreRunDraft?: () => void;
     /** 工作台切换器（由 App 注入）。 */
     workbenchMenu?: ReactNode;
 };
@@ -83,6 +87,8 @@ export function TitleBar({
     onToggleRunLog,
     onToggleInspector,
     runControls,
+    storeRunDraft = false,
+    onToggleStoreRunDraft,
     workbenchMenu,
 }: TitleBarProps): ReactElement {
     const windowMode = window.flowharness.windowMode;
@@ -309,6 +315,31 @@ export function TitleBar({
                                 </IconButton>
                             </Tooltip>
                         ) : null}
+                        {onToggleStoreRunDraft === undefined ? null : (
+                            <Tooltip
+                                label={
+                                    storeRunDraft
+                                        ? "运行结果自动存入草稿目录"
+                                        : "只保留临时草稿；下次运行会丢弃"
+                                }
+                            >
+                                <span
+                                    className={styles.draftToggle}
+                                    data-draft-toggle="true"
+                                >
+                                    <Checkbox
+                                        compact
+                                        checked={storeRunDraft}
+                                        disabled={
+                                            runControls.isRunning ||
+                                            runControls.isPaused
+                                        }
+                                        onChange={() => onToggleStoreRunDraft()}
+                                        label="存草稿"
+                                    />
+                                </span>
+                            </Tooltip>
+                        )}
                     </div>
                 ) : null}
 

@@ -17,6 +17,11 @@ export type SessionSummary = {
     messageCount: number;
     /** run 的 RunResult entry 数。 */
     entryCount: number;
+    /**
+     * 临时运行草稿：只存在于 `sessions/.tmp`，不出现在会话树；
+     * 下次运行会被丢弃，除非显式「存储草稿」。
+     */
+    temporary?: boolean;
 };
 
 /**
@@ -57,6 +62,15 @@ export type SessionCreateRequest = {
     workspaceId: string;
     title?: string;
     folderId?: string | null;
+    /** true 时创建临时运行草稿（写入隐藏的 `.tmp`，不进入会话树）。 */
+    temporary?: boolean;
+    /** 运行开始：创建前先丢弃上一次临时草稿（无论本次是否自动保存）。 */
+    discardTemporary?: boolean;
+};
+
+export type SessionCommitTemporaryRequest = {
+    workspaceId: string;
+    sessionId: string;
 };
 
 export type SessionListRequest = { workspaceId: string };

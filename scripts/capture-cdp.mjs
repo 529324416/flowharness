@@ -303,8 +303,13 @@ try {
         scenario === "designer-workflow-shift" ||
         scenario === "designer-stream" ||
         scenario === "designer-filter-combine" ||
+        scenario === "designer-replace" ||
         scenario === "designer-panel" ||
         scenario === "designer-slot-connect" ||
+        scenario === "run-draft" ||
+        scenario === "session-multi-select" ||
+        scenario === "session-batch-delete" ||
+        scenario === "session-batch-move" ||
         scenario === "designer-import" ||
         scenario === "designer-history" ||
         scenario === "canvas-selection" ||
@@ -1927,6 +1932,103 @@ try {
             console.log(`filter/combine kinds: ${JSON.stringify(kinds.result?.value)}`);
         }
 
+        if (scenario === "designer-replace") {
+            const fixture = join(tmpdir(), `fh-replace-${process.pid}.json`);
+            writeFileSync(
+                fixture,
+                `${JSON.stringify({
+                    version: 1,
+                    id: "replace-fixture",
+                    title: "Replace 文本替换",
+                    nodes: [
+                        {
+                            id: "raw",
+                            type: "core.constant",
+                            typeVersion: 1,
+                            config: {
+                                value: {
+                                    type: "text",
+                                    text: "Hello old world, old friend",
+                                },
+                            },
+                            ui: { x: 80, y: 80 },
+                        },
+                        {
+                            id: "keyword",
+                            type: "core.constant",
+                            typeVersion: 1,
+                            config: { value: { type: "text", text: "old" } },
+                            ui: { x: 80, y: 250 },
+                        },
+                        {
+                            id: "replace",
+                            type: "core.replace",
+                            typeVersion: 1,
+                            config: {
+                                rawText: "",
+                                keyword: "",
+                                replacement: "new",
+                                count: 1,
+                            },
+                            ui: { x: 420, y: 160 },
+                        },
+                        {
+                            id: "output",
+                            type: "core.output",
+                            typeVersion: 1,
+                            ui: { x: 760, y: 160 },
+                        },
+                    ],
+                    edges: [
+                        {
+                            from: { nodeId: "raw", port: "value" },
+                            to: { nodeId: "replace", port: "raw_text" },
+                        },
+                        {
+                            from: { nodeId: "keyword", port: "value" },
+                            to: { nodeId: "replace", port: "keyword" },
+                        },
+                        {
+                            from: { nodeId: "replace", port: "text" },
+                            to: { nodeId: "output", port: "text" },
+                        },
+                    ],
+                })}\n`,
+            );
+
+            const root = await send("DOM.getDocument", { depth: -1 });
+            const input = await send("DOM.querySelector", {
+                nodeId: root.root.nodeId,
+                selector: 'input[type="file"]',
+            });
+            if (input.nodeId === 0) {
+                console.log("replace import input: not found");
+            } else {
+                await send("DOM.setFileInputFiles", {
+                    files: [fixture],
+                    nodeId: input.nodeId,
+                });
+                await settle(1600);
+            }
+
+            await evaluate(
+                `const close = (label) => { const button = document.querySelector(\`button[aria-label="\${label}"]\`); if (button?.getAttribute('aria-pressed') === 'true') button.click(); };` +
+                    `close('切换属性检查'); close('切换运行日志');`,
+            );
+            await settle(500);
+
+            const state = await evaluate(`(() => {
+                const node = document.querySelector('[data-node-id="replace"]');
+                return {
+                    replaceNode: node?.textContent?.includes('core.replace') ?? false,
+                    nodeText: node?.textContent?.slice(0, 160) ?? null,
+                    replacement: node?.querySelector('input[aria-label="替换为"]')?.value ?? null,
+                    count: node?.querySelector('input[aria-label="最大替换次数"]')?.value ?? null,
+                };
+            })()`);
+            console.log(`replace state: ${JSON.stringify(state.result?.value)}`);
+        }
+
         if (scenario === "designer-model-empty") {
             const fixture = join(tmpdir(), `fh-model-empty-${process.pid}.json`);
             writeFileSync(
@@ -2760,6 +2862,205 @@ try {
             });
             console.log(`node statuses: ${JSON.stringify(statuses.result?.value)}`);
         }
+        if (
+            scenario === "run-draft" ||
+            scenario === "session-multi-select" ||
+            scenario === "session-batch-delete" ||
+            scenario === "session-batch-move"
+        ) {
+            const readSessionState = async () => {
+                const result = await evaluateAsync(`(async () => {
+                    const list = await window.flowharness.listWorkspaces();
+                    const workspace = list.ok ? list.data[0] : null;
+                    if (!workspace) return null;
+                    const tree = await window.flowharness.listSessionTree({ workspaceId: workspace.id });
+                    if (!tree.ok) return { error: tree.error.message };
+                    const collect = (nodes) => nodes.flatMap((node) => node.type === "session"
+                        ? [{
+                            id: node.session.id,
+                            title: node.session.title,
+                            folderId: node.session.folderId,
+                            temporary: node.session.temporary === true,
+                        }]
+                        : collect(node.children));
+                    return {
+                        sessions: collect(tree.data.nodes),
+                        draftFolderId: tree.data.draftFolderId,
+                    };
+                })()`);
+                return result.result?.value;
+            };
+
+            const seedSessions = async (count) => {
+                const result = await evaluateAsync(`(async () => {
+                    const list = await window.flowharness.listWorkspaces();
+                    const workspace = list.ok ? list.data[0] : null;
+                    if (!workspace) return null;
+                    const tree = await window.flowharness.listSessionTree({ workspaceId: workspace.id });
+                    const folderId = tree.ok ? tree.data.draftFolderId : null;
+                    const ids = [];
+                    for (let index = 1; index <= ${count}; index += 1) {
+                        const created = await window.flowharness.createSession({
+                            workspaceId: workspace.id,
+                            folderId,
+                            title: \`批量会话 \${index}\`,
+                        });
+                        if (created.ok) ids.push(created.data.id);
+                    }
+                    return ids;
+                })()`);
+                return result.result?.value;
+            };
+
+            if (scenario === "run-draft") {
+                const toggleDefault = await evaluate(
+                    `document.querySelector('[data-draft-toggle] input')?.checked ?? null`,
+                );
+                const before = await readSessionState();
+                console.log(
+                    `run-draft default toggle: ${JSON.stringify(toggleDefault.result?.value)}`,
+                );
+                console.log(`run-draft before: ${JSON.stringify(before)}`);
+
+                await evaluate(
+                    `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '运行')?.click()`,
+                );
+                await settle(2000);
+                const afterTemp = await readSessionState();
+                const tempButton = await evaluate(
+                    `[...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === '存储草稿')`,
+                );
+                const tempRow = await evaluate(
+                    `document.querySelector('[data-temporary-session]')?.textContent ?? null`,
+                );
+                console.log(
+                    `run-draft temp: ${JSON.stringify({ afterTemp, tempButton: tempButton.result?.value, tempRow: tempRow.result?.value })}`,
+                );
+                await captureTo(out.replace(/\.png$/, "-temp.png"));
+
+                await clickElement(
+                    `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '存储草稿')`,
+                );
+                await settle(1200);
+                const afterSave = await readSessionState();
+                console.log(`run-draft saved: ${JSON.stringify(afterSave)}`);
+
+                await evaluate(
+                    `document.querySelector('[data-draft-toggle] input')?.click()`,
+                );
+                await settle(250);
+                const toggleAfter = await evaluate(
+                    `document.querySelector('[data-draft-toggle] input')?.checked ?? null`,
+                );
+                await evaluate(
+                    `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '运行')?.click()`,
+                );
+                await settle(2000);
+                const afterAuto = await readSessionState();
+                console.log(
+                    `run-draft auto: ${JSON.stringify({ toggleAfter: toggleAfter.result?.value, afterAuto })}`,
+                );
+            }
+
+            if (scenario === "session-multi-select") {
+                const seeded = await seedSessions(3);
+                console.log(
+                    `session multi-select seed: ${JSON.stringify(seeded)}`,
+                );
+
+                await clickElement(
+                    `document.querySelector('button[aria-label="刷新会话"]')`,
+                );
+                await settle(1000);
+                await evaluate(`(() => {
+                    const click = (title) => {
+                        const row = [...document.querySelectorAll('[data-session-id]')]
+                            .find((element) => element.textContent?.includes(title));
+                        row?.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+                    };
+                    click('批量会话 1');
+                    click('批量会话 2');
+                    return true;
+                })()`);
+                await settle(500);
+                const state = await evaluate(`({
+                    bar: Boolean(document.querySelector('[role="toolbar"][aria-label="会话批量操作"]')),
+                    selected: document.querySelectorAll('[data-session-id][data-selected="true"]').length,
+                })`);
+                console.log(
+                    `session multi-select: ${JSON.stringify(state.result?.value)}`,
+                );
+            }
+
+            if (scenario === "session-batch-delete") {
+                const seeded = await seedSessions(3);
+                console.log(
+                    `session batch delete seed: ${JSON.stringify(seeded)}`,
+                );
+                await clickElement(
+                    `document.querySelector('button[aria-label="刷新会话"]')`,
+                );
+                await settle(1000);
+                await evaluate(`(() => {
+                    const click = (title) => {
+                        const row = [...document.querySelectorAll('[data-session-id]')]
+                            .find((element) => element.textContent?.includes(title));
+                        row?.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+                    };
+                    click('批量会话 1');
+                    click('批量会话 2');
+                    return true;
+                })()`);
+                await settle(400);
+                await clickElement(
+                    `document.querySelector('button[aria-label="删除所选会话"]')`,
+                );
+                await settle(300);
+                await clickElement(
+                    `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '删除')`,
+                );
+                await settle(1200);
+                const afterDelete = await readSessionState();
+                console.log(
+                    `session batch delete: ${JSON.stringify(afterDelete)}`,
+                );
+            }
+
+            if (scenario === "session-batch-move") {
+                const seeded = await seedSessions(3);
+                console.log(
+                    `session batch move seed: ${JSON.stringify(seeded)}`,
+                );
+                await clickElement(
+                    `document.querySelector('button[aria-label="刷新会话"]')`,
+                );
+                await settle(1000);
+                await evaluate(`(() => {
+                    const click = (title) => {
+                        const row = [...document.querySelectorAll('[data-session-id]')]
+                            .find((element) => element.textContent?.includes(title));
+                        row?.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+                    };
+                    click('批量会话 1');
+                    click('批量会话 2');
+                    return true;
+                })()`);
+                await settle(400);
+                await clickElement(
+                    `document.querySelector('button[aria-label="移动所选会话"]')`,
+                );
+                await settle(300);
+                await clickElement(
+                    `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '根目录')`,
+                );
+                await settle(1200);
+                const afterMove = await readSessionState();
+                console.log(
+                    `session batch move: ${JSON.stringify(afterMove)}`,
+                );
+            }
+        }
+
         if (scenario === "canvas") {
             await evaluate(
                 `const close = (label) => { const button = document.querySelector(\`button[aria-label="\${label}"]\`); if (button?.getAttribute('aria-pressed') === 'true') button.click(); };` +

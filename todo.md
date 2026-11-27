@@ -1,6 +1,6 @@
 # TODO
 
-> 当前主线：**2026-11-28 收尾**——端口端点 / 输出行顺序、节点折叠（ADR-042）、工作流多选（ADR-043）、运行态动画（ADR-044）、Filter / Combine（ADR-045）、Provider 设置页列表 + 属性栏重构、运行动画修订（无缝警戒环 / 输出→输入白段 / 不随 token 重启）已完成；M9 已完成（2026-11-27），M8 剩余 — 节点预设库文件导入 / 导出；之后进入 M10 可观测性与工程化、M11 打包发布。
+> 当前主线：**2026-11-28 收尾**——端口端点 / 输出行顺序、节点折叠（ADR-042）、工作流多选（ADR-043）、运行态动画（ADR-044）、Filter / Combine（ADR-045）、Provider 设置页列表 + 属性栏重构、运行动画修订（无缝警戒环 / 输出→输入白段 / 不随 token 重启）、Replace 节点（ADR-046）、运行临时草稿 / 「存草稿」开关 / Session 多选批量（ADR-047）已完成；M9 已完成（2026-11-27），M8 剩余 — 节点预设库文件导入 / 导出；之后进入 M10 可观测性与工程化、M11 打包发布。
 > 原则：垂直切片；契约先行；工作台即视图；信息架构调整优先于新功能。
 
 ## 设计约束（M7 起）
@@ -426,6 +426,27 @@
 - [x] 截图场景 `provider-keys` / `provider-key-create` / `provider-profile-create` / `provider-key-submit` / `provider-profile-submit`；基线 `ui-m9-provider-library.png` / `ui-m9-provider-profiles.png` / `ui-m9-provider-key-create.png` / `ui-m9-provider-create.png`
 - [x] `capture:ui` 新增 `-UserDataDir` 参数，截图可隔离 AppConfig / Provider 库 / 窗口状态
 
+## Replace 节点（2026-11-28）
+
+- [x] wireclaw 新增 `core.replace`：输入 `raw_text` / `keyword` / `replacement`，输出 `text`（ADR-046）
+- [x] 三个输入都可从端口传入，未连接时回退 config `rawText` / `keyword` / `replacement`；`count` 默认 -1（全部），0 不替换，正数为上限
+- [x] 字面量替换；空 keyword 原样返回；缺 raw_text / keyword 执行期 MissingValue
+- [x] FH 节点 Body：raw_text 多行 + keyword / replacement 输入 + count 数字输入；连接后对应字段变为上游锁定行；`ReplaceAll` 图标
+- [x] wireclaw 测试 `harness-replace`（config / 端口覆盖 + count / count=0 / 空 keyword / 缺值）；70/70
+- [x] FH catalog 更新为 19 类型 / 14 带 schema；`pnpm test` 51 文件 / 296 项
+- [x] 截图场景 `designer-replace` 与基线 `devlog/assets/ui-replace.png`
+
+## 运行草稿与会话多选（2026-11-28）
+
+- [x] 运行默认创建临时草稿：`sessions/.tmp/<sessionId>`，`temporary: true`，不进入 Session 树；下一次运行清空 `.tmp`（ADR-047）
+- [x] 标题栏运行按钮右侧「存草稿」开关，默认关闭；打开后运行直接写入草稿目录；运行中 / 暂停禁用
+- [x] 会话历史面板显示「临时」标记与「存储草稿」按钮；`session:commitTemporary` 移入草稿目录并清除 `temporary`；移除「打开设计器」
+- [x] Session 树顶部固定虚线「临时」草稿行，关闭历史面板后可重新打开；该行不参与多选 / 批量
+- [x] Session 树多选：Ctrl / Cmd 切换、Shift 连选、打开中的会话始终属于选择；批量操作条全选 / 移动 / 删除 / 清除；批量右键菜单
+- [x] 批量移动 / 删除复用既有 `session:move` / `session:delete`，删除当前会话后由 App 清理选择
+- [x] 测试：`session-store.test.ts` 新增临时草稿 / 提交 / 非临时 no-op / 自动保存时丢弃旧临时 4 项；`pnpm test` 51 文件 / 296 项
+- [x] 截图场景 `run-draft` / `session-multi-select` / `session-batch-delete` / `session-batch-move`；基线 `ui-run-draft.png` / `ui-run-draft-temp.png` / `ui-session-multi-select.png`
+
 ## 后续里程碑
 
 ### M10 — 可观测性与工程化（原 M9）
@@ -599,6 +620,7 @@
 - [x] 49 个测试文件 / 285 个测试通过（2026-11-28；Filter / Combine / 旧类型迁移；wireclaw 69/69）
 - [x] 50 个测试文件 / 289 个测试通过（2026-11-28；Provider 设置页重构 / 新增 Modal）
 - [x] 51 个测试文件 / 292 个测试通过（2026-11-28；运行动画修订 / flow-merge）
+- [x] 51 个测试文件 / 296 个测试通过（2026-11-28；Replace / 临时草稿存储 / Session 批量；wireclaw 70/70）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
 

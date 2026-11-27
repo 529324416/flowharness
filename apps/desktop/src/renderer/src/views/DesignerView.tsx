@@ -1751,6 +1751,9 @@ function lockedFieldNames(nodeType: string, port: string): readonly string[] {
     if (nodeType === "core.model") {
         return port === "provider" ? ["providerId"] : [];
     }
+    if (nodeType === "core.replace") {
+        return port === "raw_text" ? ["rawText"] : [port];
+    }
     if (nodeType !== "core.model.call" && nodeType !== "core.agent.run") {
         return [];
     }

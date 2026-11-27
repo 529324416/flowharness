@@ -29,6 +29,8 @@ const SESSION_ID_PATTERN = /^ses_[A-Za-z0-9_-]{1,64}$/;
 const FOLDER_ID_PATTERN = /^fld_[A-Za-z0-9_-]{1,64}$/;
 const SESSION_FILE = "session.json";
 const FOLDER_FILE = "folder.json";
+/** 临时运行草稿目录：不在会话树中出现，新建临时草稿时整体清空。 */
+const TEMPORARY_DIR = ".tmp";
 const FOLDER_SCHEMA_VERSION = 1;
 const SESSION_SCHEMA_VERSION = 2;
 const MAX_TREE_DEPTH = 32;
@@ -90,11 +92,22 @@ export class SessionStore {
         return this.create({ title: "主会话" });
     }
 
-    async create(input: { title?: string; folderId?: string | null } = {}): Promise<SessionRecord> {
+    async create(input: {
+        title?: string;
+        folderId?: string | null;
+        temporary?: boolean;
+        discardTemporary?: boolean;
+    } = {}): Promise<SessionRecord> {
         const now = new Date().toISOString();
         const id = `ses_${randomBytes(6).toString("hex")}`;
-        const folderId = input.folderId ?? null;
-        const folderDir = await this.requireFolderDir(folderId);
+        const temporary = input.temporary === true;
+        if (temporary || input.discardTemporary === true) {
+            await this.clearTemporary();
+        }
+        const folderId = temporary ? null : input.folderId ?? null;
+        const dir = temporary
+            ? join(this.root, TEMPORARY_DIR, id)
+            : join(await this.requireFolderDir(folderId), id);
         const record: SessionRecord = {
             schemaVersion: SESSION_SCHEMA_VERSION,
             id,
@@ -108,9 +121,25 @@ export class SessionStore {
             entryCount: 0,
             history: SessionSerializer.serialize(new SessionHistory(id)),
             attachments: [],
+            ...(temporary ? { temporary: true } : {}),
         };
-        await this.writeSession(join(folderDir, id), record);
+        await this.writeSession(dir, record);
         return record;
+    }
+
+    /**
+     * 把临时运行草稿移入草稿目录并清除临时标记。
+     *
+     * 非临时会话原样返回；草稿目录由工作区设置决定（缺失时自动创建）。
+     */
+    async commitTemporary(sessionId: string): Promise<SessionRecord> {
+        const record = await this.read(sessionId);
+        if (record.temporary !== true) return record;
+        const draftFolderId = await this.ensureDraftFolder();
+        if (draftFolderId === null) {
+            throw new FhError("E_IO", "draft session folder is unavailable");
+        }
+        return this.moveSession(sessionId, draftFolderId);
     }
 
     async read(sessionId: string): Promise<SessionRecord> {
@@ -244,6 +273,7 @@ export class SessionStore {
             folderId: targetFolderId,
             updatedAt: new Date().toISOString(),
         };
+        delete next.temporary;
         await this.writeSession(destination, next);
         return next;
     }
@@ -565,8 +595,22 @@ export class SessionStore {
     private async findSession(
         sessionId: string,
     ): Promise<SessionEntry | undefined> {
-        const sessions = await this.scanSessions(this.root, null, 0);
+        const sessions = [
+            ...(await this.scanSessions(this.root, null, 0)),
+            ...(await this.scanSessions(
+                join(this.root, TEMPORARY_DIR),
+                null,
+                0,
+            )),
+        ];
         return sessions.find((entry) => basename(entry.dir) === sessionId);
+    }
+
+    private async clearTemporary(): Promise<void> {
+        await fs.rm(join(this.root, TEMPORARY_DIR), {
+            recursive: true,
+            force: true,
+        });
     }
 
     private async scanFolders(
@@ -806,7 +850,8 @@ function parseRecord(value: unknown): SessionRecord {
         (value.folderId !== null &&
             (typeof value.folderId !== "string" ||
                 !FOLDER_ID_PATTERN.test(value.folderId))) ||
-        typeof value.entryCount !== "number"
+        typeof value.entryCount !== "number" ||
+        (value.temporary !== undefined && typeof value.temporary !== "boolean")
     ) {
         throw new FhError("E_IO", "session record is invalid");
     }
@@ -836,6 +881,7 @@ function toSummary(record: SessionRecord): SessionSummary {
         folderId: record.folderId,
         messageCount: record.messageCount,
         entryCount: record.entryCount,
+        ...(record.temporary === true ? { temporary: true as const } : {}),
     };
 }
 

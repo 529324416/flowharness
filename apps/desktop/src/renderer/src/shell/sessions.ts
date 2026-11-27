@@ -9,6 +9,8 @@ export type SessionSummary = {
     subtitle: string;
     status: SessionStatus;
     updatedAt: string;
+    /** 临时运行草稿；只显示在历史面板，不进入会话树。 */
+    temporary?: boolean;
 };
 
 export const SESSION_TONE: Record<SessionStatus, StatusTone> = {
@@ -33,6 +35,7 @@ export function fromStoredSession(
                   : `${session.messageCount} 条消息`,
         status: session.status,
         updatedAt: formatRelativeTime(session.updatedAt),
+        ...(session.temporary === true ? { temporary: true } : {}),
     };
 }
 

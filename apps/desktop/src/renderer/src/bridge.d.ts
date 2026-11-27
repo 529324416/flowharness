@@ -28,6 +28,7 @@ import type {
     RunResumeInterruptedRequest,
     RunResultRequest,
     RunEntriesRequest,
+    SessionCommitTemporaryRequest,
     SessionCreateRequest,
     SessionDeleteRequest,
     SessionAppendEntriesRequest,
@@ -191,6 +192,9 @@ interface FlowHarnessBridge {
     readonly setDraftSessionFolder: (
         request: SessionSetDraftFolderRequest,
     ) => Promise<IpcResult<SessionTree>>;
+    readonly commitTemporarySession: (
+        request: SessionCommitTemporaryRequest,
+    ) => Promise<IpcResult<SessionRecord>>;
     readonly openSession: (
         request: SessionReadRequest,
     ) => Promise<IpcResult<SessionRecord>>;

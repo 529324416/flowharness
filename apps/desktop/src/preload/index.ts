@@ -32,6 +32,7 @@ import {
     type RunResumeInterruptedRequest,
     type RunResultRequest,
     type RunEntriesRequest,
+    type SessionCommitTemporaryRequest,
     type SessionCreateRequest,
     type SessionDeleteRequest,
     type SessionAppendEntriesRequest,
@@ -250,6 +251,10 @@ const bridge = {
         request: SessionSetDraftFolderRequest,
     ): Promise<IpcResult<SessionTree>> =>
         invoke(IpcChannel.SessionSetDraftFolder, request),
+    commitTemporarySession: (
+        request: SessionCommitTemporaryRequest,
+    ): Promise<IpcResult<SessionRecord>> =>
+        invoke(IpcChannel.SessionCommitTemporary, request),
     closeSession: (
         workspaceId: string,
         sessionId: string,

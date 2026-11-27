@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
-import { History, RefreshCw, Workflow } from "lucide-react";
+import { History, RefreshCw, Save } from "lucide-react";
 import { RunResultSerializer, type RunResult } from "wireclaw";
 import type { BlobMeta, SessionRecord, WorkspaceSummary } from "@flowharness/contracts";
 import { Alert, Badge, Button, EmptyState, StatusDot } from "../ui";
@@ -16,7 +16,11 @@ import styles from "./SessionHistoryView.module.css";
 export type SessionHistoryViewProps = {
     workspace: WorkspaceSummary | null;
     session: SessionSummary | null;
-    onOpenDesigner: () => void;
+    /** 临时运行草稿的显式标记；record 加载后以 record.temporary 为准。 */
+    temporary?: boolean;
+    /** 把临时运行草稿存入草稿目录。 */
+    onSaveDraft?: (sessionId: string) => void;
+    savingDraft?: boolean;
     /** 嵌入浮动面板时隐藏整页标题，只保留紧凑工具栏。 */
     embedded?: boolean;
     /** 外部写入消息后递增，触发重新读取。 */
@@ -27,7 +31,9 @@ export type SessionHistoryViewProps = {
 export function SessionHistoryView({
     workspace,
     session,
-    onOpenDesigner,
+    temporary = false,
+    onSaveDraft,
+    savingDraft = false,
     embedded = false,
     revision = 0,
 }: SessionHistoryViewProps): ReactElement {
@@ -136,11 +142,19 @@ export function SessionHistoryView({
         setReloadToken((current) => current + 1);
     }, []);
 
-    const messageActions =
-        model !== null && model.messages.length > 0 ? (
-            <Button variant="secondary" size="sm" onClick={onOpenDesigner}>
-                <Workflow size={17} aria-hidden="true" />
-                打开设计器
+    const isTemporary = record?.temporary === true || temporary;
+    const draftAction =
+        isTemporary &&
+        onSaveDraft !== undefined &&
+        sessionId !== null ? (
+            <Button
+                variant="secondary"
+                size="sm"
+                disabled={savingDraft}
+                onClick={() => onSaveDraft(sessionId)}
+            >
+                <Save size={17} aria-hidden="true" />
+                {savingDraft ? "存储中…" : "存储草稿"}
             </Button>
         ) : undefined;
 
@@ -167,6 +181,9 @@ export function SessionHistoryView({
                             }
                         />
                         <span>{countLabel}</span>
+                        {isTemporary ? (
+                            <Badge variant="warning">临时</Badge>
+                        ) : null}
                         {record !== null ? (
                             <Badge variant="neutral">{record.id}</Badge>
                         ) : null}
@@ -185,7 +202,7 @@ export function SessionHistoryView({
                             <RefreshCw size={17} aria-hidden="true" />
                             刷新
                         </Button>
-                        {messageActions}
+                        {draftAction}
                     </div>
                 </div>
             ) : (
@@ -205,6 +222,9 @@ export function SessionHistoryView({
                                     }
                                 />
                                 <span>{countLabel}</span>
+                                {isTemporary ? (
+                                    <Badge variant="warning">临时</Badge>
+                                ) : null}
                                 <span aria-hidden="true">·</span>
                                 <span>{session.updatedAt}</span>
                                 {workspace !== null ? (
@@ -239,7 +259,7 @@ export function SessionHistoryView({
                             <RefreshCw size={17} aria-hidden="true" />
                             刷新
                         </Button>
-                        {messageActions}
+                        {draftAction}
                     </div>
                 </header>
             )}
@@ -270,12 +290,9 @@ export function SessionHistoryView({
                         icon={<History size={28} aria-hidden="true" />}
                         title="这条会话还没有消息"
                         description="历史消息由 wireclaw SessionData 写入；跑一次 Agent 节点或保存历史后，会在这里回放消息、工具调用与附件。"
-                        action={
-                            <Button variant="secondary" size="sm" onClick={onOpenDesigner}>
-                                <Workflow size={17} aria-hidden="true" />
-                                打开设计器
-                            </Button>
-                        }
+                        {...(draftAction === undefined
+                            ? {}
+                            : { action: draftAction })}
                     />
                 ) : (
                     <ol className={styles.timeline}>

@@ -90,6 +90,9 @@ export function inlineInputPorts(kind: string): readonly string[] {
             "toolset",
         ];
     }
+    if (kind === "core.replace") {
+        return ["raw_text", "keyword", "replacement"];
+    }
     return [];
 }
 
@@ -789,6 +792,131 @@ export function InlineNodeConfig({
                     onKeyDown={(event) => event.stopPropagation()}
                 />
             </FieldRow>
+        );
+    }
+
+    if (kind === "core.replace") {
+        const rawText =
+            isRecord(config) && typeof config.rawText === "string"
+                ? config.rawText
+                : "";
+        const keyword =
+            isRecord(config) && typeof config.keyword === "string"
+                ? config.keyword
+                : "";
+        const replacement =
+            isRecord(config) && typeof config.replacement === "string"
+                ? config.replacement
+                : "";
+        const count =
+            isRecord(config) && typeof config.count === "number"
+                ? config.count
+                : -1;
+        return (
+            <div className={styles.stack}>
+                <FieldRow visible={show("rawText", lockedFields?.rawText)}>
+                    <PortBlock port="raw_text">
+                        {lockedFields?.rawText !== undefined ? (
+                            <LockedField
+                                label="原文"
+                                value={lockedFields.rawText.value}
+                                reason={lockedFields.rawText.reason}
+                            />
+                        ) : (
+                            <TextareaInline
+                                value={rawText}
+                                ariaLabel="原文"
+                                placeholder="raw_text"
+                                disabled={readOnly}
+                                onChange={(next) =>
+                                    onChange(
+                                        writeConfig(config, {
+                                            rawText: next ?? "",
+                                        }),
+                                    )
+                                }
+                            />
+                        )}
+                    </PortBlock>
+                </FieldRow>
+                <FieldRow visible={show("keyword", lockedFields?.keyword)}>
+                    <PortBlock port="keyword">
+                        {lockedFields?.keyword !== undefined ? (
+                            <LockedField
+                                label="查找"
+                                value={lockedFields.keyword.value}
+                                reason={lockedFields.keyword.reason}
+                            />
+                        ) : (
+                            <input
+                                className={`${styles.input} nodrag nowheel`}
+                                value={keyword}
+                                disabled={readOnly}
+                                aria-label="查找"
+                                placeholder="keyword（空串不替换）"
+                                onChange={(event) =>
+                                    onChange(
+                                        writeConfig(config, {
+                                            keyword: event.target.value,
+                                        }),
+                                    )
+                                }
+                                onKeyDown={(event) => event.stopPropagation()}
+                            />
+                        )}
+                    </PortBlock>
+                </FieldRow>
+                <FieldRow visible={show("replacement", lockedFields?.replacement)}>
+                    <PortBlock port="replacement">
+                        {lockedFields?.replacement !== undefined ? (
+                            <LockedField
+                                label="替换为"
+                                value={lockedFields.replacement.value}
+                                reason={lockedFields.replacement.reason}
+                            />
+                        ) : (
+                            <input
+                                className={`${styles.input} nodrag nowheel`}
+                                value={replacement}
+                                disabled={readOnly}
+                                aria-label="替换为"
+                                placeholder="replacement"
+                                onChange={(event) =>
+                                    onChange(
+                                        writeConfig(config, {
+                                            replacement: event.target.value,
+                                        }),
+                                    )
+                                }
+                                onKeyDown={(event) => event.stopPropagation()}
+                            />
+                        )}
+                    </PortBlock>
+                </FieldRow>
+                <FieldRow visible={show("count")}>
+                    <input
+                        className={`${styles.input} nodrag nowheel`}
+                        type="number"
+                        min={-1}
+                        step={1}
+                        value={count}
+                        disabled={readOnly}
+                        aria-label="最大替换次数"
+                        placeholder="-1 = 全部"
+                        onChange={(event) => {
+                            const raw = event.target.value;
+                            const next = raw === "" ? -1 : Number(raw);
+                            if (!Number.isFinite(next)) return;
+                            onChange(
+                                writeConfig(config, {
+                                    count: Math.trunc(next),
+                                }),
+                            );
+                        }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                    />
+                </FieldRow>
+            </div>
         );
     }
 

@@ -107,7 +107,7 @@ main: resolve Promise
 
 - 附件管理器仍是**工作区维度**（还没有 Session 维度）；`SessionStore` 按会话持久化，M7.2 起支持递归文件夹、`SessionRecord` v2 与草稿目录，M7.4 起 run 会话保存 wireclaw `RunResult`（不再是不透明 payload）；host 以 contentHash 访问；
 - run 结果由 `RuntimeHost` 聚合后写 `runs/<runId>/result.json`，`run:result` 在当前进程内直接读内存，跨重启时按 `workspaceId` 从 RunStore 读取并校验；
-- M8.6 起点击运行自动在草稿目录创建 conversation 会话，并逐步写入 `RunResult` entries：`run:entries` 提供增量条目，`session:appendEntries` 追加消息，结束时 `session:appendMessage` 写输出摘要（ADR-028）；run session 与 conversation session 保持分离；
+- M8.6 起点击运行创建 conversation 会话，并逐步写入 `RunResult` entries：`run:entries` 提供增量条目，`session:appendEntries` 追加消息，结束时 `session:appendMessage` 写输出摘要（ADR-028）；2026-11-28 起默认写入 `.tmp` 临时草稿（不进树，下次运行丢弃），标题栏「存草稿」打开后才写入草稿目录，`session:commitTemporary` 可手动提交（ADR-047）；run session 与 conversation session 保持分离；
 - `IFileHost` 的读写由 `WorkspaceFileHost` 落到当前工作区的 BlobStore；
 - Session 关闭后保留历史与 refs；GC 由 WorkspaceStore 汇总 roots 后触发；
 - 多工作台共享同一 Session 时，引用计数由 refs 管理，不做隐式拷贝。
@@ -136,7 +136,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | workspace | `workspace:list` / `create` / `open` / `close` / `readDocument` / `saveDocument` / `listDocuments` / `deleteDocument` / `exportHarness` / `listWorkbenches` / `export` / `import` | ✅ | 前十个 ✅，`export`/`import` ❌ |
 | workspace | `workspace:applyCommands` | ❌（仅契约，见 ADR-012） | ❌ |
 | blob | `blob:stat` / `blob:delete` | ✅ | `stat` ✅，`delete` ❌ |
-| session | `session:create` / `open` / `close` / `list` / `tree` / `save` / `move` / `rename` / `delete` / `createFolder` / `renameFolder` / `moveFolder` / `deleteFolder` / `saveRun` / `appendRun` / `appendEntries` / `appendMessage` / `setDraftFolder` | ✅ | ✅ |
+| session | `session:create` / `open` / `close` / `list` / `tree` / `save` / `move` / `rename` / `delete` / `createFolder` / `renameFolder` / `moveFolder` / `deleteFolder` / `saveRun` / `appendRun` / `appendEntries` / `appendMessage` / `setDraftFolder` / `commitTemporary` | ✅ | ✅ |
 | run | `run:start` / `pause` / `resume` / `cancel` / `get` / `list` / `result` / `resume-interrupted` | ✅ | ✅ |
 | approval | `approval:respond` | ✅ | ✅ |
 | input | `input:respond` | ✅ | ✅ |
@@ -192,7 +192,7 @@ type FhErrorDto = { code: FhErrorCode; message: string; details?: unknown; trace
 | 事件 | `GraphEvent → RunEventDto` 投影；按 run 缓冲，16ms 或 run 结束时批量广播 |
 | 持久化 | `runs/<runId>/{meta,graph,events,checkpoint,result}`；打开工作区时把遗留 `running` 标为 `interrupted` |
 | 运行结果 | wireclaw `RunResult` v1：ModelCall / AgentRun 采集 entries，`graphPath` 冒泡；`run:result` 读取；`run:entries` 读取运行中增量 entries |
-| 会话消息写入 | 运行开始自动创建草稿目录会话；`session:appendEntries` 按 entry 增量写入，`session:appendMessage` 追加输出摘要（ADR-028）；结果页签与手动保存入口已移除 |
+| 会话消息写入 | 运行默认创建 `.tmp` 临时草稿；`session:appendEntries` 按 entry 增量写入，`session:appendMessage` 追加输出摘要（ADR-028/047）；`session:commitTemporary` 移入草稿目录；结果页签与手动保存入口已移除 |
 | 审批 | main 发 `approval` 事件 → renderer `approval:respond`；5 分钟超时默认 `deny` |
 | 用户输入 | 同上，超时默认 `cancelled: true` |
 | 附件 / 会话 | `SessionService` 为每个工作区装配 `SessionStore` 与 `AttachmentFileManager`，host 以 contentHash 访问 |

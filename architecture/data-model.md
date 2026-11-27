@@ -192,6 +192,7 @@ runs/<runId>/checkpoint.json  # GraphCheckpoint v2（graphHash/nodeVersions）�
 
 ```text
 sessions/<sessionId>/session.json     # SessionRecord：摘要 + wireclaw SessionData + attachments
+sessions/.tmp/<sessionId>/session.json# 临时运行草稿（temporary: true，不进入会话树）
 ```
 
 - `history` 直接存储 wireclaw `SessionData`（`version / id / messages / isArchived`），FH 不复制消息模型；
@@ -238,7 +239,7 @@ objects/**             # 默认包含；ExportOptions.includeObjects=false 可�
 
 ## 12. M7 目标：Session 树与 RunResult（已完成）
 
-> M7.2 已实现递归目录、`SessionRecord` v2、草稿目录与迁移；M7.4 已实现 RunResult 采集 / 校验 / 持久化与 run 会话回放；M8.6 起运行自动创建草稿会话并逐步写入（ADR-028）；草稿目录可在 Session 树文件夹右键切换。
+> M7.2 已实现递归目录、`SessionRecord` v2、草稿目录与迁移；M7.4 已实现 RunResult 采集 / 校验 / 持久化与 run 会话回放；M8.6 起运行自动创建会话并逐步写入（ADR-028）；2026-11-28 起默认创建临时草稿，标题栏「存草稿」打开后才自动写入草稿目录，历史面板「存储草稿」可手动提交（ADR-047）；草稿目录可在 Session 树文件夹右键切换。
 
 ### 12.1 Session 目录树
 
@@ -253,6 +254,8 @@ sessions/
 
 - folder id（`fld_...`）作目录名，用户标题只放 `folder.json`，避免标题进路径；
 - session id（`ses_...`）作目录名；根目录也允许直接放 session；
+- 临时运行草稿放在 `sessions/.tmp/<sessionId>/session.json`：`SessionRecord.temporary = true`，`folderId = null`，不进入 `tree()` / `list()`；每次运行开始创建会话前先清空 `.tmp`（`discardTemporary`），无论本次是否自动保存（即“下次运行丢弃上一次临时草稿”）；
+- 「存储草稿」=`session:commitTemporary`：把 `.tmp` 中的会话移动到草稿目录，清除 `temporary`；之后它会出现在会话树中；
 - 草稿目录：首次读取树时自动创建「草稿」并写入 `manifest.settings.draftSessionFolderId`；草稿目录及其祖先禁止删除；
 - 旧 `sessions/<id>/session.json` 即根级 session；v1 记录在读取时规范化为 v2，保存时写 v2。
 
@@ -271,13 +274,15 @@ sessions/
   "messageCount": 4,
   "entryCount": 0,
   "history": { "version": 2, "id": "ses_...", "messages": [], "isArchived": false },
-  "attachments": []
+  "attachments": [],
+  "temporary": true
 }
 ```
 
 - `kind: "conversation"`：`history` 为 wireclaw `SessionData`，`messageCount` 有效；
 - `kind: "run"`：`history` 为 wireclaw `RunResult`，`entryCount` 有效；
 - `attachments` 从两种 history 的附件引用派生；
+- `temporary?: true`：临时运行草稿；可选字段，缺省为普通会话；提交到草稿目录时移除；
 - v1 记录迁移为 `kind: "conversation"`。
 
 ### 12.3 RunResult v1（wireclaw）

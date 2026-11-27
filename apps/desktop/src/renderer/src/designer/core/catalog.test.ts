@@ -10,7 +10,7 @@ import {
 
 describe("designer catalog", () => {
     it("exposes wireclaw metadata: schema, default config and category", () => {
-        expect(NODE_CATALOG).toHaveLength(18);
+        expect(NODE_CATALOG).toHaveLength(19);
 
         const constant = findNodeCatalogEntry("core.constant");
         expect(constant).toBeDefined();
@@ -23,7 +23,7 @@ describe("designer catalog", () => {
         const withSchema = NODE_CATALOG.filter(
             (entry) => entry.configSchema !== undefined,
         );
-        expect(withSchema).toHaveLength(13);
+        expect(withSchema).toHaveLength(14);
         expect(NODE_CATALOG.every((entry) => entry.category !== undefined)).toBe(true);
 
         const provider = findNodeCatalogEntry("core.provider");
@@ -40,6 +40,20 @@ describe("designer catalog", () => {
         expect(combine?.title).toBe("Combine");
         expect(combine?.defaultConfig).toEqual({ separator: "" });
         expect(combine?.inputs.map((port) => port.name)).toEqual(["a", "b"]);
+
+        const replace = findNodeCatalogEntry("core.replace");
+        expect(replace?.title).toBe("Replace");
+        expect(replace?.defaultConfig).toEqual({
+            rawText: "",
+            keyword: "",
+            replacement: "",
+            count: -1,
+        });
+        expect(replace?.inputs.map((port) => port.name)).toEqual([
+            "raw_text",
+            "keyword",
+            "replacement",
+        ]);
 
         expect(findNodeCatalogEntry("core.merge")).toBeUndefined();
     });
@@ -66,7 +80,7 @@ describe("designer catalog", () => {
         expect(groups[0]?.label).toBe("输入 / 输出");
         expect(
             groups.flatMap((group) => group.entries).map((entry) => entry.type),
-        ).toHaveLength(18);
+        ).toHaveLength(19);
     });
 
     it("searches by title, type and keywords", () => {
@@ -79,7 +93,7 @@ describe("designer catalog", () => {
         expect(searchNodeCatalog("core.constant").map((entry) => entry.type)).toEqual([
             "core.constant",
         ]);
-        expect(searchNodeCatalog("")).toHaveLength(18);
+        expect(searchNodeCatalog("")).toHaveLength(19);
         expect(searchNodeCatalog("no-such-node")).toHaveLength(0);
     });
 

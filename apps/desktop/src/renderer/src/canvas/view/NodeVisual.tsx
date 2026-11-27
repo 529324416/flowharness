@@ -12,6 +12,7 @@ import {
     LogIn,
     LogOut,
     Pencil,
+    ReplaceAll,
     ScrollText,
     Sparkles,
     TriangleAlert,
@@ -78,6 +79,7 @@ const ICONS = {
     branch: GitBranch,
     filter: Filter,
     combine: Combine,
+    replace: ReplaceAll,
     log: ScrollText,
     default: Box,
 } as const;
@@ -88,6 +90,7 @@ function iconFor(kind: string): (typeof ICONS)[keyof typeof ICONS] {
     if (kind.includes("input")) return ICONS.input;
     if (kind.includes("output")) return ICONS.output;
     if (kind.includes("combine")) return ICONS.combine;
+    if (kind.includes("replace")) return ICONS.replace;
     if (kind.includes("filter")) return ICONS.filter;
     if (kind.includes("model")) return ICONS.model;
     if (kind.includes("branch") || kind.includes("choice")) return ICONS.branch;

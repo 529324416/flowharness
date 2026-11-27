@@ -165,9 +165,9 @@ class WorkspaceFileHost implements IFileHost {
 
 - 持有当前打开的 session（内存），历史落 `sessions/<folder...>/<sessionId>/`；
 - 提供 wireclaw `GraphHost.attachments`；
-- 会话历史与附件引用持久化；M6.3 起由 `SessionStore` 校验 / 规范化 wireclaw `SessionData`，派生消息数与附件索引；M7.2 起支持递归文件夹、Session v2 与草稿目录；M7.4.2 起支持 entries → conversation 消息；M8.6 起运行开始时自动在草稿目录创建会话，entries 按完成顺序增量写入，结束时追加输出摘要（ADR-028）。
+- 会话历史与附件引用持久化；M6.3 起由 `SessionStore` 校验 / 规范化 wireclaw `SessionData`，派生消息数与附件索引；M7.2 起支持递归文件夹、Session v2 与草稿目录；M7.4.2 起支持 entries → conversation 消息；M8.6 起运行开始时创建会话，entries 按完成顺序增量写入，结束时追加输出摘要（ADR-028）；2026-11-28 起默认写入 `sessions/.tmp` 临时草稿（`temporary: true`，不进入树，下次运行丢弃），`session:commitTemporary` 移入草稿目录（ADR-047）。
 
-**当前实现（M7.3）**：每个已打开工作区装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore）与一个 `SessionStore`（`sessions/<folderId>/.../<sessionId>/session.json`）；支持默认会话、创建 / 列表 / 读取 / 保存、文件夹 CRUD、session 移动 / 重命名 / 删除。`SessionRecord` v2 带 `kind / folderId / entryCount`；草稿目录由 `manifest.settings.draftSessionFolderId` 持久化；v1 记录读取时迁移为 v2。`messageCount` / `attachments` 从 conversation history 派生，非法历史返回 `E_INVALID_ARGUMENT`；Session 树与历史面板已接入 renderer。
+**当前实现（M7.3 + ADR-047）**：每个已打开工作区装配一个 `AttachmentFileManager`（`WorkspaceFileHost` → BlobStore）与一个 `SessionStore`（`sessions/<folderId>/.../<sessionId>/session.json`）；支持默认会话、创建 / 列表 / 读取 / 保存、文件夹 CRUD、session 移动 / 重命名 / 删除。`SessionRecord` v2 带 `kind / folderId / entryCount / temporary?`；草稿目录由 `manifest.settings.draftSessionFolderId` 持久化；临时草稿位于 `sessions/.tmp`，不进入 `tree()` / `list()`，提交时移动到草稿目录并清除 `temporary`；v1 记录读取时迁移为 v2。`messageCount` / `attachments` 从 conversation history 派生，非法历史返回 `E_INVALID_ARGUMENT`；Session 树与历史面板已接入 renderer。
 
 ## 9. RunStore
 

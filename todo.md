@@ -1,6 +1,6 @@
 # TODO
 
-> 当前主线：**2026-11-28 收尾**——端口端点 / 输出行顺序、节点折叠（ADR-042）、工作流多选（ADR-043）、运行态动画（ADR-044）、Filter / Combine（ADR-045）已完成；M9 已完成（2026-11-27），M8 剩余 — 节点预设库文件导入 / 导出；之后进入 M10 可观测性与工程化、M11 打包发布。
+> 当前主线：**2026-11-28 收尾**——端口端点 / 输出行顺序、节点折叠（ADR-042）、工作流多选（ADR-043）、运行态动画（ADR-044）、Filter / Combine（ADR-045）、Provider 设置页列表 + 属性栏重构已完成；M9 已完成（2026-11-27），M8 剩余 — 节点预设库文件导入 / 导出；之后进入 M10 可观测性与工程化、M11 打包发布。
 > 原则：垂直切片；契约先行；工作台即视图；信息架构调整优先于新功能。
 
 ## 设计约束（M7 起）
@@ -414,6 +414,16 @@
 - [x] FH 测试：catalog（18 项、隐藏 legacy）/ document 迁移；`pnpm test` 49 文件 / 285 项
 - [x] 截图场景 `designer-filter-combine` 与基线 `devlog/assets/ui-filter-combine.png`
 
+## Provider 设置页重构（2026-11-28）
+
+- [x] API 密钥页签改为「左侧密钥列表 + 右侧属性栏」；移除原内联新增区，列表头部「新增」打开独立 Modal（协议 / 名称 / API Key / Base URL 四个字段）
+- [x] Provider 页签同样改为列表 + 属性栏；属性栏直接编辑名称 / 适配器 / 密钥 / Base URL / 默认模型 / 启用，保留刷新模型与删除
+- [x] 新增 `CreateKeyDialog` / `CreateProviderDialog` / `KeyDetailPanel` / `ProviderDetailPanel` / `ProviderFormFields`；`providers/drafts.ts` 提供草稿与 dirty 判断
+- [x] Provider 保存按钮只在字段变化时可用；新增成功后刷新库并自动选中新条目；Modal 内错误就地展示
+- [x] 测试：`providers/drafts.test.ts` 4 项；`pnpm test` 50 文件 / 289 项
+- [x] 截图场景 `provider-keys` / `provider-key-create` / `provider-profile-create` / `provider-key-submit` / `provider-profile-submit`；基线 `ui-m9-provider-library.png` / `ui-m9-provider-profiles.png` / `ui-m9-provider-key-create.png` / `ui-m9-provider-create.png`
+- [x] `capture:ui` 新增 `-UserDataDir` 参数，截图可隔离 AppConfig / Provider 库 / 窗口状态
+
 ## 后续里程碑
 
 ### M10 — 可观测性与工程化（原 M9）
@@ -585,6 +595,7 @@
 - [x] 49 个测试文件 / 280 个测试通过（2026-11-28；工作流多选；补跑 shell 测试）
 - [x] 49 个测试文件 / 282 个测试通过（2026-11-28；运行态动画语义 / 运行指标）
 - [x] 49 个测试文件 / 285 个测试通过（2026-11-28；Filter / Combine / 旧类型迁移；wireclaw 69/69）
+- [x] 50 个测试文件 / 289 个测试通过（2026-11-28；Provider 设置页重构 / 新增 Modal）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
 

@@ -284,6 +284,11 @@ try {
         scenario === "designer-plan-runner" ||
         scenario === "designer-workbench-manage" ||
         scenario === "provider-settings" ||
+        scenario === "provider-keys" ||
+        scenario === "provider-key-create" ||
+        scenario === "provider-profile-create" ||
+        scenario === "provider-key-submit" ||
+        scenario === "provider-profile-submit" ||
         scenario === "canvas-selection-random" ||
         scenario === "designer-inline" ||
         scenario === "designer-inline-type" ||
@@ -627,7 +632,31 @@ try {
             await settle(500);
         }
 
-        if (scenario === "provider-settings") {
+        if (
+            scenario === "provider-settings" ||
+            scenario === "provider-keys" ||
+            scenario === "provider-key-create" ||
+            scenario === "provider-profile-create" ||
+            scenario === "provider-key-submit" ||
+            scenario === "provider-profile-submit"
+        ) {
+            if (scenario === "provider-keys") {
+                // 在隔离的 userData 中补一条本地示例密钥，用于验证列表 + 属性栏。
+                const seeded = await evaluateAsync(`(async () => {
+                    const library = await window.flowharness.getProviderLibrary();
+                    if (!library.ok) return library.error.message;
+                    if (library.data.keys.length > 0) return "existing";
+                    const result = await window.flowharness.addProviderKey({
+                        protocol: "ollama",
+                        label: "本地 Ollama",
+                        apiKey: "local-demo",
+                    });
+                    return result.ok ? result.data.key.id : result.error.message;
+                })()`);
+                console.log(`seeded key: ${JSON.stringify(seeded.result?.value)}`);
+                await settle(600);
+            }
+
             await clickElement(`document.querySelector('button[aria-label="设置"]')`);
             await settle(250);
             await clickElement(
@@ -658,15 +687,128 @@ try {
             console.log(`provider library: ${JSON.stringify(library.result?.value)}`);
             console.log(`provider dialog: ${JSON.stringify(dialogText.result?.value)}`);
 
-            // 切到 Provider 页，确认列表与模型目录都能渲染。
-            await clickElement(
-                `[...document.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent?.trim() === 'Provider')`,
-            );
-            await settle(400);
-            const profileCards = await evaluateAsync(
-                `document.querySelectorAll('[role="dialog"] article').length`,
-            );
-            console.log(`provider cards: ${JSON.stringify(profileCards.result?.value)}`);
+            const isProfileScenario =
+                scenario === "provider-profile-create" ||
+                scenario === "provider-profile-submit";
+
+            if (isProfileScenario) {
+                await clickElement(
+                    `[...document.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent?.trim() === 'Provider')`,
+                );
+                await settle(400);
+            }
+
+            if (
+                scenario === "provider-key-create" ||
+                scenario === "provider-profile-create"
+            ) {
+                await clickElement(
+                    `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '新增')`,
+                );
+                await settle(500);
+            } else if (scenario === "provider-key-submit") {
+                await clickElement(
+                    `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '新增')`,
+                );
+                await settle(400);
+                await clickElement(
+                    `document.querySelector('[role="dialog"] [aria-label="密钥协议"]')`,
+                );
+                await settle(250);
+                await clickElement(
+                    `[...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes('Ollama'))`,
+                );
+                await settle(250);
+                const filled = await evaluate(
+                    `(() => {
+                        const dialog = [...document.querySelectorAll('[role="dialog"]')].at(-1);
+                        if (!dialog) return false;
+                        const inputs = dialog.querySelectorAll('input');
+                        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                        if (inputs[0]) { setter.call(inputs[0], '本地 Ollama 测试'); inputs[0].dispatchEvent(new Event('input', { bubbles: true })); }
+                        if (inputs[1]) { setter.call(inputs[1], 'local-demo'); inputs[1].dispatchEvent(new Event('input', { bubbles: true })); }
+                        return inputs.length;
+                    })()`,
+                );
+                console.log(`key form inputs: ${JSON.stringify(filled.result?.value)}`);
+                await clickElement(
+                    `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '验证并保存')`,
+                );
+                await settle(2500);
+                const after = await evaluateAsync(`(async () => {
+                    const result = await window.flowharness.getProviderLibrary();
+                    return result.ok
+                        ? result.data.keys.map((item) => ({ label: item.label, status: item.status }))
+                        : result.error.message;
+                })()`);
+                console.log(`keys after submit: ${JSON.stringify(after.result?.value)}`);
+            } else if (scenario === "provider-profile-submit") {
+                await clickElement(
+                    `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '新增')`,
+                );
+                await settle(400);
+                const filled = await evaluate(
+                    `(() => {
+                        const dialog = [...document.querySelectorAll('[role="dialog"]')].at(-1);
+                        if (!dialog) return false;
+                        const input = dialog.querySelector('input');
+                        if (!input) return false;
+                        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                        setter.call(input, '本地测试 Provider');
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        return true;
+                    })()`,
+                );
+                console.log(`profile form filled: ${JSON.stringify(filled.result?.value)}`);
+                await clickElement(
+                    `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim() === '创建 Provider')`,
+                );
+                await settle(1500);
+                const after = await evaluateAsync(`(async () => {
+                    const result = await window.flowharness.getProviderLibrary();
+                    return result.ok
+                        ? result.data.profiles.map((item) => item.profile.label)
+                        : result.error.message;
+                })()`);
+                console.log(`profiles after submit: ${JSON.stringify(after.result?.value)}`);
+            } else {
+                // 密钥页：有密钥时选中第一条，确认右侧属性栏渲染。
+                await clickElement(
+                    `document.querySelector('[role="dialog"] [data-key-id]')`,
+                );
+                await settle(300);
+                const keyRows = await evaluateAsync(
+                    `document.querySelectorAll('[role="dialog"] [data-key-id]').length`,
+                );
+                const keyDetail = await evaluateAsync(
+                    `document.querySelector('[role="dialog"] [data-key-id][data-selected="true"]')?.textContent`,
+                );
+                console.log(`key rows: ${JSON.stringify(keyRows.result?.value)}`);
+                console.log(`selected key: ${JSON.stringify(keyDetail.result?.value)}`);
+
+                if (scenario === "provider-settings") {
+                    await clickElement(
+                        `[...document.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent?.trim() === 'Provider')`,
+                    );
+                    await settle(400);
+                    await clickElement(
+                        `document.querySelector('[role="dialog"] [data-profile-id]')`,
+                    );
+                    await settle(400);
+                    const profileRows = await evaluateAsync(
+                        `document.querySelectorAll('[role="dialog"] [data-profile-id]').length`,
+                    );
+                    const profileDetail = await evaluateAsync(
+                        `document.querySelector('[role="dialog"] [data-profile-id][data-selected="true"]')?.textContent`,
+                    );
+                    console.log(
+                        `provider rows: ${JSON.stringify(profileRows.result?.value)}`,
+                    );
+                    console.log(
+                        `selected provider: ${JSON.stringify(profileDetail.result?.value)}`,
+                    );
+                }
+            }
         }
 
         if (scenario === "designer-workbench-manage") {

@@ -1,12 +1,12 @@
 .dialog {
-  width: min(820px, calc(100vw - 48px));
-  max-height: min(720px, calc(100vh - 64px));
+  width: min(1040px, calc(100vw - 48px));
+  max-height: min(760px, calc(100vh - 48px));
 }
 
 .tabs {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .tabsList {
@@ -17,26 +17,229 @@
 .tabContent {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+
+/* 左侧列表 + 右侧属性栏；新增表单移到独立 Modal。 */
+.layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  height: min(520px, calc(100vh - 330px));
+  min-height: 320px;
+  overflow: hidden;
+  border: 1px solid var(--fh-border);
+  border-radius: var(--fh-radius-sm);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--fh-border);
+  background: var(--fh-bg-subtle);
+}
+
+.sidebarHeader {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--fh-border);
+}
+
+.sidebarTitle {
+  flex: 1;
+  min-width: 0;
+  color: var(--fh-text);
+  font-size: var(--fh-text-sm);
+  font-weight: var(--fh-weight-semibold);
+}
+
+.list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fh-border-strong) transparent;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--fh-radius-xs);
+  background: transparent;
+  color: var(--fh-text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--fh-surface);
+}
+
+.row[data-selected="true"] {
+  background: var(--fh-surface-raised);
+}
+
+.row:focus-visible {
+  outline: 1px solid var(--fh-border-focus);
+  outline-offset: -1px;
+}
+
+.rowMain {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rowTitle {
+  overflow: hidden;
+  color: var(--fh-text);
+  font-size: var(--fh-text-xs);
+  font-weight: var(--fh-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowMeta {
+  overflow: hidden;
+  color: var(--fh-text-subtle);
+  font-family: var(--fh-font-mono);
+  font-size: var(--fh-text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowBadge {
+  flex: none;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fh-border-strong) transparent;
+}
+
+.detailTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
 }
 
-.section {
+.detailHeading {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.detailTitle {
+  color: var(--fh-text);
+  font-size: var(--fh-text-lg);
+  font-weight: var(--fh-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.detailSubtitle {
+  color: var(--fh-text-subtle);
+  font-family: var(--fh-font-mono);
+  font-size: var(--fh-text-2xs);
+  overflow-wrap: anywhere;
+}
+
+.badges {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
   padding: 12px;
   border: 1px solid var(--fh-border);
   border-radius: 6px;
   background: var(--fh-surface);
 }
 
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.metaLabel {
+  color: var(--fh-text-subtle);
+  font-size: var(--fh-text-2xs);
+}
+
+.metaValue {
+  color: var(--fh-text);
+  font-size: var(--fh-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.metaValueMono {
+  color: var(--fh-text);
+  font-family: var(--fh-font-mono);
+  font-size: var(--fh-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.formWide {
+  grid-column: 1 / -1;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .sectionHeader {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .sectionTitle {
+  color: var(--fh-text);
   font-size: var(--fh-text-sm);
   font-weight: var(--fh-weight-semibold);
 }
@@ -46,80 +249,14 @@
   font-size: var(--fh-text-xs);
 }
 
-.formGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
-}
-
-.fieldGroup {
+.replaceRow {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.fieldLabel {
-  color: var(--fh-text-muted);
-  font-size: var(--fh-text-xs);
-}
-
-.formGridWide {
-  grid-column: 1 / -1;
-}
-
-.formActions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.list {
-  display: flex;
-  flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
 }
 
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-  border: 1px solid var(--fh-border);
-  border-radius: 6px;
-  background: var(--fh-surface-raised);
-}
-
-.cardHeader {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.cardTitle {
-  font-size: var(--fh-text-sm);
-  font-weight: var(--fh-weight-semibold);
-}
-
-.meta {
-  color: var(--fh-text-subtle);
-  font-family: var(--fh-font-mono);
-  font-size: var(--fh-text-xs);
-  overflow-wrap: anywhere;
-}
-
-.errorText {
-  color: var(--fh-danger);
-  font-size: var(--fh-text-xs);
-  overflow-wrap: anywhere;
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+.replaceRow > :first-child {
+  flex: 1;
 }
 
 .models {
@@ -149,6 +286,12 @@
   font-size: var(--fh-text-xs);
 }
 
+.errorText {
+  color: var(--fh-danger);
+  font-size: var(--fh-text-xs);
+  overflow-wrap: anywhere;
+}
+
 .warning {
   flex: none;
   padding: 6px 8px;
@@ -160,19 +303,28 @@
   overflow-wrap: anywhere;
 }
 
-.replaceRow {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.replaceRow > :first-child {
-  flex: 1;
-}
-
 .empty {
-  padding: 16px;
+  margin: 0;
+  padding: 16px 8px;
   color: var(--fh-text-subtle);
   font-size: var(--fh-text-xs);
   text-align: center;
+}
+
+/* 新增 API 密钥 / Provider 的 Modal。 */
+.formDialog {
+  width: min(600px, calc(100vw - 48px));
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formError {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--fh-danger);
+  font-size: var(--fh-text-xs);
 }

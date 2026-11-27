@@ -1,5 +1,6 @@
 import type {
     ApiKeyError,
+    ApiKeyRecord,
     ApiKeyStatus,
     ModelCatalogEntry,
     ProviderAdapterKind,
@@ -102,23 +103,37 @@ export function maskFingerprint(fingerprint: string | undefined): string {
     return `fp ${fingerprint.slice(0, 6)}…`;
 }
 
+/** 统一展示时间；缺失时返回破折号，由调用方按语义补「未验证」等文案。 */
+export function formatTime(value: string | undefined): string {
+    if (value === undefined || value.length === 0) return "—";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
 export function keyErrorText(error: ApiKeyError | undefined): string | undefined {
     if (error === undefined) return undefined;
     const status = error.httpStatus === undefined ? "" : ` (HTTP ${String(error.httpStatus)})`;
     return `${error.message}${status}`;
 }
 
-export function keysForAdapter(
-    view: ProviderLibraryView,
+export function keyOptionsForAdapter(
+    keys: readonly ApiKeyRecord[],
     adapter: ProviderAdapterKind,
 ): { value: string; label: string }[] {
     const protocol = PROVIDER_ADAPTER_PROTOCOL[adapter];
-    return view.keys
+    return keys
         .filter((key) => key.protocol === protocol)
         .map((key) => ({
             value: key.id,
             label: `${key.label} · ${maskFingerprint(key.fingerprint)}`,
         }));
+}
+
+export function keysForAdapter(
+    view: ProviderLibraryView,
+    adapter: ProviderAdapterKind,
+): { value: string; label: string }[] {
+    return keyOptionsForAdapter(view.keys, adapter);
 }
 
 export function profilesForCapability(

@@ -286,9 +286,10 @@ CanvasCommand → GraphDocument
 
 ### 6.6 Provider 设置与运行交互
 
-- Ribbon 设置菜单打开 `providers/ProviderLibraryDialog.tsx`：左「API 密钥」右「Provider」两区；
-- API 密钥：新增时按协议调用 main 验证（401/403 → 失效、402/429 → 额度、网络 → 未验证），列表展示掩码指纹、状态与上次校验；支持重新验证 / 替换 / 删除；明文永不回显；
-- Provider：适配器 + 密钥 + Base URL + 默认模型 + 启用；可刷新模型目录、查看健康状态；删除密钥前检查 profile 引用；
+- Ribbon 设置菜单打开 `providers/ProviderLibraryDialog.tsx`：**API 密钥** / **Provider** 两个页签；每个页签都是「左侧列表 + 右侧属性栏」的 master-detail 布局，新增表单不再占用列表区域；
+- API 密钥：列表显示名称、协议与状态；右侧属性栏展示掩码指纹、Base URL、验证 / 创建 / 更新时间与最近错误，支持重新验证 / 替换 / 删除；列表头部「新增」打开独立 Modal（协议 / 名称 / API Key / Base URL），按协议调用 main 验证（401/403 → 失效、402/429 → 额度、网络 → 未验证），明文永不回显；
+- Provider：列表显示名称、适配器与健康状态；右侧属性栏直接编辑名称 / 适配器 / 密钥 / Base URL / 默认模型 / 启用，保存按钮仅在字段变化时可用，并保留刷新模型目录与删除；新建使用同一套字段的独立 Modal；删除密钥前检查 profile 引用；
+- 新增组件：`CreateKeyDialog` / `CreateProviderDialog` / `KeyDetailPanel` / `ProviderDetailPanel` / `ProviderFormFields`；`providers/drafts.ts` 负责表单草稿与 dirty 判断；两个新增 Modal 与设置页一样走 `ui/Dialog`，错误就地展示；
 - 受限环境写入失败时，设置页顶部显示“无法写入磁盘，当前修改只在本次会话生效”，操作本身仍在内存成功；
 - renderer `ProviderLibraryProvider` 通过 `provider:library` 读取只读视图，并监听 main 的 `provider` topic；
 - `core.model` 检查器的 `providerId` / `modelId` 变为 Provider / 模型下拉；节点标题右侧显示 Provider 健康三角（红色 / 黄色，带 tooltip）；

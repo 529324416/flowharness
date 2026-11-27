@@ -1,21 +1,11 @@
-import { useEffect, useMemo, useState, type ReactElement } from "react";
-import type {
-    ApiKeyRecord,
-    ProviderAdapterKind,
-    ProviderProfileStatus,
-} from "@flowharness/contracts";
-import {
-    PROVIDER_ADAPTER_PROTOCOL,
-    PROVIDER_ADAPTER_REQUIRES_KEY,
-} from "@flowharness/contracts";
+import { useEffect, useState, type ReactElement } from "react";
+import type { ApiKeyRecord, ProviderProfileStatus } from "@flowharness/contracts";
 import {
     Badge,
     Button,
-    Checkbox,
     Dialog,
     DialogContent,
-    Input,
-    Select,
+    EmptyState,
     Tabs,
     TabsContent,
     TabsList,
@@ -23,60 +13,37 @@ import {
 } from "../ui";
 import { useProviderLibrary } from "./context";
 import {
-    ADAPTER_OPTIONS,
-    PROTOCOL_OPTIONS,
+    ADAPTER_LABELS,
+    PROTOCOL_LABELS,
     keyErrorText,
     keyStatusMeta,
-    keysForAdapter,
     maskFingerprint,
     profileHealth,
-    profileOptionLabel,
 } from "./model";
+import type { KeyDraft, ProviderDraft } from "./drafts";
+import { CreateKeyDialog } from "./CreateKeyDialog";
+import { CreateProviderDialog } from "./CreateProviderDialog";
+import { KeyDetailPanel } from "./KeyDetailPanel";
+import { ProviderDetailPanel } from "./ProviderDetailPanel";
 import styles from "./ProviderLibraryDialog.module.css";
 
-type KeyDraft = {
-    protocol: ApiKeyRecord["protocol"];
-    label: string;
-    apiKey: string;
-    baseUrl: string;
-};
-
-type ProfileDraft = {
-    label: string;
-    adapter: ProviderAdapterKind;
-    apiKeyId: string;
-    baseUrl: string;
-    defaultModelId: string;
-    enabled: boolean;
-};
-
-function emptyKeyDraft(): KeyDraft {
-    return { protocol: "deepseek", label: "", apiKey: "", baseUrl: "" };
+function describeError(cause: unknown): string {
+    return cause instanceof Error ? cause.message : String(cause);
 }
 
-function emptyProfileDraft(): ProfileDraft {
-    return {
-        label: "",
-        adapter: "deepseek.chat",
-        apiKeyId: "",
-        baseUrl: "",
-        defaultModelId: "",
-        enabled: true,
-    };
-}
-
-function formatTime(value: string | undefined): string {
-    if (value === undefined || value.length === 0) return "未验证";
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-}
-
-function unwrap<T>(result: { ok: true; data: T } | { ok: false; error: { message: string } }): T {
+function unwrap<T>(
+    result: { ok: true; data: T } | { ok: false; error: { message: string } },
+): T {
     if (!result.ok) throw new Error(result.error.message);
     return result.data;
 }
 
-/** Provider 与 API Key 库：设置页的 M9.3 实现。 */
+/**
+ * Provider 与 API Key 库。
+ *
+ * 每个页签都是「左侧列表 + 右侧属性栏」：新增表单不再占用列表区域，
+ * 而是由列表头部的「新增」按钮打开独立 Modal。
+ */
 export function ProviderLibraryDialog({
     open,
     onOpenChange,
@@ -89,59 +56,77 @@ export function ProviderLibraryDialog({
     const [busy, setBusy] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
-
-    const [keyDraft, setKeyDraft] = useState<KeyDraft>(emptyKeyDraft);
-    const [replaceKeyId, setReplaceKeyId] = useState<string | null>(null);
-    const [replaceValue, setReplaceValue] = useState("");
-
-    const [profileDraft, setProfileDraft] = useState<ProfileDraft>(emptyProfileDraft);
-    const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+    const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null);
+    const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
+        null,
+    );
+    const [createKeyOpen, setCreateKeyOpen] = useState(false);
+    const [createProfileOpen, setCreateProfileOpen] = useState(false);
 
     useEffect(() => {
         if (!open) return;
         setError(null);
         setMessage(null);
-        setReplaceKeyId(null);
-        setReplaceValue("");
-        setEditingProfileId(null);
-        setProfileDraft(emptyProfileDraft());
-        setKeyDraft(emptyKeyDraft());
+        setCreateKeyOpen(false);
+        setCreateProfileOpen(false);
     }, [open]);
 
-    const run = async (label: string, action: () => Promise<void>): Promise<void> => {
+    // 选中项跟随库刷新：保留仍然存在的选择，否则回退到第一条。
+    useEffect(() => {
+        if (!open) return;
+        setSelectedKeyId((current) =>
+            current !== null && view.keys.some((key) => key.id === current)
+                ? current
+                : (view.keys[0]?.id ?? null),
+        );
+    }, [open, view.keys]);
+
+    useEffect(() => {
+        if (!open) return;
+        setSelectedProfileId((current) =>
+            current !== null &&
+            view.profiles.some((item) => item.profile.id === current)
+                ? current
+                : (view.profiles[0]?.profile.id ?? null),
+        );
+    }, [open, view.profiles]);
+
+    const perform = async (
+        label: string,
+        action: () => Promise<void>,
+    ): Promise<void> => {
         setBusy(label);
         setError(null);
         setMessage(null);
         try {
             await action();
             await refresh();
-        } catch (cause) {
-            setError(cause instanceof Error ? cause.message : String(cause));
         } finally {
             setBusy(null);
         }
     };
 
-    const adapterKeyOptions = useMemo(
-        () => keysForAdapter(view, profileDraft.adapter),
-        [profileDraft.adapter, view],
-    );
-
-    const addKey = (): void => {
-        const apiKey = keyDraft.apiKey.trim();
-        if (apiKey.length === 0) {
-            setError("请输入 API Key");
-            return;
+    const run = async (
+        label: string,
+        action: () => Promise<void>,
+    ): Promise<void> => {
+        try {
+            await perform(label, action);
+        } catch (cause) {
+            setError(describeError(cause));
         }
-        void run("add-key", async () => {
+    };
+
+    const createKey = async (draft: KeyDraft): Promise<void> => {
+        await perform("add-key", async () => {
             const data = unwrap(
                 await window.flowharness.addProviderKey({
-                    protocol: keyDraft.protocol,
-                    label: keyDraft.label.trim() || keyDraft.protocol,
-                    apiKey,
-                    ...(keyDraft.baseUrl.trim().length === 0
+                    protocol: draft.protocol,
+                    label: draft.label.length === 0 ? draft.protocol : draft.label,
+                    apiKey: draft.apiKey,
+                    ...(draft.baseUrl.length === 0
                         ? {}
-                        : { baseUrl: keyDraft.baseUrl.trim() }),
+                        : { baseUrl: draft.baseUrl }),
                 }),
             );
             const meta = keyStatusMeta(data.validation.status);
@@ -149,11 +134,7 @@ export function ProviderLibraryDialog({
             setMessage(
                 `密钥已保存（${meta.label}）${detail === undefined ? "" : `：${detail}`}`,
             );
-            setKeyDraft((current) => ({
-                ...current,
-                label: "",
-                apiKey: "",
-            }));
+            setSelectedKeyId(data.key.id);
         });
     };
 
@@ -170,24 +151,26 @@ export function ProviderLibraryDialog({
         });
     };
 
-    const replaceKey = (key: ApiKeyRecord): void => {
-        const value = replaceValue.trim();
-        if (value.length === 0) {
-            setError("请输入新的 API Key");
-            return;
+    const replaceKey = async (
+        key: ApiKeyRecord,
+        apiKey: string,
+    ): Promise<boolean> => {
+        try {
+            await perform(`replace:${key.id}`, async () => {
+                const data = unwrap(
+                    await window.flowharness.replaceProviderKey({
+                        keyId: key.id,
+                        apiKey,
+                    }),
+                );
+                const meta = keyStatusMeta(data.validation.status);
+                setMessage(`${key.label} 已替换（${meta.label}）`);
+            });
+            return true;
+        } catch (cause) {
+            setError(describeError(cause));
+            return false;
         }
-        void run(`replace:${key.id}`, async () => {
-            const data = unwrap(
-                await window.flowharness.replaceProviderKey({
-                    keyId: key.id,
-                    apiKey: value,
-                }),
-            );
-            const meta = keyStatusMeta(data.validation.status);
-            setMessage(`${key.label} 已替换（${meta.label}）`);
-            setReplaceKeyId(null);
-            setReplaceValue("");
-        });
     };
 
     const deleteKey = (key: ApiKeyRecord): void => {
@@ -195,80 +178,57 @@ export function ProviderLibraryDialog({
         void run(`delete-key:${key.id}`, async () => {
             unwrap(await window.flowharness.deleteProviderKey({ keyId: key.id }));
             setMessage(`已删除密钥「${key.label}」`);
+            setSelectedKeyId((current) => (current === key.id ? null : current));
         });
     };
 
-    const editProfile = (statusValue: ProviderProfileStatus): void => {
-        setEditingProfileId(statusValue.profile.id);
-        setProfileDraft({
-            label: statusValue.profile.label,
-            adapter: statusValue.profile.adapter,
-            apiKeyId: statusValue.profile.apiKeyId ?? "",
-            baseUrl: statusValue.profile.baseUrl ?? "",
-            defaultModelId: statusValue.profile.defaultModelId ?? "",
-            enabled: statusValue.profile.enabled,
+    const createProfile = async (draft: ProviderDraft): Promise<void> => {
+        await perform("create-profile", async () => {
+            const baseUrl = draft.baseUrl.trim();
+            const defaultModelId = draft.defaultModelId.trim();
+            const created = unwrap(
+                await window.flowharness.createProviderProfile({
+                    label: draft.label,
+                    adapter: draft.adapter,
+                    ...(draft.apiKeyId.length === 0
+                        ? {}
+                        : { apiKeyId: draft.apiKeyId }),
+                    ...(baseUrl.length === 0 ? {} : { baseUrl }),
+                    ...(defaultModelId.length === 0 ? {} : { defaultModelId }),
+                    enabled: draft.enabled,
+                }),
+            );
+            setMessage(`Provider「${created.label}」已创建`);
+            setSelectedProfileId(created.id);
         });
-        setTab("providers");
     };
 
-    const resetProfileForm = (): void => {
-        setEditingProfileId(null);
-        setProfileDraft(emptyProfileDraft());
-    };
-
-    const saveProfile = (): void => {
-        const label = profileDraft.label.trim();
+    const saveProfile = (draft: ProviderDraft): void => {
+        if (selectedProfileId === null) return;
+        const label = draft.label.trim();
         if (label.length === 0) {
             setError("请输入 Provider 名称");
             return;
         }
-        const baseUrl = profileDraft.baseUrl.trim();
-        const defaultModelId = profileDraft.defaultModelId.trim();
-        const apiKeyId = profileDraft.apiKeyId.length === 0 ? null : profileDraft.apiKeyId;
-        const labelKey = editingProfileId === null ? "create-profile" : "update-profile";
-
-        void run(labelKey, async () => {
-            if (editingProfileId === null) {
-                unwrap(
-                    await window.flowharness.createProviderProfile({
-                        label,
-                        adapter: profileDraft.adapter,
-                        ...(apiKeyId === null ? {} : { apiKeyId }),
-                        ...(baseUrl.length === 0 ? {} : { baseUrl }),
-                        ...(defaultModelId.length === 0 ? {} : { defaultModelId }),
-                        enabled: profileDraft.enabled,
-                    }),
-                );
-                setMessage(`Provider「${label}」已创建`);
-            } else {
-                unwrap(
-                    await window.flowharness.updateProviderProfile({
-                        id: editingProfileId,
-                        patch: {
-                            label,
-                            adapter: profileDraft.adapter,
-                            apiKeyId,
-                            baseUrl: baseUrl.length === 0 ? null : baseUrl,
-                            defaultModelId:
-                                defaultModelId.length === 0 ? null : defaultModelId,
-                            enabled: profileDraft.enabled,
-                        },
-                    }),
-                );
-                setMessage(`Provider「${label}」已更新`);
-            }
-            resetProfileForm();
-        });
-    };
-
-    const toggleProfile = (statusValue: ProviderProfileStatus, enabled: boolean): void => {
-        void run(`toggle:${statusValue.profile.id}`, async () => {
+        const baseUrl = draft.baseUrl.trim();
+        const defaultModelId = draft.defaultModelId.trim();
+        void run(`save-profile:${selectedProfileId}`, async () => {
             unwrap(
                 await window.flowharness.updateProviderProfile({
-                    id: statusValue.profile.id,
-                    patch: { enabled },
+                    id: selectedProfileId,
+                    patch: {
+                        label,
+                        adapter: draft.adapter,
+                        apiKeyId:
+                            draft.apiKeyId.length === 0 ? null : draft.apiKeyId,
+                        baseUrl: baseUrl.length === 0 ? null : baseUrl,
+                        defaultModelId:
+                            defaultModelId.length === 0 ? null : defaultModelId,
+                        enabled: draft.enabled,
+                    },
                 }),
             );
+            setMessage(`Provider「${label}」已更新`);
         });
     };
 
@@ -296,492 +256,337 @@ export function ProviderLibraryDialog({
                 }),
             );
             setMessage(`已删除 Provider「${statusValue.profile.label}」`);
+            setSelectedProfileId((current) =>
+                current === statusValue.profile.id ? null : current,
+            );
         });
     };
 
+    const selectedKey =
+        view.keys.find((key) => key.id === selectedKeyId) ?? null;
+    const selectedProfile =
+        view.profiles.find((item) => item.profile.id === selectedProfileId) ??
+        null;
+
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent
-                title="Provider 与 API 密钥"
-                description="密钥只保存在 main 的安全存储中；Provider 负责把协议、密钥与模型目录组合成可运行的实例。"
-                className={styles.dialog}
-                footer={
-                    <>
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={busy !== null}
-                            onClick={() => onOpenChange(false)}
-                        >
-                            关闭
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={busy !== null}
-                            onClick={() => void refresh()}
-                        >
-                            刷新
-                        </Button>
-                    </>
-                }
-            >
-                {status === "error" ? (
-                    <p className={styles.error}>{loadError ?? "Provider 库加载失败"}</p>
-                ) : null}
-                {view.persistenceError === undefined ? null : (
-                    <p className={styles.warning}>
-                        无法写入磁盘，当前修改只在本次会话生效：{view.persistenceError}
-                    </p>
-                )}
-                {error === null ? null : <p className={styles.error}>{error}</p>}
-                {message === null ? null : <p className={styles.message}>{message}</p>}
-
-                <Tabs
-                    value={tab}
-                    onValueChange={(value) => setTab(value as "keys" | "providers")}
-                    className={styles.tabs}
+        <>
+            <Dialog open={open} onOpenChange={onOpenChange}>
+                <DialogContent
+                    title="Provider 与 API 密钥"
+                    description="密钥只保存在 main 的安全存储中；Provider 负责把协议、密钥与模型目录组合成可运行的实例。"
+                    className={styles.dialog}
+                    footer={
+                        <>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={busy !== null}
+                                onClick={() => onOpenChange(false)}
+                            >
+                                关闭
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={busy !== null}
+                                onClick={() => void refresh()}
+                            >
+                                刷新
+                            </Button>
+                        </>
+                    }
                 >
-                    <TabsList className={styles.tabsList}>
-                        <TabsTrigger value="keys">API 密钥</TabsTrigger>
-                        <TabsTrigger value="providers">Provider</TabsTrigger>
-                    </TabsList>
+                    {status === "error" ? (
+                        <p className={styles.error}>
+                            {loadError ?? "Provider 库加载失败"}
+                        </p>
+                    ) : null}
+                    {view.persistenceError === undefined ? null : (
+                        <p className={styles.warning}>
+                            无法写入磁盘，当前修改只在本次会话生效：
+                            {view.persistenceError}
+                        </p>
+                    )}
+                    {error === null ? null : (
+                        <p className={styles.error}>{error}</p>
+                    )}
+                    {message === null ? null : (
+                        <p className={styles.message}>{message}</p>
+                    )}
 
-                    <TabsContent value="keys" className={styles.tabContent}>
-                        <section className={styles.section}>
-                            <div className={styles.sectionHeader}>
-                                <span className={styles.sectionTitle}>新增 API 密钥</span>
-                                <span className={styles.sectionHint}>
-                                    添加时会用协议端点验证；失效密钥仍会保存并标记
-                                </span>
-                            </div>
-                            <div className={styles.formGrid}>
-                                <div className={styles.fieldGroup}>
-                                    <span className={styles.fieldLabel}>协议</span>
-                                    <Select
-                                        value={keyDraft.protocol}
-                                        options={PROTOCOL_OPTIONS}
-                                        onChange={(protocol) =>
-                                            setKeyDraft((current) => ({
-                                                ...current,
-                                                protocol: protocol as KeyDraft["protocol"],
-                                            }))
-                                        }
-                                        aria-label="密钥协议"
-                                    />
-                                </div>
-                                <Input
-                                    label="名称"
-                                    value={keyDraft.label}
-                                    placeholder="例如：DeepSeek 主账号"
-                                    onChange={(event) =>
-                                        setKeyDraft((current) => ({
-                                            ...current,
-                                            label: event.target.value,
-                                        }))
-                                    }
-                                />
-                                <Input
-                                    label="API Key"
-                                    type="password"
-                                    autoComplete="off"
-                                    value={keyDraft.apiKey}
-                                    placeholder="sk-…"
-                                    onChange={(event) =>
-                                        setKeyDraft((current) => ({
-                                            ...current,
-                                            apiKey: event.target.value,
-                                        }))
-                                    }
-                                />
-                                <Input
-                                    label="Base URL（可选）"
-                                    value={keyDraft.baseUrl}
-                                    placeholder="使用协议默认端点"
-                                    onChange={(event) =>
-                                        setKeyDraft((current) => ({
-                                            ...current,
-                                            baseUrl: event.target.value,
-                                        }))
-                                    }
-                                />
-                            </div>
-                            <div className={styles.formActions}>
-                                <Button
-                                    size="sm"
-                                    variant="primary"
-                                    disabled={busy !== null}
-                                    onClick={addKey}
-                                >
-                                    {busy === "add-key" ? "验证中…" : "验证并保存"}
-                                </Button>
-                            </div>
-                        </section>
+                    <Tabs
+                        value={tab}
+                        onValueChange={(value) =>
+                            setTab(value as "keys" | "providers")
+                        }
+                        className={styles.tabs}
+                    >
+                        <TabsList className={styles.tabsList}>
+                            <TabsTrigger value="keys">API 密钥</TabsTrigger>
+                            <TabsTrigger value="providers">Provider</TabsTrigger>
+                        </TabsList>
 
-                        <section className={styles.section}>
-                            <div className={styles.sectionHeader}>
-                                <span className={styles.sectionTitle}>密钥库</span>
-                                <Badge variant="neutral">{view.keys.length}</Badge>
-                            </div>
-                            {view.keys.length === 0 ? (
-                                <p className={styles.empty}>还没有 API 密钥。</p>
-                            ) : (
-                                <div className={styles.list}>
-                                    {view.keys.map((key) => {
-                                        const meta = keyStatusMeta(key.status);
-                                        const detail = keyErrorText(key.lastError);
-                                        return (
-                                            <article key={key.id} className={styles.card}>
-                                                <div className={styles.cardHeader}>
-                                                    <span className={styles.cardTitle}>
-                                                        {key.label}
-                                                    </span>
-                                                    <Badge variant="neutral">
-                                                        {key.protocol}
-                                                    </Badge>
-                                                    <Badge variant={meta.tone}>
-                                                        {meta.label}
-                                                    </Badge>
-                                                    <span className={styles.meta}>
-                                                        {maskFingerprint(key.fingerprint)}
-                                                    </span>
-                                                    <span className={styles.meta}>
-                                                        {formatTime(key.lastCheckedAt)}
-                                                    </span>
-                                                </div>
-                                                {detail === undefined ? null : (
-                                                    <span className={styles.errorText}>
-                                                        {detail}
-                                                    </span>
-                                                )}
-                                                <div className={styles.actions}>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        disabled={busy !== null}
-                                                        onClick={() => revalidateKey(key)}
-                                                    >
-                                                        {busy === `revalidate:${key.id}`
-                                                            ? "验证中…"
-                                                            : "重新验证"}
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        disabled={busy !== null}
-                                                        onClick={() => {
-                                                            setReplaceKeyId(key.id);
-                                                            setReplaceValue("");
-                                                        }}
-                                                    >
-                                                        替换
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        disabled={busy !== null}
-                                                        onClick={() => deleteKey(key)}
-                                                    >
-                                                        删除
-                                                    </Button>
-                                                </div>
-                                                {replaceKeyId === key.id ? (
-                                                    <div className={styles.replaceRow}>
-                                                        <Input
-                                                            label="新 API Key"
-                                                            type="password"
-                                                            autoComplete="off"
-                                                            value={replaceValue}
-                                                            onChange={(event) =>
-                                                                setReplaceValue(
-                                                                    event.target.value,
-                                                                )
-                                                            }
-                                                        />
-                                                        <Button
-                                                            size="sm"
-                                                            variant="primary"
-                                                            disabled={busy !== null}
-                                                            onClick={() => replaceKey(key)}
-                                                        >
-                                                            保存
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => {
-                                                                setReplaceKeyId(null);
-                                                                setReplaceValue("");
-                                                            }}
-                                                        >
-                                                            取消
-                                                        </Button>
-                                                    </div>
-                                                ) : null}
-                                            </article>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </section>
-                    </TabsContent>
-
-                    <TabsContent value="providers" className={styles.tabContent}>
-                        <section className={styles.section}>
-                            <div className={styles.sectionHeader}>
-                                <span className={styles.sectionTitle}>
-                                    {editingProfileId === null ? "新建 Provider" : "编辑 Provider"}
-                                </span>
-                                <span className={styles.sectionHint}>
-                                    协议 + 适配器 + 密钥 + 端点 + 模型目录
-                                </span>
-                            </div>
-                            <div className={styles.formGrid}>
-                                <Input
-                                    label="名称"
-                                    value={profileDraft.label}
-                                    placeholder="例如：DeepSeek 主账号"
-                                    onChange={(event) =>
-                                        setProfileDraft((current) => ({
-                                            ...current,
-                                            label: event.target.value,
-                                        }))
-                                    }
-                                />
-                                <div className={styles.fieldGroup}>
-                                    <span className={styles.fieldLabel}>适配器</span>
-                                    <Select
-                                        value={profileDraft.adapter}
-                                        options={ADAPTER_OPTIONS}
-                                        onChange={(adapter) => {
-                                            const nextAdapter = adapter as ProviderAdapterKind;
-                                            const protocol =
-                                                PROVIDER_ADAPTER_PROTOCOL[nextAdapter];
-                                            setProfileDraft((current) => {
-                                                const key = view.keys.find(
-                                                    (item) => item.id === current.apiKeyId,
+                        <TabsContent value="keys" className={styles.tabContent}>
+                            <div className={styles.layout}>
+                                <aside className={styles.sidebar}>
+                                    <div className={styles.sidebarHeader}>
+                                        <span
+                                            className={styles.sidebarTitle}
+                                        >
+                                            API 密钥
+                                        </span>
+                                        <Badge variant="neutral">
+                                            {view.keys.length}
+                                        </Badge>
+                                        <Button
+                                            size="sm"
+                                            variant="primary"
+                                            onClick={() => setCreateKeyOpen(true)}
+                                        >
+                                            新增
+                                        </Button>
+                                    </div>
+                                    <div className={styles.list}>
+                                        {view.keys.length === 0 ? (
+                                            <p className={styles.empty}>
+                                                还没有 API 密钥。
+                                            </p>
+                                        ) : (
+                                            view.keys.map((key) => {
+                                                const meta = keyStatusMeta(
+                                                    key.status,
                                                 );
-                                                return {
-                                                    ...current,
-                                                    adapter: nextAdapter,
-                                                    apiKeyId:
-                                                        key !== undefined &&
-                                                        key.protocol === protocol
-                                                            ? current.apiKeyId
-                                                            : "",
-                                                };
-                                            });
-                                        }}
-                                        aria-label="Provider 适配器"
-                                    />
-                                </div>
-                                <div className={styles.fieldGroup}>
-                                    <span className={styles.fieldLabel}>API 密钥</span>
-                                    <Select
-                                        value={
-                                            profileDraft.apiKeyId.length === 0
-                                                ? "__none__"
-                                                : profileDraft.apiKeyId
-                                        }
-                                        options={[
-                                            {
-                                                value: "__none__",
-                                                label: PROVIDER_ADAPTER_REQUIRES_KEY[
-                                                    profileDraft.adapter
-                                                ]
-                                                    ? "不使用密钥（稍后绑定）"
-                                                    : "无需密钥",
-                                            },
-                                            ...adapterKeyOptions,
-                                        ]}
-                                        onChange={(value) =>
-                                            setProfileDraft((current) => ({
-                                                ...current,
-                                                apiKeyId:
-                                                    value === "__none__" ? "" : value,
-                                            }))
-                                        }
-                                        placeholder="选择 API 密钥"
-                                        aria-label="Provider 密钥"
-                                    />
-                                </div>
-                                <Input
-                                    label="Base URL（可选）"
-                                    value={profileDraft.baseUrl}
-                                    placeholder="使用适配器默认端点"
-                                    onChange={(event) =>
-                                        setProfileDraft((current) => ({
-                                            ...current,
-                                            baseUrl: event.target.value,
-                                        }))
-                                    }
-                                />
-                                <Input
-                                    label="默认模型（可选）"
-                                    value={profileDraft.defaultModelId}
-                                    placeholder="模型 ID；节点仍可单独选择"
-                                    onChange={(event) =>
-                                        setProfileDraft((current) => ({
-                                            ...current,
-                                            defaultModelId: event.target.value,
-                                        }))
-                                    }
-                                />
-                                <div className={styles.formGridWide}>
-                                    <Checkbox
-                                        checked={profileDraft.enabled}
-                                        onChange={(enabled) =>
-                                            setProfileDraft((current) => ({
-                                                ...current,
-                                                enabled,
-                                            }))
-                                        }
-                                        label="启用"
-                                    />
-                                </div>
-                            </div>
-                            <div className={styles.formActions}>
-                                <Button
-                                    size="sm"
-                                    variant="primary"
-                                    disabled={busy !== null}
-                                    onClick={saveProfile}
-                                >
-                                    {editingProfileId === null ? "创建 Provider" : "保存"}
-                                </Button>
-                                {editingProfileId === null ? null : (
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={resetProfileForm}
-                                    >
-                                        取消编辑
-                                    </Button>
-                                )}
-                                {profileDraft.adapter === "ollama.chat" ? null : (
-                                    <span className={styles.sectionHint}>
-                                        没有可选密钥？先到「API 密钥」添加同协议密钥。
-                                    </span>
-                                )}
-                            </div>
-                        </section>
-
-                        <section className={styles.section}>
-                            <div className={styles.sectionHeader}>
-                                <span className={styles.sectionTitle}>Provider 列表</span>
-                                <Badge variant="neutral">{view.profiles.length}</Badge>
-                            </div>
-                            {view.profiles.length === 0 ? (
-                                <p className={styles.empty}>还没有 Provider。</p>
-                            ) : (
-                                <div className={styles.list}>
-                                    {view.profiles.map((item) => {
-                                        const health = profileHealth(item);
-                                        const key =
-                                            item.profile.apiKeyId === undefined
-                                                ? undefined
-                                                : view.keys.find(
-                                                      (candidate) =>
-                                                          candidate.id ===
-                                                          item.profile.apiKeyId,
-                                                  );
-                                        const models = item.profile.models;
-                                        return (
-                                            <article
-                                                key={item.profile.id}
-                                                className={styles.card}
-                                            >
-                                                <div className={styles.cardHeader}>
-                                                    <span className={styles.cardTitle}>
-                                                        {profileOptionLabel(item)}
-                                                    </span>
-                                                    <Badge variant={health.tone}>
-                                                        {health.label}
-                                                    </Badge>
-                                                    <span className={styles.meta}>
-                                                        {key === undefined
-                                                            ? "未绑定密钥"
-                                                            : `${key.label} · ${
-                                                                  keyStatusMeta(
-                                                                      key.status,
-                                                                  ).label
-                                                              }`}
-                                                    </span>
-                                                    <span className={styles.meta}>
-                                                        {String(models.length)} 个模型
-                                                    </span>
-                                                </div>
-                                                {item.profile.baseUrl === undefined ? null : (
-                                                    <span className={styles.meta}>
-                                                        {item.profile.baseUrl}
-                                                    </span>
-                                                )}
-                                                {health.detail === undefined ? null : (
-                                                    <span className={styles.errorText}>
-                                                        {health.detail}
-                                                    </span>
-                                                )}
-                                                {models.length === 0 ? null : (
-                                                    <div className={styles.models}>
-                                                        {models.slice(0, 8).map((model) => (
-                                                            <span
-                                                                key={model.id}
-                                                                className={styles.modelChip}
-                                                            >
-                                                                {model.id}
-                                                            </span>
-                                                        ))}
-                                                        {models.length > 8 ? (
-                                                            <span className={styles.modelChip}>
-                                                                +{models.length - 8}
-                                                            </span>
-                                                        ) : null}
-                                                    </div>
-                                                )}
-                                                <div className={styles.actions}>
-                                                    <Checkbox
-                                                        checked={item.profile.enabled}
-                                                        onChange={(enabled) =>
-                                                            toggleProfile(item, enabled)
+                                                return (
+                                                    <button
+                                                        key={key.id}
+                                                        type="button"
+                                                        className={styles.row}
+                                                        data-key-id={key.id}
+                                                        data-selected={
+                                                            selectedKeyId ===
+                                                            key.id
                                                         }
-                                                        label="启用"
-                                                    />
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        disabled={busy !== null}
-                                                        onClick={() => editProfile(item)}
+                                                        aria-pressed={
+                                                            selectedKeyId ===
+                                                            key.id
+                                                        }
+                                                        onClick={() =>
+                                                            setSelectedKeyId(
+                                                                key.id,
+                                                            )
+                                                        }
                                                     >
-                                                        编辑
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        disabled={busy !== null}
-                                                        onClick={() => refreshModels(item)}
+                                                        <span
+                                                            className={
+                                                                styles.rowMain
+                                                            }
+                                                        >
+                                                            <span
+                                                                className={
+                                                                    styles.rowTitle
+                                                                }
+                                                            >
+                                                                {key.label}
+                                                            </span>
+                                                            <span
+                                                                className={
+                                                                    styles.rowMeta
+                                                                }
+                                                            >
+                                                                {
+                                                                    PROTOCOL_LABELS[
+                                                                        key
+                                                                            .protocol
+                                                                    ]
+                                                                }{" "}
+                                                                ·{" "}
+                                                                {maskFingerprint(
+                                                                    key.fingerprint,
+                                                                )}
+                                                            </span>
+                                                        </span>
+                                                        <Badge
+                                                            variant={meta.tone}
+                                                            className={
+                                                                styles.rowBadge
+                                                            }
+                                                        >
+                                                            {meta.label}
+                                                        </Badge>
+                                                    </button>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </aside>
+                                <section className={styles.detail}>
+                                    {selectedKey === null ? (
+                                        <EmptyState
+                                            title="选择左侧的 API 密钥"
+                                            description="选中后可查看指纹、端点与验证状态，并执行重新验证 / 替换 / 删除。"
+                                        />
+                                    ) : (
+                                        <KeyDetailPanel
+                                            key={selectedKey.id}
+                                            record={selectedKey}
+                                            busy={busy}
+                                            onRevalidate={() =>
+                                                revalidateKey(selectedKey)
+                                            }
+                                            onReplace={(apiKey) =>
+                                                replaceKey(selectedKey, apiKey)
+                                            }
+                                            onDelete={() =>
+                                                deleteKey(selectedKey)
+                                            }
+                                        />
+                                    )}
+                                </section>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent
+                            value="providers"
+                            className={styles.tabContent}
+                        >
+                            <div className={styles.layout}>
+                                <aside className={styles.sidebar}>
+                                    <div className={styles.sidebarHeader}>
+                                        <span
+                                            className={styles.sidebarTitle}
+                                        >
+                                            Provider
+                                        </span>
+                                        <Badge variant="neutral">
+                                            {view.profiles.length}
+                                        </Badge>
+                                        <Button
+                                            size="sm"
+                                            variant="primary"
+                                            onClick={() =>
+                                                setCreateProfileOpen(true)
+                                            }
+                                        >
+                                            新增
+                                        </Button>
+                                    </div>
+                                    <div className={styles.list}>
+                                        {view.profiles.length === 0 ? (
+                                            <p className={styles.empty}>
+                                                还没有 Provider。
+                                            </p>
+                                        ) : (
+                                            view.profiles.map((item) => {
+                                                const health =
+                                                    profileHealth(item);
+                                                return (
+                                                    <button
+                                                        key={item.profile.id}
+                                                        type="button"
+                                                        className={styles.row}
+                                                        data-profile-id={
+                                                            item.profile.id
+                                                        }
+                                                        data-selected={
+                                                            selectedProfileId ===
+                                                            item.profile.id
+                                                        }
+                                                        aria-pressed={
+                                                            selectedProfileId ===
+                                                            item.profile.id
+                                                        }
+                                                        onClick={() =>
+                                                            setSelectedProfileId(
+                                                                item.profile.id,
+                                                            )
+                                                        }
                                                     >
-                                                        {busy === `refresh:${item.profile.id}`
-                                                            ? "刷新中…"
-                                                            : "刷新模型"}
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        disabled={busy !== null}
-                                                        onClick={() => deleteProfile(item)}
-                                                    >
-                                                        删除
-                                                    </Button>
-                                                </div>
-                                            </article>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </section>
-                    </TabsContent>
-                </Tabs>
-            </DialogContent>
-        </Dialog>
+                                                        <span
+                                                            className={
+                                                                styles.rowMain
+                                                            }
+                                                        >
+                                                            <span
+                                                                className={
+                                                                    styles.rowTitle
+                                                                }
+                                                            >
+                                                                {
+                                                                    item.profile
+                                                                        .label
+                                                                }
+                                                            </span>
+                                                            <span
+                                                                className={
+                                                                    styles.rowMeta
+                                                                }
+                                                            >
+                                                                {
+                                                                    ADAPTER_LABELS[
+                                                                        item
+                                                                            .profile
+                                                                            .adapter
+                                                                    ]
+                                                                }
+                                                            </span>
+                                                        </span>
+                                                        <Badge
+                                                            variant={
+                                                                health.tone
+                                                            }
+                                                            className={
+                                                                styles.rowBadge
+                                                            }
+                                                        >
+                                                            {health.label}
+                                                        </Badge>
+                                                    </button>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </aside>
+                                <section className={styles.detail}>
+                                    {selectedProfile === null ? (
+                                        <EmptyState
+                                            title="选择左侧的 Provider"
+                                            description="选中后可编辑名称、适配器、密钥与端点，并查看模型目录。"
+                                        />
+                                    ) : (
+                                        <ProviderDetailPanel
+                                            key={selectedProfile.profile.id}
+                                            status={selectedProfile}
+                                            keys={view.keys}
+                                            busy={busy}
+                                            onSave={saveProfile}
+                                            onRefreshModels={() =>
+                                                refreshModels(selectedProfile)
+                                            }
+                                            onDelete={() =>
+                                                deleteProfile(selectedProfile)
+                                            }
+                                        />
+                                    )}
+                                </section>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+                </DialogContent>
+            </Dialog>
+
+            <CreateKeyDialog
+                open={createKeyOpen}
+                busy={busy}
+                onOpenChange={setCreateKeyOpen}
+                onSubmit={createKey}
+            />
+            <CreateProviderDialog
+                open={createProfileOpen}
+                busy={busy}
+                keys={view.keys}
+                onOpenChange={setCreateProfileOpen}
+                onSubmit={createProfile}
+            />
+        </>
     );
 }

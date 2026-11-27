@@ -113,6 +113,15 @@ M9.6 起 Model Call 还会检查目录 `capabilities`：chat 模式要求模型�
 - 模型目录按需刷新（2026-11-27）：Model 节点引用的 Profile 目录为空且没有 `modelsFetchedAt` 时，设计器在后台调用 `provider:models:refresh`；成功由 main 持久化模型列表并广播，失败保留空目录并在 Model 检查器显示错误，可在设置页重试（ADR-035）；
 - 右键「添加节点」的落点换算到画布坐标，避免平移 / 缩放后把节点插到视口外。
 
+## 4.2 设置页布局（2026-11-28）
+
+- `ProviderLibraryDialog` 的两个页签都改为「左侧列表 + 右侧属性栏」：选择列表项即在右侧查看 / 编辑属性；未选择时显示空态；
+- 新增表单从列表区域移入独立 Modal：API 密钥为协议 / 名称 / API Key / Base URL 四个字段；Provider 为名称 / 适配器 / API 密钥 / Base URL / 默认模型 / 启用；
+- 新增成功后刷新库并自动选中新条目；密钥属性栏提供重新验证 / 替换 / 删除，Provider 属性栏提供保存 / 刷新模型 / 删除；Provider 保存按钮只在草稿与当前 profile 不一致时可用；
+- 列表与属性栏复用 `ui/Badge` / `ui/Select` / `ui/Checkbox` / `ui/Input` / `ui/EmptyState`；新增 Modal 复用 `ui/Dialog`，错误就地显示，明文密钥不回显；
+- 实现：`providers/KeyDetailPanel.tsx` / `ProviderDetailPanel.tsx` / `ProviderFormFields.tsx` / `CreateKeyDialog.tsx` / `CreateProviderDialog.tsx` / `drafts.ts`；
+- 视觉基线：`devlog/assets/ui-m9-provider-library.png`（密钥列表 + 属性栏）、`ui-m9-provider-profiles.png`（Provider 列表 + 属性栏）、`ui-m9-provider-key-create.png` / `ui-m9-provider-create.png`（新增 Modal）。
+
 ## 5. 迁移
 
 1. **M9.1（影子迁移）**：库文件不存在时，从 `AppConfig.providers`（或全新 v2 的默认 4 条）生成 profile（保留 id），把旧 `secrets.bin` 条目复制到 `key_<providerId>`。

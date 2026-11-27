@@ -2,6 +2,7 @@ param(
     [string]$Out = "",
     [int]$TimeoutSeconds = 45,
     [string]$WindowMode = "",
+    [string]$UserDataDir = "",
     [int]$WaitMs = 1000,
     [switch]$NativeWindow
 )
@@ -43,6 +44,12 @@ try {
         $effectiveMode = $WindowMode
     }
     Write-Host "window mode: $effectiveMode"
+    if (-not [string]::IsNullOrWhiteSpace($UserDataDir)) {
+        Write-Host "user data dir: $UserDataDir"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:FLOWHARNESS_WORKSPACE_ROOT)) {
+        Write-Host "workspace root: $env:FLOWHARNESS_WORKSPACE_ROOT"
+    }
 
     $electronArgs = @(
         "--no-sandbox",
@@ -53,6 +60,10 @@ try {
     )
     if (-not $NativeWindow) {
         $electronArgs += "--remote-debugging-port=$port"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($UserDataDir)) {
+        # 隔离 AppConfig / Provider 库 / 窗口状态，避免截图污染真实用户数据。
+        $electronArgs += "--user-data-dir=`"$UserDataDir`""
     }
     $electronArgs += $appDir
 

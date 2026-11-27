@@ -1,7 +1,7 @@
 import type { GraphDocument, JsonValue } from "wireclaw";
 import type { CanvasCommand, CanvasPortRef, Vec2 } from "../../canvas/core/types";
 import { edgeKeyFromPorts } from "../../canvas/core/edge-key";
-import { withNodePosition, withViewport } from "./layout";
+import { withNodeCollapsed, withNodePosition, withViewport } from "./layout";
 
 /**
  * 把画布命令应用到 GraphDocument。
@@ -22,6 +22,8 @@ export function applyCanvasCommand(
             return connect(graph, command.from, command.to);
         case "disconnect":
             return disconnect(graph, command.from, command.to);
+        case "setNodeCollapsed":
+            return setNodeCollapsed(graph, command.nodeId, command.collapsed);
         case "setViewport":
             return { ...graph, ui: withViewport(graph.ui, command.viewport) };
     }
@@ -201,6 +203,23 @@ function moveNodes(
         if (position === undefined) return node;
         changed = true;
         return withNodePosition(node, position);
+    });
+
+    return changed ? { ...graph, nodes } : graph;
+}
+
+/** 折叠 / 展开单个节点；状态写入 `node.ui.collapsed`，不触及其他节点。 */
+function setNodeCollapsed(
+    graph: GraphDocument,
+    nodeId: string,
+    collapsed: boolean,
+): GraphDocument {
+    let changed = false;
+    const nodes = graph.nodes.map((node) => {
+        if (node.id !== nodeId) return node;
+        if ((node.ui?.collapsed === true) === collapsed) return node;
+        changed = true;
+        return withNodeCollapsed(node, collapsed);
     });
 
     return changed ? { ...graph, nodes } : graph;

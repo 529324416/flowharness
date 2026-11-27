@@ -82,6 +82,10 @@ export type CanvasNodeData = {
         inputs: readonly string[];
         outputs: readonly string[];
     };
+    /** 折叠态：只显示已连接端口与有数据的字段。 */
+    collapsed?: boolean;
+    /** 折叠态需要保留的 config 字段（已按默认值过滤）；展开时忽略。 */
+    collapsedFields?: readonly string[];
 };
 
 export type CanvasNode = {
@@ -119,4 +123,5 @@ export type CanvasCommand =
     | { type: "removeNodes"; nodeIds: readonly string[] }
     | { type: "connect"; from: CanvasPortRef; to: CanvasPortRef }
     | { type: "disconnect"; from: CanvasPortRef; to: CanvasPortRef }
+    | { type: "setNodeCollapsed"; nodeId: string; collapsed: boolean }
     | { type: "setViewport"; viewport: Viewport };

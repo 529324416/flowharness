@@ -131,4 +131,23 @@ describe("toCanvasDocument", () => {
             text: "Constant · value",
         });
     });
+
+    it("projects collapsed state and the fields kept while collapsed", () => {
+        const graph = makeGraph();
+        graph.nodes.push({
+            id: "call",
+            type: "core.model.call",
+            typeVersion: 1,
+            config: { mode: "chat", prompt: "hello" },
+            ui: { x: 0, y: 200, collapsed: true },
+        });
+
+        const document = toCanvasDocument(graph);
+        const call = document.nodes.find((node) => node.id === "call");
+
+        expect(call?.data.collapsed).toBe(true);
+        expect(call?.data.collapsedFields).toEqual(["prompt"]);
+        expect(document.nodes[0]?.data.collapsed).toBeUndefined();
+        expect(document.nodes[0]?.data.collapsedFields).toBeUndefined();
+    });
 });

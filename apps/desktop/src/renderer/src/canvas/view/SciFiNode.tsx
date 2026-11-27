@@ -93,6 +93,15 @@ export function SciFiNode({
 
     const connectedInputs = new Set(data.connectedPorts?.inputs ?? []);
     const connectedOutputs = new Set(data.connectedPorts?.outputs ?? []);
+    const collapsed = data.collapsed === true;
+    // 折叠态只保留已连接的端口：未连接参数与空端口由 NodeVisual 一并收起，
+    // 这里同时隐藏它们的徽标，避免徽标堆在节点顶部。
+    const inputs = collapsed
+        ? data.inputs.filter((port) => connectedInputs.has(port.name))
+        : data.inputs;
+    const outputs = collapsed
+        ? data.outputs.filter((port) => connectedOutputs.has(port.name))
+        : data.outputs;
 
     const renderPort = (
         direction: "in" | "out",
@@ -100,9 +109,10 @@ export function SciFiNode({
         connected: boolean,
     ): ReactElement => {
         const anchor = anchors[`${direction}:${port.name}`] ?? 0;
-        // react-flow 对 Left / Right 句柄取外缘作为连线端点。句柄做成 6px 透明块：
-        // 未连接时中心对准方块中心，已连接时对准实心点底部；视觉徽标独立渲染。
-        const handleTop = anchor + (connected ? 10 : 7);
+        // react-flow 对 Left / Right 句柄取「外缘 + 垂直中心」作为连线端点。句柄
+        // 做成 6px 透明块，垂直中心始终对准徽标中心（已连接 = 实心点中心，
+        // 未连接 = 方块中心）；视觉徽标独立渲染。
+        const handleTop = anchor + 7;
 
         return (
             <Fragment key={`${direction}:${port.name}`}>
@@ -160,8 +170,11 @@ export function SciFiNode({
                 config={data.config}
                 readOnly={data.readOnly}
                 onUpdateConfig={data.onUpdateConfig}
-                inputs={data.inputs}
-                outputs={data.outputs}
+                collapsed={collapsed}
+                collapsedFields={data.collapsedFields}
+                onToggleCollapsed={data.onToggleCollapsed}
+                inputs={inputs}
+                outputs={outputs}
                 connectedPorts={data.connectedPorts}
                 // 运行期间也保留端口行，节点结构与高度不随只读状态变化。
                 showInputSlots
@@ -171,11 +184,11 @@ export function SciFiNode({
                 slotLabels={data.slotLabels}
             />
 
-            {data.inputs.map((port) =>
+            {inputs.map((port) =>
                 renderPort("in", port, connectedInputs.has(port.name)),
             )}
 
-            {data.outputs.map((port) =>
+            {outputs.map((port) =>
                 renderPort("out", port, connectedOutputs.has(port.name)),
             )}
         </div>

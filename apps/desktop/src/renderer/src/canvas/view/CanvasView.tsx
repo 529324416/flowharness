@@ -96,6 +96,7 @@ function toFlowNodes(
         | ((nodeId: string, config: unknown) => void)
         | undefined,
     readOnly: boolean,
+    onCommand: ((command: CanvasCommand) => void) | undefined,
 ): FlowNode[] {
     const selected = new Set(selectedNodeIds);
     const connectedInputs = new Set<string>();
@@ -114,6 +115,16 @@ function toFlowNodes(
                 : {
                       onUpdateConfig: (config: unknown) =>
                           onUpdateNodeConfig(node.id, config),
+                  }),
+            ...(readOnly || onCommand === undefined
+                ? {}
+                : {
+                      onToggleCollapsed: (collapsed: boolean) =>
+                          onCommand({
+                              type: "setNodeCollapsed",
+                              nodeId: node.id,
+                              collapsed,
+                          }),
                   }),
             readOnly,
             connectedPorts: {
@@ -189,6 +200,7 @@ export const CanvasView = memo(function CanvasView({
             nodeStatuses,
             onUpdateNodeConfig,
             readOnly,
+            onCommand,
         ),
     );
     const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(
@@ -210,6 +222,7 @@ export const CanvasView = memo(function CanvasView({
                 nodeStatuses,
                 onUpdateNodeConfig,
                 readOnly,
+                onCommand,
             ),
         );
         setEdges(toFlowEdges(document));
@@ -218,6 +231,7 @@ export const CanvasView = memo(function CanvasView({
         nodeStatuses,
         onUpdateNodeConfig,
         readOnly,
+        onCommand,
         setNodes,
         setEdges,
     ]);

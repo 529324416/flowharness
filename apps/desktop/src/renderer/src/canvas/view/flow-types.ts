@@ -4,6 +4,7 @@ import type { CanvasEdgeStatus, CanvasNodeData } from "../core/types";
 /** 节点视图附加的回调；不进入 CanvasDocument，只存在于 view 层。 */
 export type FlowNodeData = CanvasNodeData & {
     onUpdateConfig?: (config: unknown) => void;
+    onToggleCollapsed?: (collapsed: boolean) => void;
     readOnly?: boolean;
 };
 

@@ -12,10 +12,12 @@ import {
     Plus,
     Trash2,
     Upload,
+    X,
     type LucideIcon,
 } from "lucide-react";
 import type { HarnessDocumentSummary } from "@flowharness/contracts";
 import { Button, Dialog, DialogContent, Input } from "../ui";
+import styles from "./workflow-actions.module.css";
 
 export type WorkflowAction = {
     id: string;
@@ -117,9 +119,55 @@ export function buildWorkflowActions(
     return actions;
 }
 
+export type WorkflowBatchActionContext = {
+    /** 当前多选的工作流数量。 */
+    count: number;
+    /** 右键命中的工作流；仅「打开」使用。 */
+    document: HarnessDocumentSummary;
+    onOpen: () => void;
+    onDuplicate: () => void;
+    onDelete: () => void;
+    onClear: () => void;
+};
+
+/** 多选右键菜单：打开命中的工作流 + 批量复制 / 删除 + 清除选择。 */
+export function buildWorkflowBatchActions(
+    context: WorkflowBatchActionContext,
+): WorkflowAction[] {
+    return [
+        {
+            id: "batch-open",
+            label: "打开工作流",
+            icon: FolderOpen,
+            run: context.onOpen,
+        },
+        {
+            id: "batch-duplicate",
+            label: `复制所选 ${String(context.count)} 个工作流`,
+            icon: Copy,
+            run: context.onDuplicate,
+        },
+        {
+            id: "batch-delete",
+            label: `删除所选 ${String(context.count)} 个工作流`,
+            icon: Trash2,
+            run: context.onDelete,
+        },
+        {
+            id: "batch-clear",
+            label: "清除选择",
+            icon: X,
+            separatorBefore: true,
+            run: context.onClear,
+        },
+    ];
+}
+
 export type WorkflowActionsApi = {
     requestRename: (document: HarnessDocumentSummary) => void;
     requestDelete: (document: HarnessDocumentSummary) => void;
+    /** 多选批量删除；确认后按 id 列表交给工作台。 */
+    requestDeleteMany: (documents: readonly HarnessDocumentSummary[]) => void;
     openImport: () => void;
     dialogs: ReactNode;
 };
@@ -128,12 +176,16 @@ export type WorkflowActionsApi = {
 export function useWorkflowActions(input: {
     onRenameDocument: (id: string, title: string) => void;
     onDeleteDocument: (id: string) => void;
+    onDeleteDocuments?: (ids: readonly string[]) => void;
     onImportDocument: (text: string, fileName: string) => void;
 }): WorkflowActionsApi {
     const [renameTarget, setRenameTarget] =
         useState<HarnessDocumentSummary | null>(null);
     const [deleteTarget, setDeleteTarget] =
         useState<HarnessDocumentSummary | null>(null);
+    const [deleteManyTargets, setDeleteManyTargets] = useState<
+        readonly HarnessDocumentSummary[] | null
+    >(null);
     const [draftTitle, setDraftTitle] = useState("");
     const fileRef = useRef<HTMLInputElement>(null);
 
@@ -149,6 +201,17 @@ export function useWorkflowActions(input: {
         if (deleteTarget === null) return;
         input.onDeleteDocument(deleteTarget.id);
         setDeleteTarget(null);
+    };
+
+    const submitDeleteMany = (): void => {
+        if (deleteManyTargets === null) return;
+        const ids = deleteManyTargets.map((document) => document.id);
+        if (input.onDeleteDocuments !== undefined) {
+            input.onDeleteDocuments(ids);
+        } else {
+            for (const id of ids) input.onDeleteDocument(id);
+        }
+        setDeleteManyTargets(null);
     };
 
     const handleFile = (event: ChangeEvent<HTMLInputElement>): void => {
@@ -236,6 +299,44 @@ export function useWorkflowActions(input: {
                     <p>确定删除「{deleteTarget?.title ?? ""}」？</p>
                 </DialogContent>
             </Dialog>
+            <Dialog
+                open={deleteManyTargets !== null}
+                onOpenChange={(open) => {
+                    if (!open) setDeleteManyTargets(null);
+                }}
+            >
+                <DialogContent
+                    title="删除所选工作流"
+                    description="删除后无法从工作区恢复；请先导出需要保留的内容。"
+                    footer={
+                        <>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setDeleteManyTargets(null)}
+                            >
+                                取消
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={submitDeleteMany}
+                            >
+                                删除 {deleteManyTargets?.length ?? 0} 个
+                            </Button>
+                        </>
+                    }
+                >
+                    <p>
+                        确定删除选中的 {deleteManyTargets?.length ?? 0} 个工作流？
+                    </p>
+                    <ul className={styles.multiDeleteList}>
+                        {(deleteManyTargets ?? []).map((document) => (
+                            <li key={document.id}>{document.title}</li>
+                        ))}
+                    </ul>
+                </DialogContent>
+            </Dialog>
         </>
     );
 
@@ -245,6 +346,10 @@ export function useWorkflowActions(input: {
             setRenameTarget(document);
         },
         requestDelete: (document) => setDeleteTarget(document),
+        requestDeleteMany: (documents) => {
+            if (documents.length === 0) return;
+            setDeleteManyTargets(documents);
+        },
         openImport: () => fileRef.current?.click(),
         dialogs,
     };

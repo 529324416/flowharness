@@ -241,3 +241,47 @@ describe("applyCanvasCommand", () => {
         expect(updateNodeConfig(graph, "missing", {})).toBe(graph);
     });
 });
+
+describe("setNodeCollapsed", () => {
+    it("writes ui.collapsed and keeps the rest of the node", () => {
+        const graph = makeGraph();
+        const collapsed = applyCanvasCommand(graph, {
+            type: "setNodeCollapsed",
+            nodeId: "n1",
+            collapsed: true,
+        });
+
+        expect(collapsed).not.toBe(graph);
+        expect(collapsed.nodes[0]?.ui).toEqual({
+            x: 10,
+            y: 20,
+            note: "keep",
+            collapsed: true,
+        });
+        expect(collapsed.nodes[0]?.config).toEqual(graph.nodes[0]?.config);
+        expect(collapsed.nodes[1]).toBe(graph.nodes[1]);
+
+        expect(
+            applyCanvasCommand(collapsed, {
+                type: "setNodeCollapsed",
+                nodeId: "n1",
+                collapsed: true,
+            }),
+        ).toBe(collapsed);
+
+        const expanded = applyCanvasCommand(collapsed, {
+            type: "setNodeCollapsed",
+            nodeId: "n1",
+            collapsed: false,
+        });
+        expect(expanded.nodes[0]?.ui?.collapsed).toBe(false);
+
+        expect(
+            applyCanvasCommand(graph, {
+                type: "setNodeCollapsed",
+                nodeId: "missing",
+                collapsed: true,
+            }),
+        ).toBe(graph);
+    });
+});

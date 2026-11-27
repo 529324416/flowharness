@@ -1100,53 +1100,66 @@ export function App(): ReactElement {
         ],
     );
 
-    const handleDuplicateDocument = useCallback(
-        async (id: string): Promise<void> => {
+    const handleDuplicateDocuments = useCallback(
+        async (ids: readonly string[]): Promise<void> => {
             const workspace = activeWorkspace;
-            if (workspace === null) return;
+            if (workspace === null || ids.length === 0) return;
 
             setDocumentBusy(true);
             setDocumentError(null);
             try {
-                if (id === activeDocumentId && !(await flushCurrentDocument())) {
+                if (
+                    ids.includes(activeDocumentId ?? "") &&
+                    !(await flushCurrentDocument())
+                ) {
                     return;
                 }
 
-                const snapshot = await bridge.readDocument(workspace.id, {
-                    kind: "harness",
-                    id,
-                });
-                if (!snapshot.ok || snapshot.data === null) {
-                    setDocumentError(
-                        snapshot.ok ? "工作流不存在" : snapshot.error.message,
-                    );
-                    return;
-                }
-                if (!isGraphDocument(snapshot.data.document)) {
-                    setDocumentError("工作流不是有效的 GraphDocument");
-                    return;
-                }
+                const created: string[] = [];
+                for (const id of ids) {
+                    const snapshot = await bridge.readDocument(workspace.id, {
+                        kind: "harness",
+                        id,
+                    });
+                    if (!snapshot.ok || snapshot.data === null) {
+                        setDocumentError(
+                            snapshot.ok
+                                ? "工作流不存在"
+                                : snapshot.error.message,
+                        );
+                        return;
+                    }
+                    if (!isGraphDocument(snapshot.data.document)) {
+                        setDocumentError("工作流不是有效的 GraphDocument");
+                        return;
+                    }
 
-                const source = snapshot.data.document;
-                const nextId = createDocumentId();
-                const copy = structuredClone(source);
-                copy.id = nextId;
-                copy.title = `${source.title ?? id} 副本`;
+                    const source = snapshot.data.document;
+                    const nextId = createDocumentId();
+                    const copy = structuredClone(source);
+                    copy.id = nextId;
+                    copy.title = `${source.title ?? id} 副本`;
 
-                const saved = await bridge.saveDocument({
-                    workspaceId: workspace.id,
-                    ref: { kind: "harness", id: nextId },
-                    baseRevision: null,
-                    document: copy,
-                });
-                if (!saved.ok) {
-                    setDocumentError(saved.error.message);
-                    return;
+                    const saved = await bridge.saveDocument({
+                        workspaceId: workspace.id,
+                        ref: { kind: "harness", id: nextId },
+                        baseRevision: null,
+                        document: copy,
+                    });
+                    if (!saved.ok) {
+                        setDocumentError(saved.error.message);
+                        return;
+                    }
+                    created.push(nextId);
                 }
 
                 await refreshDocuments(workspace.id);
-                setActiveDocumentId(nextId);
-                rememberDocument(workspace.id, nextId);
+                // 单选复制保持原有行为：切换到副本；批量复制不改变当前文档。
+                const first = created[0];
+                if (created.length === 1 && first !== undefined) {
+                    setActiveDocumentId(first);
+                    rememberDocument(workspace.id, first);
+                }
             } finally {
                 setDocumentBusy(false);
             }
@@ -1159,6 +1172,13 @@ export function App(): ReactElement {
             refreshDocuments,
             rememberDocument,
         ],
+    );
+
+    const handleDuplicateDocument = useCallback(
+        (id: string): void => {
+            void handleDuplicateDocuments([id]);
+        },
+        [handleDuplicateDocuments],
     );
 
     const handleSaveConflictCopy = useCallback(
@@ -1195,28 +1215,33 @@ export function App(): ReactElement {
         [activeWorkspace, bridge, refreshDocuments, rememberDocument],
     );
 
-    const handleDeleteDocument = useCallback(
-        async (id: string): Promise<void> => {
+    const handleDeleteDocuments = useCallback(
+        async (ids: readonly string[]): Promise<void> => {
             const workspace = activeWorkspace;
-            if (workspace === null) return;
+            if (workspace === null || ids.length === 0) return;
 
             setDocumentBusy(true);
             setDocumentError(null);
             try {
-                if (id === activeDocumentId && !(await flushCurrentDocument())) {
+                if (
+                    ids.includes(activeDocumentId ?? "") &&
+                    !(await flushCurrentDocument())
+                ) {
                     return;
                 }
                 // 主进程会解除工作台对这张图的引用；先让挂起的实例保存落盘，
                 // 避免旧快照稍后覆盖解除结果。
                 await workbenchSaveChain.current;
 
-                const result = await bridge.deleteDocument(workspace.id, {
-                    kind: "harness",
-                    id,
-                });
-                if (!result.ok) {
-                    setDocumentError(result.error.message);
-                    return;
+                for (const id of ids) {
+                    const result = await bridge.deleteDocument(workspace.id, {
+                        kind: "harness",
+                        id,
+                    });
+                    if (!result.ok) {
+                        setDocumentError(result.error.message);
+                        return;
+                    }
                 }
 
                 const list = await refreshDocuments(workspace.id);
@@ -1226,11 +1251,12 @@ export function App(): ReactElement {
                         ? null
                         : await loadWorkbench(workspace.id, activeWorkbenchId);
 
-                if (id !== activeDocumentId) return;
-
                 documentHistoryRef.current = documentHistoryRef.current.filter(
-                    (candidate) => candidate !== id,
+                    (candidate) => !ids.includes(candidate),
                 );
+
+                if (!ids.includes(activeDocumentId ?? "")) return;
+
                 const next = pickFallbackDocumentId(
                     list,
                     documentHistoryRef.current,
@@ -1254,6 +1280,13 @@ export function App(): ReactElement {
             refreshWorkbenches,
             rememberDocument,
         ],
+    );
+
+    const handleDeleteDocument = useCallback(
+        (id: string): void => {
+            void handleDeleteDocuments([id]);
+        },
+        [handleDeleteDocuments],
     );
 
     const handleImportDocument = useCallback(
@@ -2049,6 +2082,9 @@ export function App(): ReactElement {
                       void handleRenameDocument(id, title),
                   onDuplicateDocument: (id) => void handleDuplicateDocument(id),
                   onDeleteDocument: (id) => void handleDeleteDocument(id),
+                  onDuplicateDocuments: (ids) =>
+                      void handleDuplicateDocuments(ids),
+                  onDeleteDocuments: (ids) => void handleDeleteDocuments(ids),
                   onImportDocument: (text, fileName) =>
                       void handleImportDocument(text, fileName),
                   onExportDocument: (options, documentId) =>

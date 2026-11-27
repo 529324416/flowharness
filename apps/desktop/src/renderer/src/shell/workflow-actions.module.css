@@ -1,0 +1,9 @@
+.multiDeleteList {
+  max-height: 160px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+  overflow: auto;
+  color: var(--fh-text-muted);
+  font-size: var(--fh-text-xs);
+  line-height: 1.6;
+}

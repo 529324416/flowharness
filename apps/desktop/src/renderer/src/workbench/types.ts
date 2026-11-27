@@ -94,6 +94,10 @@ export type WorkbenchNavigationProps = {
     onRenameDocument: (id: string, title: string) => void;
     onDuplicateDocument: (id: string) => void;
     onDeleteDocument: (id: string) => void;
+    /** 批量复制工作流；单选入口复用同一实现。 */
+    onDuplicateDocuments: (ids: readonly string[]) => void;
+    /** 批量删除工作流；单选入口复用同一实现。 */
+    onDeleteDocuments: (ids: readonly string[]) => void;
     onImportDocument: (text: string, fileName: string) => void;
     onExportDocument: (
         options: { stripUi: boolean },

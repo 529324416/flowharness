@@ -4,6 +4,8 @@ import {
     BotMessageSquare,
     Box,
     Check,
+    ChevronsDownUp,
+    ChevronsUpDown,
     GitBranch,
     LogIn,
     LogOut,
@@ -50,6 +52,12 @@ export type NodeVisualProps = {
     lockedFields?: Readonly<Record<string, CanvasLockedField>>;
     /** 已连接输入端口在节点内的显示值；缺省显示端口名。 */
     slotLabels?: Readonly<Record<string, string>>;
+    /** 折叠态：只显示已连接端口与有数据的字段。 */
+    collapsed?: boolean;
+    /** 折叠态需要保留的 config 字段；展开时不使用。 */
+    collapsedFields?: readonly string[];
+    /** 折叠 / 展开切换；缺省不渲染按钮（例如 Styleguide 静态样张）。 */
+    onToggleCollapsed?: (collapsed: boolean) => void;
     /** 已连接端口：徽标由方块切换为圆点。 */
     connectedPorts?: {
         inputs: readonly string[];
@@ -110,10 +118,16 @@ export function NodeVisual({
     fieldOptions,
     lockedFields,
     slotLabels,
+    collapsed = false,
+    collapsedFields,
+    onToggleCollapsed,
     connectedPorts,
 }: NodeVisualProps): ReactElement {
     const Icon = iconFor(kind);
-    const canEditConstant = kind === "core.constant" && onUpdateConfig !== undefined;
+    const canEditConstant =
+        kind === "core.constant" &&
+        onUpdateConfig !== undefined &&
+        !collapsed;
     const [constantEditing, setConstantEditing] = useState(false);
     const attachedInputs = new Set(inlineInputPorts(kind));
     const dataInputs = inputs.filter((port) => !attachedInputs.has(port.name));
@@ -168,6 +182,28 @@ export function NodeVisual({
                         )}
                     </button>
                 ) : null}
+                {onToggleCollapsed === undefined ? null : (
+                    <button
+                        type="button"
+                        className={cx(
+                            styles.headerAction,
+                            "nodrag",
+                            collapsed && styles.headerActionActive,
+                        )}
+                        aria-label={collapsed ? "展开节点" : "折叠节点"}
+                        aria-pressed={collapsed}
+                        title={collapsed ? "展开节点" : "折叠节点（只保留已连接与有数据的字段）"}
+                        disabled={readOnly}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={() => onToggleCollapsed(!collapsed)}
+                    >
+                        {collapsed ? (
+                            <ChevronsUpDown size={13} aria-hidden="true" />
+                        ) : (
+                            <ChevronsDownUp size={13} aria-hidden="true" />
+                        )}
+                    </button>
+                )}
                 <StatusDot
                     tone={status as StatusTone}
                     pulse={status === "running"}
@@ -176,7 +212,7 @@ export function NodeVisual({
             </header>
 
             <div className={styles.body}>
-                <span className={styles.kind}>{kind}</span>
+                {collapsed ? null : <span className={styles.kind}>{kind}</span>}
 
                 {showInputSlots && (outputs.length > 0 || dataInputs.length > 0) ? (
                     <div className={styles.dataSection}>
@@ -230,7 +266,9 @@ export function NodeVisual({
                     onChange={onUpdateConfig}
                     fieldOptions={fieldOptions}
                     lockedFields={lockedFields}
-                    editing={constantEditing && !readOnly}
+                    editing={constantEditing && !readOnly && !collapsed}
+                    collapsed={collapsed}
+                    collapsedFields={collapsedFields}
                 />
             </div>
         </article>

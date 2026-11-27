@@ -12,7 +12,8 @@ import type {
 } from "../../canvas/core/types";
 import { edgeKeyFromPorts } from "../../canvas/core/edge-key";
 import { describeDesignerNode, type DesignerPort, type NodePresentation } from "./catalog";
-import { readNodePosition, readViewport } from "./layout";
+import { collapsedVisibleFields } from "./collapse";
+import { readNodeCollapsed, readNodePosition, readViewport } from "./layout";
 
 export type CanvasPresentation = {
     summary?: string;
@@ -54,6 +55,7 @@ export function toCanvasDocument(
         const presentation = describeDesignerNode(node.type, node.config);
         const override = options.presentation?.[node.id];
         const summary = override?.summary ?? summarize(node.config, presentation);
+        const collapsed = readNodeCollapsed(node);
         const data: CanvasNodeData = {
             kind: node.type,
             title: presentation.title,
@@ -64,6 +66,15 @@ export function toCanvasDocument(
             ...(override?.meta === undefined ? {} : { meta: override.meta }),
             ...(node.config === undefined ? {} : { config: node.config }),
             ...(presentation.error === undefined ? {} : { error: presentation.error }),
+            ...(collapsed
+                ? {
+                      collapsed: true,
+                      collapsedFields: collapsedVisibleFields(
+                          node.type,
+                          node.config,
+                      ),
+                  }
+                : {}),
             ...(options.notices?.[node.id] === undefined
                 ? {}
                 : { notice: options.notices[node.id] }),

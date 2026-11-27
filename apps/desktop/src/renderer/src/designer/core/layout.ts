@@ -32,6 +32,22 @@ export function withNodePosition(node: NodeDocument, position: Vec2): NodeDocume
     };
 }
 
+/** 节点折叠态保存在 `ui.collapsed`；缺省展开。 */
+export function readNodeCollapsed(node: NodeDocument): boolean {
+    return node.ui?.collapsed === true;
+}
+
+/** 只改 `ui.collapsed`，其余布局与自定义字段保留。 */
+export function withNodeCollapsed(
+    node: NodeDocument,
+    collapsed: boolean,
+): NodeDocument {
+    return {
+        ...node,
+        ui: { ...(node.ui ?? {}), collapsed },
+    };
+}
+
 export function readViewport(ui: JsonObject | undefined): Viewport {
     const viewport = ui?.viewport;
     if (isJsonObject(viewport)) {

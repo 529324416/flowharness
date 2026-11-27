@@ -173,6 +173,9 @@ try {
         scenario === "designer-json-read" ||
         scenario === "designer-model-empty" ||
         scenario === "designer-controls" ||
+        scenario === "designer-collapsed" ||
+        scenario === "designer-workflow-select" ||
+        scenario === "designer-workflow-batch" ||
         scenario === "designer-panel" ||
         scenario === "designer-slot-connect" ||
         scenario === "designer-import" ||
@@ -1104,6 +1107,185 @@ try {
                 windowsVirtualKeyCode: 27,
             });
             await settle(400);
+        }
+
+        if (scenario === "designer-collapsed") {
+            const fixture = join(tmpdir(), `fh-collapsed-${process.pid}.json`);
+            writeFileSync(
+                fixture,
+                `${JSON.stringify({
+                    version: 1,
+                    id: "collapsed-fixture",
+                    title: "折叠节点",
+                    nodes: [
+                        {
+                            id: "provider",
+                            type: "core.provider",
+                            typeVersion: 1,
+                            config: { providerId: "ollama" },
+                            ui: { x: 80, y: 40 },
+                        },
+                        {
+                            id: "model",
+                            type: "core.model",
+                            typeVersion: 1,
+                            config: { providerId: "ollama", modelId: "qwen3.5:9b" },
+                            ui: { x: 380, y: 40 },
+                        },
+                        {
+                            id: "call",
+                            type: "core.model.call",
+                            typeVersion: 1,
+                            config: {
+                                mode: "chat",
+                                system: "You are a helper.",
+                                temperature: 0.7,
+                                think: true,
+                                thinkingLv: "high",
+                            },
+                            ui: { x: 80, y: 260 },
+                        },
+                        {
+                            id: "agent",
+                            type: "core.agent.run",
+                            typeVersion: 1,
+                            config: {},
+                            ui: { x: 640, y: 260 },
+                        },
+                        {
+                            id: "result",
+                            type: "core.output",
+                            typeVersion: 1,
+                            ui: { x: 380, y: 500 },
+                        },
+                        {
+                            id: "constant",
+                            type: "core.constant",
+                            typeVersion: 1,
+                            config: {
+                                value: {
+                                    type: "text",
+                                    text: "来自上游的 System Prompt",
+                                },
+                            },
+                            ui: { x: 720, y: 40 },
+                        },
+                    ],
+                    edges: [
+                        {
+                            from: { nodeId: "provider", port: "provider" },
+                            to: { nodeId: "model", port: "provider" },
+                        },
+                        {
+                            from: { nodeId: "model", port: "model" },
+                            to: { nodeId: "call", port: "model" },
+                        },
+                        {
+                            from: { nodeId: "call", port: "text" },
+                            to: { nodeId: "result", port: "text" },
+                        },
+                    ],
+                })}\n`,
+            );
+
+            const root = await send("DOM.getDocument", { depth: -1 });
+            const input = await send("DOM.querySelector", {
+                nodeId: root.root.nodeId,
+                selector: 'input[type="file"]',
+            });
+            if (input.nodeId === 0) {
+                console.log("collapsed import input: not found");
+            } else {
+                await send("DOM.setFileInputFiles", {
+                    files: [fixture],
+                    nodeId: input.nodeId,
+                });
+                await settle(1500);
+            }
+
+            await evaluate(
+                `const close = (label) => { const button = document.querySelector(\`button[aria-label="\${label}"]\`); if (button?.getAttribute('aria-pressed') === 'true') button.click(); };` +
+                    `close('切换属性检查'); close('切换运行日志');`,
+            );
+            await settle(400);
+
+            const collapsed = await evaluate(
+                `document.querySelectorAll('button[aria-label="折叠节点"]').length`,
+            );
+            // 逐个点击：折叠会改变节点高度并触发重渲染，批量点击同一个
+            // 按钮可能拿到旧闭包，导致个别节点被来回切换。
+            let collapsedCount = 0;
+            for (let index = 0; index < 12; index += 1) {
+                const clicked = await clickElement(
+                    `document.querySelector('button[aria-label="折叠节点"]')`,
+                );
+                if (!clicked) break;
+                collapsedCount += 1;
+                await settle(250);
+            }
+            console.log(
+                `collapsed nodes: ${JSON.stringify(collapsed.result?.value)} -> ${collapsedCount}`,
+            );
+            await settle(900);
+        }
+
+        if (scenario === "designer-workflow-select") {
+            const selected = await evaluate(
+                `(() => {
+                    const items = [...document.querySelectorAll('[data-document-id]')].slice(0, 3);
+                    for (const item of items) {
+                        item.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true }));
+                    }
+                    return items.length;
+                })()`,
+            );
+            console.log(`multi selected: ${JSON.stringify(selected.result?.value)}`);
+            await settle(600);
+        }
+
+        if (scenario === "designer-workflow-batch") {
+            const docCount = async () =>
+                evaluate(
+                    `document.querySelectorAll('[data-document-id]').length`,
+                );
+            const logCount = async (label) => {
+                const result = await docCount();
+                console.log(`${label}: ${JSON.stringify(result.result?.value)}`);
+            };
+            const selectFirstThree = async () => {
+                await evaluate(
+                    `(() => { const items = [...document.querySelectorAll('[data-document-id]')].slice(0, 3); for (const item of items) item.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true })); return items.length; })()`,
+                );
+                await settle(300);
+            };
+
+            await logCount("batch documents before");
+            await selectFirstThree();
+            const duplicated = await clickElement(
+                `document.querySelector('button[aria-label="复制所选工作流"]')`,
+            );
+            await settle(1800);
+            await logCount("batch documents after duplicate");
+
+            await selectFirstThree();
+            const deleteOpened = await clickElement(
+                `document.querySelector('button[aria-label="删除所选工作流"]')`,
+            );
+            await settle(500);
+            const dialogText = await evaluate(
+                `document.querySelector('[role="dialog"]')?.textContent?.slice(0, 160)`,
+            );
+            console.log(
+                `batch delete dialog: ${JSON.stringify(dialogText.result?.value)}`,
+            );
+            const confirmed = await clickElement(
+                `[...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent?.trim().startsWith('删除'))`,
+            );
+            await settle(1800);
+            await logCount("batch documents after delete");
+            console.log(
+                `batch duplicate: ${JSON.stringify(duplicated)} delete menu: ${JSON.stringify(deleteOpened)} confirm: ${JSON.stringify(confirmed)}`,
+            );
         }
 
         if (scenario === "designer-model-empty") {

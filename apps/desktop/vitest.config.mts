@@ -10,6 +10,7 @@ export default defineConfig({
             "src/renderer/src/designer/**/*.test.ts",
             "src/renderer/src/presets/**/*.test.ts",
             "src/renderer/src/providers/**/*.test.ts",
+            "src/renderer/src/shell/**/*.test.ts",
             "src/renderer/src/ui/**/*.test.ts",
             "src/renderer/src/workbench/**/*.test.ts",
         ],

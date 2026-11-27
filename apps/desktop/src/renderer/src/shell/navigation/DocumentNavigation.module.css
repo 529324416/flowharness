@@ -63,6 +63,58 @@
   border-color: var(--fh-border);
 }
 
+.itemSelected {
+  border-color: var(--fh-accent);
+  background: var(--fh-surface-raised);
+}
+
+.selectedCheck {
+  flex: none;
+  color: var(--fh-accent);
+}
+
+.selectionBar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin: 0 8px 6px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--fh-border);
+  border-radius: var(--fh-radius-sm);
+  background: var(--fh-surface-raised);
+}
+
+.selectionCount {
+  color: var(--fh-text);
+  font-size: var(--fh-text-2xs);
+  font-weight: var(--fh-weight-medium);
+}
+
+.selectionAction {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--fh-radius-sm);
+  background: transparent;
+  color: var(--fh-text-muted);
+  font-size: var(--fh-text-2xs);
+  cursor: pointer;
+}
+
+.selectionAction:hover:not(:disabled) {
+  background: var(--fh-surface);
+  color: var(--fh-text);
+}
+
+.selectionAction:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.selectionSpacer {
+  flex: 1;
+}
+
 .icon {
   flex: none;
   color: var(--fh-text-subtle);

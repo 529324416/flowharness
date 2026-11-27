@@ -394,6 +394,8 @@
 - [x] 测试：`run-events.test.ts` 覆盖 stream-only 边、指标重置 / 尾部截断；`pnpm test` 49 文件 / 282 项
 - [x] 截图场景 `designer-stream`（本地 mock Ollama 流式输出）：运行中 / 冷却两帧与计算样式断言
 - [x] 视觉基线：`devlog/assets/ui-run-animation-running.png`、`ui-run-animation-cooling.png`
+- [x] Merge / Branch / Loop 等上游锁定字段显示节点标题 + 输出，不再显示 `core.merge` 原始 type id
+- [x] HUD 指标 150ms 节流写入画布；警戒环改为四条 2px 边框（移除 mask-composite）
 
 ## 后续里程碑
 

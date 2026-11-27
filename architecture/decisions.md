@@ -1200,10 +1200,10 @@ Model Call / Agent Run 的 `model`、`prompt`（Agent 为 `input`）、`attachme
 
 - **边只在数据输出时动画**：`node:start` 不再点亮入边（只清理残留），`node:stream` 点亮该节点的出边，`node:end` 立即熄灭；值输出是瞬时交付，不产生持续动画。`run:end` 清空 active，`node:error` 保留失败边。
 - 边动画改为**百分比进度扫过**：叠加一条白色 path（`pathLength=100`），`stroke-dasharray: 100 100`、`stroke-dashoffset` 从 -100 走到 0，500ms 线性循环——0% 全灰、50% 半白、100% 全白；灰色底由 BaseEdge 提供，`prefers-reduced-motion` 下停在整条白线。
-- **运行节点过热**：节点 1px 描边改为橙红（`--fh-port-connected`），并在节点外圈叠加 2px 斜纹警戒环（`padding` + `mask` 镂空成环，条纹 500ms 平移，中间完全透明）。
+- **运行节点过热**：节点 1px 描边改为橙红（`--fh-port-connected`），并在节点外圈叠加 2px 斜纹警戒环（四条 2px 边框拼成环、中间完全透明，条纹 500ms 平移）；不使用 `mask-composite`，避免缩放画布上的遮罩合成开销。
 - **完成冷却**：`completed` 时挂 1.5s 的 `fh-node-cool` 动画，边框从橙红过渡回默认色（`animation-fill-mode: forwards`），React 层只在状态跳变时保持 1.5s 的 cooling 类；`failed` 仍保留 danger 边，不冷却。
 - **运行 benchmark**：`running` 节点下方显示无边框暗淡 HUD——标题栏为 `tok N`（stream 片段计数）与毫秒计时（100ms 递增），下方最多 80px 展示最近的输出文本；数据来自 `node:stream` 的 `HarnessValue`，运行结束清空，不进入文档。
-- 指标投影在 `designer/core/run-events.ts`（`nodeMetrics`），adapter 注入 `CanvasNodeData.runMetrics`；Canvas 组件不读取节点语义。
+- 指标投影在 `designer/core/run-events.ts`（`nodeMetrics`），adapter 注入 `CanvasNodeData.runMetrics`；Canvas 组件不读取节点语义。HUD 指标以 **150ms 节流**写入画布视图（完整指标仍在 ref 中累加），节点 / 边状态仍然逐批即时更新，避免每个 token 都重建整张画布。
 
 **后果**
 

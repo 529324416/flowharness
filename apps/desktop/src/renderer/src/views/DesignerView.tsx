@@ -1827,7 +1827,10 @@ function describeUpstreamValue(
         return `参数 ${name}`;
     }
 
-    return source.type;
+    // Merge / Branch / Loop 等没有可直接展示的本地值：显示节点标题而不是
+    // 原始 type id（core.merge），真实值由运行期决定。
+    const title = findNodeCatalogEntry(source.type)?.title ?? source.type;
+    return `${title} 输出`;
 }
 
 function truncateLabel(text: string): string {

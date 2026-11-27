@@ -45,6 +45,14 @@ const EMPTY_VIEW: RunViewState = {
 };
 
 /**
+ * 运行指标（HUD）的画布更新节流。
+ *
+ * 节点 / 边状态仍然逐批即时投影；token 尾部文本只按此间隔刷新，避免
+ * 每个 stream 片段都重建整张画布。
+ */
+const METRICS_THROTTLE_MS = 150;
+
+/**
  * 设计器的运行控制。
  *
  * - 启动前在 renderer 侧 validate；有 issue 直接阻断；
@@ -65,15 +73,74 @@ export function useDesignerRun(
     const activeRunIdRef = useRef<string | null>(null);
     const pendingRef = useRef<RunEventBatch[]>([]);
     const graphRef = useRef<GraphDocument | null>(null);
+    /** 完整投影（含未节流的指标），供下一批事件继续累加。 */
+    const fullViewRef = useRef<RunViewState>(EMPTY_VIEW);
+    /** 已展示到画布上的指标；HUD 从这里读取。 */
+    const displayedMetricsRef = useRef<Record<string, CanvasRunMetrics>>({});
+    const metricsTimerRef = useRef<number | null>(null);
 
-    const applyBatch = useCallback((batch: RunEventBatch) => {
-        setSnapshot((current) =>
-            sameRunSnapshot(current, batch.snapshot) ? current : batch.snapshot,
-        );
-        const graph = graphRef.current;
-        if (graph === null) return;
-        setView((current) => applyRunEventsToView(graph, current, batch.events));
+    const clearMetricsTimer = useCallback(() => {
+        if (metricsTimerRef.current === null) return;
+        window.clearTimeout(metricsTimerRef.current);
+        metricsTimerRef.current = null;
     }, []);
+
+    useEffect(() => () => clearMetricsTimer(), [clearMetricsTimer]);
+
+    /**
+     * 投影一批事件，但把指标以 150ms 节流写入视图。
+     *
+     * 完整指标保存在 ref 中继续累加，节流只影响画布重渲染频率。
+     */
+    const applyEvents = useCallback(
+        (events: RunEventBatch["events"]) => {
+            const graph = graphRef.current;
+            if (graph === null) return;
+
+            const current = fullViewRef.current;
+            const next = applyRunEventsToView(graph, current, events);
+            if (next === current) return;
+            fullViewRef.current = next;
+
+            if (
+                next.nodeMetrics !== current.nodeMetrics &&
+                metricsTimerRef.current === null
+            ) {
+                metricsTimerRef.current = window.setTimeout(() => {
+                    metricsTimerRef.current = null;
+                    const latest = fullViewRef.current.nodeMetrics;
+                    if (latest === displayedMetricsRef.current) return;
+                    displayedMetricsRef.current = latest;
+                    setView((currentView) => ({
+                        ...currentView,
+                        nodeMetrics: latest,
+                    }));
+                }, METRICS_THROTTLE_MS);
+            }
+
+            if (
+                next.nodeStatuses !== current.nodeStatuses ||
+                next.edgeStatuses !== current.edgeStatuses
+            ) {
+                setView({
+                    nodeStatuses: next.nodeStatuses,
+                    edgeStatuses: next.edgeStatuses,
+                    nodeMetrics: displayedMetricsRef.current,
+                });
+            }
+        },
+        [],
+    );
+
+    const applyBatch = useCallback(
+        (batch: RunEventBatch) => {
+            setSnapshot((current) =>
+                sameRunSnapshot(current, batch.snapshot) ? current : batch.snapshot,
+            );
+            applyEvents(batch.events);
+        },
+        [applyEvents],
+    );
 
     useEffect(() => {
         return window.flowharness.onEvent((envelope) => {
@@ -107,6 +174,9 @@ export function useDesignerRun(
             setError(null);
 
             if (validationIssues.length > 0) {
+                clearMetricsTimer();
+                fullViewRef.current = EMPTY_VIEW;
+                displayedMetricsRef.current = {};
                 setSnapshot(null);
                 setView(EMPTY_VIEW);
                 return null;
@@ -117,9 +187,13 @@ export function useDesignerRun(
             activeRunIdRef.current = null;
             pendingRef.current = [];
             graphRef.current = graph;
+            clearMetricsTimer();
+            const initialView = createRunView(graph);
+            fullViewRef.current = initialView;
+            displayedMetricsRef.current = initialView.nodeMetrics;
             setStarting(true);
             setSnapshot(null);
-            setView(createRunView(graph));
+            setView(initialView);
 
             try {
                 const result = await window.flowharness.startRun({
@@ -173,21 +247,14 @@ export function useDesignerRun(
                 setSnapshot(result.data);
 
                 // 即使引擎没有补发 paused/resumed 事件，也同步节点投影。
-                const graph = graphRef.current;
-                if (graph !== null) {
-                    setView((current) =>
-                        applyRunEventsToView(graph, current, [
-                            { type: transition, runId, at: Date.now() },
-                        ]),
-                    );
-                }
+                applyEvents([{ type: transition, runId, at: Date.now() }]);
             } catch (cause) {
                 setError(cause instanceof Error ? cause.message : String(cause));
             } finally {
                 setControlling(false);
             }
         },
-        [],
+        [applyEvents],
     );
 
     const pause = useCallback(
@@ -220,13 +287,16 @@ export function useDesignerRun(
         activeRunIdRef.current = null;
         pendingRef.current = [];
         graphRef.current = null;
+        clearMetricsTimer();
+        fullViewRef.current = EMPTY_VIEW;
+        displayedMetricsRef.current = {};
         setSnapshot(null);
         setStarting(false);
         setControlling(false);
         setIssues([]);
         setError(null);
         setView(EMPTY_VIEW);
-    }, []);
+    }, [clearMetricsTimer]);
 
     const clearMessages = useCallback(() => {
         setIssues([]);

@@ -114,26 +114,56 @@
 
 /*
  * 运行中警戒线：2px 斜纹环，中间完全镂空，条纹沿边框持续移动。
- * 用 padding + mask 只保留外圈 2px；与外层节点描边叠加成「过热」状态。
+ *
+ * 用四条 2px 边框拼成环（而不是 mask-composite）：画布节点本身带
+ * translate/scale，遮罩层在缩放下容易触发额外的合成与大范围重绘。
  */
-.wrapper.running::after {
+.runRing {
   position: absolute;
   z-index: 0;
   inset: -3px;
-  padding: 2px;
+  overflow: hidden;
   border-radius: 9px;
+  pointer-events: none;
+}
+
+.runRing > i {
+  position: absolute;
+  display: block;
   background: repeating-linear-gradient(
     45deg,
-    var(--fh-port-connected) 0 6px,
-    transparent 6px 12px
+    var(--fh-port-connected) 0 5px,
+    transparent 5px 10px
   );
-  content: "";
-  pointer-events: none;
   animation: fh-node-ring 500ms linear infinite;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
+}
+
+.runRing > i:nth-child(1) {
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+}
+
+.runRing > i:nth-child(2) {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+.runRing > i:nth-child(3) {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+}
+
+.runRing > i:nth-child(4) {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
 }
 
 @keyframes fh-node-ring {
@@ -142,8 +172,8 @@
   }
 
   to {
-    /* 45° 斜纹一个周期（12px）在坐标轴上的投影，保证循环无缝。 */
-    background-position: 8.49px -8.49px;
+    /* 45° 斜纹一个周期（10px）在坐标轴上的投影，保证循环无缝。 */
+    background-position: 7.07px -7.07px;
   }
 }
 
@@ -165,7 +195,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wrapper.running::after {
+  .runRing > i {
     animation: none;
   }
 

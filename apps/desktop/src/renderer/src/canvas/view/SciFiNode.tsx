@@ -207,6 +207,15 @@ export function SciFiNode({
                 slotLabels={data.slotLabels}
             />
 
+            {data.status === "running" ? (
+                <span className={styles.runRing} aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                    <i />
+                </span>
+            ) : null}
+
             {data.status === "running" && data.runMetrics !== undefined ? (
                 <RunBenchmark
                     startedAt={data.runMetrics.startedAt}

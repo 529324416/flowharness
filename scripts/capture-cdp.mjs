@@ -1583,7 +1583,8 @@ try {
                     const firstFlow = flow[0] ?? null;
                     const flowStyle = firstFlow ? getComputedStyle(firstFlow) : null;
                     const wrapper = document.querySelector('[data-node-id]:has([data-status="running"])');
-                    const ringStyle = wrapper ? getComputedStyle(wrapper, '::after') : null;
+                    const ringItem = wrapper ? wrapper.querySelector('span > i') : null;
+                    const ringStyle = ringItem ? getComputedStyle(ringItem) : null;
                     return {
                         running: running.length,
                         benchmark: benchmark?.textContent?.trim() ?? null,

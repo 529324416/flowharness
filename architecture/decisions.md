@@ -1190,4 +1190,34 @@ Model Call / Agent Run 的 `model`、`prompt`（Agent 为 `input`）、`attachme
 - 增加常驻复选框列：260px 左栏过窄，且普通点击仍要打开工作流，视觉噪声大。
 - 把批量逻辑下沉到 main（一次 IPC 删除多文档）：需要新的契约与错误汇总语义，当前收益不足。
 
+## ADR-044：运行态动画语义
+
+**背景**
+
+旧投影里 `node:start` 点亮入边、`node:end` 点亮出边：上游节点的数据在节点启动那一刻就已经送达，但入边仍持续流动，看起来像还在传输；值输出在结束瞬间完成，却留下持续动画。运行节点只有一层脉冲辉光，缺少「正在运行 / 已完成冷却」的明确表达，也没有 token 与耗时的可见提示。
+
+**决定**
+
+- **边只在数据输出时动画**：`node:start` 不再点亮入边（只清理残留），`node:stream` 点亮该节点的出边，`node:end` 立即熄灭；值输出是瞬时交付，不产生持续动画。`run:end` 清空 active，`node:error` 保留失败边。
+- 边动画改为**百分比进度扫过**：叠加一条白色 path（`pathLength=100`），`stroke-dasharray: 100 100`、`stroke-dashoffset` 从 -100 走到 0，500ms 线性循环——0% 全灰、50% 半白、100% 全白；灰色底由 BaseEdge 提供，`prefers-reduced-motion` 下停在整条白线。
+- **运行节点过热**：节点 1px 描边改为橙红（`--fh-port-connected`），并在节点外圈叠加 2px 斜纹警戒环（`padding` + `mask` 镂空成环，条纹 500ms 平移，中间完全透明）。
+- **完成冷却**：`completed` 时挂 1.5s 的 `fh-node-cool` 动画，边框从橙红过渡回默认色（`animation-fill-mode: forwards`），React 层只在状态跳变时保持 1.5s 的 cooling 类；`failed` 仍保留 danger 边，不冷却。
+- **运行 benchmark**：`running` 节点下方显示无边框暗淡 HUD——标题栏为 `tok N`（stream 片段计数）与毫秒计时（100ms 递增），下方最多 80px 展示最近的输出文本；数据来自 `node:stream` 的 `HarnessValue`，运行结束清空，不进入文档。
+- 指标投影在 `designer/core/run-events.ts`（`nodeMetrics`），adapter 注入 `CanvasNodeData.runMetrics`；Canvas 组件不读取节点语义。
+
+**后果**
+
+- 边动画与真实传输对齐：流式 Model Call / Agent 的输出边流动，普通值节点的边不动；非流式节点的交付不再有误导性的持续动画。
+- 完成节点有明确的冷却收尾，执行很快的节点也能被看见；冷却不改变节点尺寸 / 端口结构。
+- HUD 随 token 更新整张画布文档（Canvas 已 memo，节点数量正常时成本可接受）；流式输出很长时只保留尾部 240 字符。
+- 暂停的节点隐藏 HUD、保留暂停色；`prefers-reduced-motion` 下警戒环与扫光停止，冷却直接跳到终态。
+- token 数是 stream 片段计数，不是模型 usage；真正的 token 用量仍在 RunResult / 会话摘要里。
+
+**否决**
+
+- 保留「入边流动 + 出边结束点亮」的旧动画：与数据实际传输时机相反，是本次要修的问题。
+- 用 CSS 虚线滚动表达流动：只能表达方向，不能表达「输出进度」，且无法与数据实际开始 / 结束对齐。
+- 把 benchmark 放进节点 Body：会改变节点高度，运行开始 / 结束引起画布跳动，也会挤压端口锚点。
+
+
 

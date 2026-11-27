@@ -313,6 +313,15 @@ CanvasCommand → GraphDocument
 - 工作流多选（ADR-043）：`DocumentNavigation` 本地维护额外选中集合，打开中的工作流始终属于选择；Ctrl / Cmd 切换、Shift 从「最近点击 / 打开」的锚点连选（普通点击后锚点即打开项）；选中行与打开中的工作流共用同一高亮（不引入勾选 / 强调边框等第二视觉）；批量操作条提供全选 / 复制 / 删除；右键多选项切到批量菜单；
 - 批量复制 / 删除在 `App` 层实现（`handleDuplicateDocuments` / `handleDeleteDocuments`，单选入口复用同一实现），逐条调用既有 IPC：删除仍会 flush 当前文档、等待工作台保存链、刷新工作台引用并回退到剩余文档；批量复制仅在单选时切换到副本。
 
+### 6.8 运行态动画（2026-11-28，ADR-044）
+
+- 边只在**数据输出**时动画：`node:stream` 点亮出边，`node:end` 立即熄灭；`node:start` 不再点亮入边（上游数据已送达），值输出瞬时交付不产生动画；`run:end` 清空 active，`node:error` 保留失败边。
+- 边动画是百分比进度扫过：白色 path（`pathLength=100`）的 `stroke-dashoffset` 从 -100 走到 0，每 500ms 循环，0% 全灰 → 50% 半白 → 100% 全白；`prefers-reduced-motion` 下停在整条白线。
+- 运行节点使用橙红描边 + 2px 斜纹警戒环（mask 镂空，中间透明，条纹 500ms 平移）；保留节点脉冲辉光。
+- 完成节点播放 1.5s 冷却：边框从橙红渐变回默认色；`failed` 保留 danger 色不冷却。
+- 运行节点下方挂无边框暗淡 benchmark：标题栏 `tok N` + 毫秒计时（100ms 刷新），下方最多 80px 的尾部输出；`node:stream` 的 `HarnessValue.text` 进入指标，运行结束清空。
+- 指标在 `designer/core/run-events.ts` 的 `nodeMetrics` 中投影，adapter 注入 `CanvasNodeData.runMetrics`；Canvas 组件不解释节点语义。
+
 ## 7. 其他工作台
 
 - 必须实现 `WorkbenchDefinition`；

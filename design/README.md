@@ -79,6 +79,7 @@ pnpm capture:ui   # 启动应用并通过 CDP 截取 renderer（默认 devlog/as
 # designer-provider / designer-json / designer-json-read / designer-controls /
 # designer-model-empty / designer-panel / designer-collapsed /
 # designer-workflow-select / designer-workflow-batch / designer-workflow-shift /
+# designer-stream /
 # canvas / canvas-selection / canvas-pan / canvas-zoom / styleguide /
 # styleguide-nodes / styleguide-form / input-focus
 $env:FH_CAPTURE_SCENARIO='canvas'; pnpm capture:ui

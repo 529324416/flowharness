@@ -383,6 +383,18 @@
 - [x] 视觉基线：`devlog/assets/ui-node-collapsed.png`、`devlog/assets/ui-workflow-multi-select.png`
 - [x] 截图场景：`designer-collapsed` / `designer-workflow-select` / `designer-workflow-batch`
 
+## 运行态动画（2026-11-28）
+
+- [x] 边动画只在数据输出时出现：`node:stream` 点亮出边、`node:end` 熄灭，`node:start` 不再点亮入边（ADR-044）
+- [x] 边动画改为百分比进度扫过：白色 path（`pathLength=100`）+ `stroke-dashoffset` -100→0，500ms 循环；`prefers-reduced-motion` 停在整条白线
+- [x] 运行节点过热态：橙红描边 + 2px 斜纹警戒环（mask 镂空、条纹 500ms 平移）
+- [x] 完成冷却：1.5s 内描边从橙红回到默认色；失败保持 danger，不冷却
+- [x] 运行 benchmark HUD：无边框、`tok N` + ms 计时（100ms 增量）+ 最多 80px 尾部输出；运行结束清空
+- [x] `RunViewState.nodeMetrics` 投影 + adapter `runMetrics` 注入；stream chunk 提取 `HarnessValue.text`
+- [x] 测试：`run-events.test.ts` 覆盖 stream-only 边、指标重置 / 尾部截断；`pnpm test` 49 文件 / 282 项
+- [x] 截图场景 `designer-stream`（本地 mock Ollama 流式输出）：运行中 / 冷却两帧与计算样式断言
+- [x] 视觉基线：`devlog/assets/ui-run-animation-running.png`、`ui-run-animation-cooling.png`
+
 ## 后续里程碑
 
 ### M10 — 可观测性与工程化（原 M9）
@@ -551,6 +563,7 @@
 - [x] 46 个测试文件 / 260 个测试通过（2026-11-28；端口徽标 / 连线端点收口）
 - [x] 47 个测试文件 / 272 个测试通过（2026-11-28；节点折叠字段过滤 / 折叠命令）
 - [x] 49 个测试文件 / 280 个测试通过（2026-11-28；工作流多选；补跑 shell 测试）
+- [x] 49 个测试文件 / 282 个测试通过（2026-11-28；运行态动画语义 / 运行指标）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
 

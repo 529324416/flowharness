@@ -99,6 +99,7 @@
 | 节点端口徽标与数据行：输出优先 / 行顶对齐 / 图标↔圆点 | ✅ 已实现（2026-11-27，ADR-041） |
 | 节点折叠模式 / 折叠字段过滤 | ✅ 已实现（2026-11-28，ADR-042） |
 | 工作流多选与批量复制·删除 | ✅ 已实现（2026-11-28，ADR-043） |
+| 运行态动画：流式边进度 / 节点冷却 / 警戒环 / benchmark | ✅ 已实现（2026-11-28，ADR-044） |
 | M6.2 wireclaw checkpoint v2（graphHash + nodeVersions） | ✅ 已实现（M6.2） |
 | M6.2 工作区文件工具 / 运行前 requirements catalog | ✅ 已实现（M6.2） |
 | SessionService（AttachmentFileManager / SessionStore 装配） | ✅ 已实现（Phase 2 附件；M6.2 会话） |

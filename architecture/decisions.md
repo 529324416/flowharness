@@ -1205,9 +1205,17 @@ Model Call / Agent Run 的 `model`、`prompt`（Agent 为 `input`）、`attachme
 - **运行 benchmark**：`running` 节点下方显示无边框暗淡 HUD——标题栏为 `tok N`（stream 片段计数）与毫秒计时（100ms 递增），下方最多 80px 展示最近的输出文本；数据来自 `node:stream` 的 `HarnessValue`，运行结束清空，不进入文档。
 - 指标投影在 `designer/core/run-events.ts`（`nodeMetrics`），adapter 注入 `CanvasNodeData.runMetrics`；Canvas 组件不读取节点语义。HUD 指标以 **150ms 节流**写入画布视图（完整指标仍在 ref 中累加），节点 / 边状态仍然逐批即时更新，避免每个 token 都重建整张画布。
 
+**修订（2026-11-28）**
+
+- 边动画从「百分比进度扫过」改为「沿连线移动的白色段」：白色段占 24%，`stroke-dashoffset` 24→-76，900ms 线性循环；方向固定为输出端口 → 输入端口；只表达「数据正在传递」，不读取 token 计数。
+- 修复边动画被 stream 事件重启：`CanvasView` 在投影合并时保留 React Flow 写回节点的内部字段（`measured` / `internals` / `handleBounds`），并只在边 id / status 变化时重建边。否则指标刷新时节点对象被裸替换，边在重新测量期间失去端点、EdgeWrapper 卸载重建，CSS 动画从 0 开始。
+- 运行态警戒环改为单一元素 + `padding-box` 遮罩：斜纹背景铺满整个矩形后只保留 2px 边框，四个角共用连续纹理；不再用四条 2px 边框拼接，消除角上的断裂感。
+- `prefers-reduced-motion`：边白段退化为整条静态白线；警戒环停止滚动。
+
 **后果**
 
 - 边动画与真实传输对齐：流式 Model Call / Agent 的输出边流动，普通值节点的边不动；非流式节点的交付不再有误导性的持续动画。
+- 边动画在 HUD / 节点状态刷新期间保持同一条 CSS 动画时间线：白色段从输出端连续移动到输入端，不因 token 或指标更新重新开始。
 - 完成节点有明确的冷却收尾，执行很快的节点也能被看见；冷却不改变节点尺寸 / 端口结构。
 - HUD 随 token 更新整张画布文档（Canvas 已 memo，节点数量正常时成本可接受）；流式输出很长时只保留尾部 240 字符。
 - 暂停的节点隐藏 HUD、保留暂停色；`prefers-reduced-motion` 下警戒环与扫光停止，冷却直接跳到终态。
@@ -1217,6 +1225,7 @@ Model Call / Agent Run 的 `model`、`prompt`（Agent 为 `input`）、`attachme
 
 - 保留「入边流动 + 出边结束点亮」的旧动画：与数据实际传输时机相反，是本次要修的问题。
 - 用 CSS 虚线滚动表达流动：只能表达方向，不能表达「输出进度」，且无法与数据实际开始 / 结束对齐。
+- 用四条边框拼接警戒环 / 百分比重启式扫光：角上接缝、动画随 token 重启，都是 2026-11-28 修订要修的问题。
 - 把 benchmark 放进节点 Body：会改变节点高度，运行开始 / 结束引起画布跳动，也会挤压端口锚点。
 
 ## ADR-045：Filter 与 Combine 拆分（Merge 更名）

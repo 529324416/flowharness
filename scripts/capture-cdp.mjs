@@ -1726,16 +1726,27 @@ try {
                     const firstFlow = flow[0] ?? null;
                     const flowStyle = firstFlow ? getComputedStyle(firstFlow) : null;
                     const wrapper = document.querySelector('[data-node-id]:has([data-status="running"])');
-                    const ringItem = wrapper ? wrapper.querySelector('span > i') : null;
+                    const ringItem = wrapper ? wrapper.querySelector('[data-run-ring]') : null;
                     const ringStyle = ringItem ? getComputedStyle(ringItem) : null;
+                    const flowAnimation = firstFlow?.getAnimations?.()[0] ?? null;
+                    const ringAnimation = ringItem?.getAnimations?.()[0] ?? null;
+                    if (!window.__fhFlow) {
+                        window.__fhFlow = firstFlow;
+                        window.__fhFlowAnimation = flowAnimation;
+                    }
                     return {
+                        sameFlowElement: firstFlow === window.__fhFlow,
+                        sameFlowAnimation: flowAnimation === window.__fhFlowAnimation,
                         running: running.length,
                         benchmark: benchmark?.textContent?.trim() ?? null,
                         flowEdges: flow.length,
                         animation: flowStyle?.animationName ?? null,
                         duration: flowStyle?.animationDuration ?? null,
                         dashoffset: flowStyle?.strokeDashoffset ?? null,
+                        flowTime: flowAnimation ? Math.round(Number(flowAnimation.currentTime)) : null,
+                        flowStart: flowAnimation ? Math.round(Number(flowAnimation.startTime)) : null,
                         ringDuration: ringStyle?.animationDuration ?? null,
+                        ringTime: ringAnimation ? Math.round(Number(ringAnimation.currentTime)) : null,
                     };
                 })()`);
                 console.log(`${label}: ${JSON.stringify(result.result?.value)}`);
@@ -1743,6 +1754,28 @@ try {
 
             await runningState("stream running");
             await captureTo(out.replace(/\.png$/, "-running.png"));
+
+            // 连续采样：确认指标刷新不再重建 flow path，动画保持同一条时间线。
+            const flowStability = await evaluateAsync(`(async () => {
+                const first = document.querySelector('path[data-edge-flow]');
+                const startTime = first?.getAnimations?.()[0]?.startTime ?? null;
+                let stable = first !== null;
+                for (let index = 0; index < 20; index += 1) {
+                    await new Promise((resolve) => setTimeout(resolve, 50));
+                    const element = document.querySelector('path[data-edge-flow]');
+                    if (
+                        element !== first ||
+                        element?.getAnimations?.()[0]?.startTime !== startTime
+                    ) {
+                        stable = false;
+                    }
+                }
+                return { stable, startTime };
+            })()`);
+            console.log(
+                `flow stability: ${JSON.stringify(flowStability.result?.value)}`,
+            );
+
             await settle(700);
             await runningState("stream running +700ms");
 

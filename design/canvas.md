@@ -28,7 +28,7 @@
 - 节点 Body 顶部是数据行：先输出、后未挂字段的输入；端口徽标纵向与对应数据行顶部对齐。Model / Model Call / Agent 的内联字段行本身就是输入锚点（模型绑定 / Prompt / System Prompt / 参数 / 附件 / 工具范围），节点底部不再有端口列表；
 - 输出徽标与输入同构：有下游连线时为橙红圆点，否则为灰色方块 + 类型图标；
 - 折叠态（2026-11-28，ADR-042）：Header 右侧新增折叠按钮（展开态显示向上双箭头、折叠态显示向下双箭头，`aria-pressed` 表示当前折叠），状态写入 `node.ui.collapsed`；折叠后隐藏 kind 标签，只保留**已连接的端口**与**有数据且不等于默认值**的字段；未连接端口的徽标也一并隐藏，展开后恢复；节点边框 / 字号 / 状态点不变；
-- 运行态（2026-11-28，ADR-044）：运行中节点描边切到橙红 `--fh-port-connected`，外圈叠加 2px 斜纹警戒环（四条 2px 边框拼成、中间完全透明，条纹 500ms 平移；不使用 mask）；节点下方挂无边框暗淡 benchmark（`tok N` + ms 计时 + 最多 80px 尾部输出），暂停时隐藏；
+- 运行态（2026-11-28，ADR-044）：运行中节点描边切到橙红 `--fh-port-connected`，外圈叠加 2px 斜纹警戒环（单一元素 + padding-box 遮罩保留 2px 边框，斜纹铺满整个矩形并 500ms 平移，四角纹理连续无缝）；节点下方挂无边框暗淡 benchmark（`tok N` + ms 计时 + 最多 80px 尾部输出），暂停时隐藏；
 - 完成冷却：进入 `completed` 后 1.5s 内描边从橙红渐变回默认色（`--fh-border-strong`）；`failed` 保持 danger 描边、不冷却；
 - Agent Run 使用 Bot 图标、Model Call 使用 BotMessageSquare，Model / Provider 保持 Sparkles；节点图标只做类型提示，不承载状态；
 - 选中只改变边框颜色为 `--fh-accent`，**没有辉光/外描边**。
@@ -52,8 +52,8 @@
 
 - 三次贝塞尔，默认 1.4px；
 - 默认 `--fh-edge`（低对比）；
-- **只在数据输出时动画**（ADR-044）：`node:stream` 期间出边叠加白色进度段，`node:end` 立即熄灭；值输出瞬时完成，不保留动画；
-- 进度段：`pathLength=100` + `stroke-dashoffset` -100→0，500ms 循环（0% 全灰、50% 半白、100% 全白）；`prefers-reduced-motion` 下停在整条白线；
+- **只在数据输出时动画**（ADR-044）：`node:stream` 期间出边叠加白色流动段，`node:end` 立即熄灭；值输出瞬时完成，不保留动画；
+- 流动段：`pathLength=100`，白色段占 24%，`stroke-dashoffset` 24→-76，900ms 线性循环——白色段从**输出端口**移动到**输入端口**；循环时白段在终点消失、从起点外进入，视觉连续；不读取 token 计数，也不随 stream 事件重启；`prefers-reduced-motion` 下退化为整条静态白线；
 - 失败：danger 虚线；
 - 失效连线（节点或端口不存在）：能渲染的边用 danger 虚线，同时在画布顶部提示「存在失效连线」并列出原因；
 - 不使用 drop-shadow / 发光；能量色 token 已移除；

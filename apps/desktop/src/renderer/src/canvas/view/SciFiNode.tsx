@@ -208,12 +208,11 @@ export function SciFiNode({
             />
 
             {data.status === "running" ? (
-                <span className={styles.runRing} aria-hidden="true">
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                </span>
+                <span
+                    className={styles.runRing}
+                    data-run-ring="true"
+                    aria-hidden="true"
+                />
             ) : null}
 
             {data.status === "running" && data.runMetrics !== undefined ? (

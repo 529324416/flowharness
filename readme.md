@@ -52,7 +52,7 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 | 模型节点数据端口化：本地回退 / 端口连接锁定 / 本地模型绑定 / Agent Bot 图标 | ✅ |
 | 节点端口徽标：输出数据优先 / 与主体留距·行顶对齐 / 灰↔橙红 / 选中不变色 | ✅ |
 | 节点折叠模式：Header 按钮 / 只保留已连接与有数据字段 / `ui.collapsed` 持久化 | ✅ |
-| 运行态动画：流式边进度 / 节点冷却 / 警戒环 / benchmark HUD | ✅ |
+| 运行态动画：流式边白段 / 节点冷却 / 无缝警戒环 / benchmark HUD | ✅ |
 | 工作流多选与批量复制·删除 | ✅ |
 | Filter / Combine 节点（Merge 更名与旧图迁移） | ✅ |
 | 用户节点预设库文件导入 / 导出 | ⬜ |
@@ -74,10 +74,10 @@ Wireclaw（`vendor/wireclaw`）是本项目的嵌入式 Agent 模块，以 git s
 - 未被上游连接固定的字段（当前为 Model 的 Provider）只读展示来源值；修改需要回到上游 Provider 节点；
 - 节点折叠（ADR-042）：状态保存在 `ui.collapsed`，折叠后只显示已连接端口与「有数据且非默认值」的字段；未连接端口徽标、空字段与 kind 标签隐藏，运行时只读不提供折叠入口；折叠态需要连新线时先展开；
 - 工作流多选（ADR-043）：高亮即选中——打开中的工作流始终属于选择，Ctrl/Cmd 点击追加、Shift 从最近点击 / 打开项连选；选中行复用同一高亮，不额外提供勾选样式；批量操作仅复制 / 删除，导出仍走单条右键；额外选择不跨工作台或重启保留；
-- 运行态动画（ADR-044）：连线只在 `node:stream`（真正输出内容）期间动画，普通值节点的交付是瞬时的、没有边动画；运行节点为橙红描边 + 2px 斜纹警戒环，完成后 1.5s 冷却回默认色，失败保持 danger；benchmark HUD 的 token 数是 stream 片段计数（近似），只保留最近 240 字符，运行结束清空，画布上的 HUD 按 150ms 节流刷新；
-- 运行 HUD / 警戒环 / 边扫光都遵守 `prefers-reduced-motion`：扫光停在整条白线、警戒环静止、冷却直接到终态；
+- 运行态动画（ADR-044）：连线只在 `node:stream`（真正输出内容）期间动画，普通值节点的交付是瞬时的、没有边动画；白色段沿连线从输出端口移动到输入端口（24% 白段 / 900ms 循环），不随 token 重启；运行节点为橙红描边 + 2px 无缝斜纹警戒环，完成后 1.5s 冷却回默认色，失败保持 danger；benchmark HUD 的 token 数是 stream 片段计数（近似），只保留最近 240 字符，运行结束清空，画布上的 HUD 按 150ms 节流刷新；
+- 运行 HUD / 警戒环 / 边流动白段都遵守 `prefers-reduced-motion`：白段退化为整条静态白线、警戒环静止、冷却直接到终态；
 - 节点类型（ADR-045）：`core.merge` 已更名为 `core.filter`（二选一透传），新增 `core.combine` 把两个文本输入按 `separator` 拼接；旧图加载时递归迁移为 `core.filter`，`core.merge` 仅作为旧图 / 旧 run 的兼容别名保留、不出现在节点库；
-- 运行中若出现整屏闪烁（节点短暂消失后恢复）：本地 mock 流式场景未能复现；已把 HUD 指标限制为 150ms 刷新、警戒环改为无 mask 的四边框实现，若仍出现需结合真实工作流与终端日志定位；
+- 运行中若出现整屏闪烁（节点短暂消失后恢复）：已把 HUD 指标限制为 150ms 刷新，并在画布投影合并时保留 React Flow 节点内部字段（measured / internals / handleBounds）、只在边 id / status 变化时重建边；本地 mock 流式场景未复现，若真实工作流仍出现需结合终端日志定位；
 - JSON 代码主题只覆盖 JSON（`ui/CodeArea` + `json-highlight`），大文本未做虚拟化；
 - 清空 Model 的模型只在节点标题显示红色叹号（带 tooltip），不弹横幅、不进问题列表、不阻断运行；直接运行会在该节点以运行期错误结束（ADR-039）；
 - Model Call / Agent Run 的每个数据字段都有输入端口与本地编辑；未连接时读 config（含 `providerId` / `modelId`），连接后字段锁定为只读展示（ADR-040）；
@@ -171,7 +171,7 @@ pnpm dev
 | `pnpm dev:no-sandbox` | 同上，但给 Electron 传 `--no-sandbox` |
 | `pnpm build` | 构建 wireclaw + 产出桌面应用的 `out/` |
 | `pnpm typecheck` | contracts + main/preload + renderer 三段类型检查 |
-| `pnpm test` | main 数据层 + canvas core/view + designer core/state + workbench + 节点库 + Provider 库 + UI 纯函数单测（50 files / 289 tests） |
+| `pnpm test` | main 数据层 + canvas core/view + designer core/state + workbench + 节点库 + Provider 库 + UI 纯函数单测（51 files / 292 tests） |
 | `pnpm smoke` | 无头启动已构建的 Electron 应用，验证 wireclaw 与数据/运行链路 |
 | `pnpm capture:ui` | Windows：CDP 截取 renderer（默认 opaque frameless，产物 `devlog/assets/ui-current.png`）；`FH_CAPTURE_SCENARIO` 选场景，`-NativeWindow` 改抓原生窗口 |
 | `pnpm test:wireclaw` | 运行 wireclaw 自带的测试 |

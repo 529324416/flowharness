@@ -37,6 +37,8 @@ export function SciFiEdge({
     return (
         <g
             className={cx(styles.group, selected && styles.selected)}
+            data-edge-id={id}
+            data-edge-status={data?.status ?? "idle"}
             style={{ "--edge-tone": tone } as CSSProperties}
         >
             <BaseEdge
@@ -61,6 +63,7 @@ export function SciFiEdge({
                     d={path}
                     pathLength={100}
                     className={styles.flow}
+                    data-edge-flow="true"
                 />
             ) : null}
         </g>

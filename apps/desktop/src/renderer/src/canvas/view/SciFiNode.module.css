@@ -115,55 +115,26 @@
 /*
  * 运行中警戒线：2px 斜纹环，中间完全镂空，条纹沿边框持续移动。
  *
- * 用四条 2px 边框拼成环（而不是 mask-composite）：画布节点本身带
- * translate/scale，遮罩层在缩放下容易触发额外的合成与大范围重绘。
+ * 单一元素 + padding-box 遮罩：斜纹铺满整个矩形，由遮罩只保留 2px 边框，
+ * 四个角共用同一张连续纹理，不再出现四条边框拼接的断裂感。
  */
 .runRing {
   position: absolute;
   z-index: 0;
   inset: -3px;
-  overflow: hidden;
+  border: 2px solid transparent;
   border-radius: 9px;
-  pointer-events: none;
-}
-
-.runRing > i {
-  position: absolute;
-  display: block;
   background: repeating-linear-gradient(
     45deg,
     var(--fh-port-connected) 0 5px,
     transparent 5px 10px
-  );
+  ) border-box;
+  mask:
+    linear-gradient(#000 0 0) padding-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
   animation: fh-node-ring 500ms linear infinite;
-}
-
-.runRing > i:nth-child(1) {
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 2px;
-}
-
-.runRing > i:nth-child(2) {
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 2px;
-}
-
-.runRing > i:nth-child(3) {
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 2px;
-}
-
-.runRing > i:nth-child(4) {
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 2px;
+  pointer-events: none;
 }
 
 @keyframes fh-node-ring {
@@ -195,7 +166,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .runRing > i {
+  .runRing {
     animation: none;
   }
 

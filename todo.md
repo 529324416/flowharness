@@ -1,6 +1,6 @@
 # TODO
 
-> 当前主线：**2026-11-28 收尾**——端口端点 / 输出行顺序、节点折叠（ADR-042）、工作流多选（ADR-043）、运行态动画（ADR-044）、Filter / Combine（ADR-045）、Provider 设置页列表 + 属性栏重构已完成；M9 已完成（2026-11-27），M8 剩余 — 节点预设库文件导入 / 导出；之后进入 M10 可观测性与工程化、M11 打包发布。
+> 当前主线：**2026-11-28 收尾**——端口端点 / 输出行顺序、节点折叠（ADR-042）、工作流多选（ADR-043）、运行态动画（ADR-044）、Filter / Combine（ADR-045）、Provider 设置页列表 + 属性栏重构、运行动画修订（无缝警戒环 / 输出→输入白段 / 不随 token 重启）已完成；M9 已完成（2026-11-27），M8 剩余 — 节点预设库文件导入 / 导出；之后进入 M10 可观测性与工程化、M11 打包发布。
 > 原则：垂直切片；契约先行；工作台即视图；信息架构调整优先于新功能。
 
 ## 设计约束（M7 起）
@@ -392,8 +392,8 @@
 ## 运行态动画（2026-11-28）
 
 - [x] 边动画只在数据输出时出现：`node:stream` 点亮出边、`node:end` 熄灭，`node:start` 不再点亮入边（ADR-044）
-- [x] 边动画改为百分比进度扫过：白色 path（`pathLength=100`）+ `stroke-dashoffset` -100→0，500ms 循环；`prefers-reduced-motion` 停在整条白线
-- [x] 运行节点过热态：橙红描边 + 2px 斜纹警戒环（mask 镂空、条纹 500ms 平移）
+- [x] 边动画改为沿连线移动的白色段：`pathLength=100` + 24% 白段 + `stroke-dashoffset` 24→-76，900ms 循环；方向输出→输入，不随 token 重启；`prefers-reduced-motion` 停为整条白线
+- [x] 运行节点过热态：橙红描边 + 2px 斜纹警戒环（单一元素 + padding-box 遮罩，四角无缝，条纹 500ms 平移）
 - [x] 完成冷却：1.5s 内描边从橙红回到默认色；失败保持 danger，不冷却
 - [x] 运行 benchmark HUD：无边框、`tok N` + ms 计时（100ms 增量）+ 最多 80px 尾部输出；运行结束清空
 - [x] `RunViewState.nodeMetrics` 投影 + adapter `runMetrics` 注入；stream chunk 提取 `HarnessValue.text`
@@ -401,7 +401,9 @@
 - [x] 截图场景 `designer-stream`（本地 mock Ollama 流式输出）：运行中 / 冷却两帧与计算样式断言
 - [x] 视觉基线：`devlog/assets/ui-run-animation-running.png`、`ui-run-animation-cooling.png`
 - [x] Merge / Branch / Loop 等上游锁定字段显示节点标题 + 输出，不再显示 `core.merge` 原始 type id
-- [x] HUD 指标 150ms 节流写入画布；警戒环改为四条 2px 边框（移除 mask-composite）
+- [x] HUD 指标 150ms 节流写入画布；警戒环改为单一 mask 环（无缝）
+- [x] 画布投影合并保留 React Flow 节点内部字段（`measured` / `internals` / `handleBounds`），边只在 id / status 变化时重建；修复 token 事件导致边动画从 0 重启
+- [x] 测试：`flow-merge.test.ts` 3 项；`pnpm test` 51 文件 / 292 项
 
 ## Filter / Combine 节点（2026-11-28）
 
@@ -433,7 +435,7 @@
 - [ ] 格式化与 lint
 - [ ] CI：install → ensure:electron → build:wireclaw → typecheck → test → build → smoke
 - [ ] 300 节点性能基线
-- [ ] 定位运行中整屏闪烁（本地 mock 流式场景未复现；已做 HUD 150ms 节流与无 mask 警戒环，待真实工作流日志）
+- [ ] 定位运行中整屏闪烁（本地 mock 流式场景未复现；已做 HUD 150ms 节流、画布投影保留 React Flow 节点内部字段、边只在状态变化时重建，待真实工作流日志）
 - [ ] 亮色主题视觉走查
 - [ ] 真实桌面可读性 / 性能 / 窗口阴影 / 缩放验收
 
@@ -596,6 +598,7 @@
 - [x] 49 个测试文件 / 282 个测试通过（2026-11-28；运行态动画语义 / 运行指标）
 - [x] 49 个测试文件 / 285 个测试通过（2026-11-28；Filter / Combine / 旧类型迁移；wireclaw 69/69）
 - [x] 50 个测试文件 / 289 个测试通过（2026-11-28；Provider 设置页重构 / 新增 Modal）
+- [x] 51 个测试文件 / 292 个测试通过（2026-11-28；运行动画修订 / flow-merge）
 - [x] `pnpm typecheck` / `pnpm build` / `pnpm smoke` 通过
 - [x] 视觉基线截图与设计文档同步
 

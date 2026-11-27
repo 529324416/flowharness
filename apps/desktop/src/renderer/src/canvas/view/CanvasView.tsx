@@ -34,6 +34,7 @@ import type {
 import type { FlowNodeData } from "./flow-types";
 import { createNodeTypes } from "./node-registry";
 import { SciFiEdge } from "./SciFiEdge";
+import { edgeSignature, mergeFlowNodes } from "./flow-merge";
 import type { FlowEdge, FlowNode } from "./flow-types";
 import styles from "./CanvasView.module.css";
 
@@ -206,6 +207,7 @@ export const CanvasView = memo(function CanvasView({
     const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(
         toFlowEdges(document),
     );
+    const edgeSignatureRef = useRef(edgeSignature(document));
     const [menu, setMenu] = useState<MenuState | null>(null);
     const [instance, setInstance] = useState<ReactFlowInstance<
         FlowNode,
@@ -215,17 +217,24 @@ export const CanvasView = memo(function CanvasView({
     // 文档是事实源：外部加载/命令回写后重新投影；拖拽中间态只存在本地 view state。
     // 选中状态单独同步，避免每次框选都重建节点对象导致闪烁。
     useEffect(() => {
-        setNodes(
-            toFlowNodes(
-                document,
-                selectedIdsRef.current,
-                nodeStatuses,
-                onUpdateNodeConfig,
-                readOnly,
-                onCommand,
+        setNodes((current) =>
+            mergeFlowNodes(
+                current,
+                toFlowNodes(
+                    document,
+                    selectedIdsRef.current,
+                    nodeStatuses,
+                    onUpdateNodeConfig,
+                    readOnly,
+                    onCommand,
+                ),
             ),
         );
-        setEdges(toFlowEdges(document));
+        const nextEdgeSignature = edgeSignature(document);
+        if (nextEdgeSignature !== edgeSignatureRef.current) {
+            edgeSignatureRef.current = nextEdgeSignature;
+            setEdges(toFlowEdges(document));
+        }
     }, [
         document,
         nodeStatuses,

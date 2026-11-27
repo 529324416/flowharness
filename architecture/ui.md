@@ -318,8 +318,9 @@ CanvasCommand → GraphDocument
 ### 6.8 运行态动画（2026-11-28，ADR-044）
 
 - 边只在**数据输出**时动画：`node:stream` 点亮出边，`node:end` 立即熄灭；`node:start` 不再点亮入边（上游数据已送达），值输出瞬时交付不产生动画；`run:end` 清空 active，`node:error` 保留失败边。
-- 边动画是百分比进度扫过：白色 path（`pathLength=100`）的 `stroke-dashoffset` 从 -100 走到 0，每 500ms 循环，0% 全灰 → 50% 半白 → 100% 全白；`prefers-reduced-motion` 下停在整条白线。
-- 运行节点使用橙红描边 + 2px 斜纹警戒环（四条 2px 边框拼成环、中间透明，条纹 500ms 平移；不用 mask-composite）；保留节点脉冲辉光。
+- 边动画是沿连线移动的白色段：`pathLength=100`，白色段占 24%，`stroke-dashoffset` 24→-76，900ms 线性循环；方向固定为**输出端口 → 输入端口**，循环时白段在终点消失、从起点外进入；不读取 token 计数，也不随 `node:stream` 事件重启；`prefers-reduced-motion` 下退化为整条静态白线。
+- 运行节点使用橙红描边 + 2px 斜纹警戒环：单一元素用 padding-box 遮罩保留 2px 边框，斜纹 `background` 铺满整个矩形并平移，四角共用连续纹理，不再有四条边框拼接的接缝；保留节点脉冲辉光。
+- 画布投影更新时必须在 `mergeFlowNodes` 中保留 React Flow 写回节点的 `measured` / `internals` / `handleBounds`，且只在边 id / status 变化时重建边（`edgeSignature`）；否则每次指标刷新都会让边短暂失去端点、EdgeWrapper 卸载重建，动画从 0 重启。该逻辑在 `canvas/view/flow-merge.ts`。
 - 完成节点播放 1.5s 冷却：边框从橙红渐变回默认色；`failed` 保留 danger 色不冷却。
 - 运行节点下方挂无边框暗淡 benchmark：标题栏 `tok N` + 毫秒计时（100ms 刷新），下方最多 80px 的尾部输出；`node:stream` 的 `HarnessValue.text` 进入指标，运行结束清空。
 - 指标在 `designer/core/run-events.ts` 的 `nodeMetrics` 中投影，adapter 注入 `CanvasNodeData.runMetrics`；Canvas 组件不解释节点语义。HUD 指标以 150ms 节流写入画布，节点 / 边状态仍逐批即时更新。

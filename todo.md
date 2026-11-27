@@ -1,6 +1,6 @@
 # TODO
 
-> 当前主线：**节点折叠与工作流多选已完成**（ADR-042 / ADR-043）；M9 已完成（2026-11-27），M8 剩余 — 节点预设库文件导入 / 导出；之后进入 M10 可观测性与工程化、M11 打包发布。
+> 当前主线：**2026-11-28 收尾**——端口端点 / 输出行顺序、节点折叠（ADR-042）、工作流多选（ADR-043）、运行态动画（ADR-044）、Filter / Combine（ADR-045）已完成；M9 已完成（2026-11-27），M8 剩余 — 节点预设库文件导入 / 导出；之后进入 M10 可观测性与工程化、M11 打包发布。
 > 原则：垂直切片；契约先行；工作台即视图；信息架构调整优先于新功能。
 
 ## 设计约束（M7 起）
@@ -370,6 +370,12 @@
 - [ ] `temperature` / `think` / `thinkingLv` / `modality` / `maxSteps` 仍为本地参数，未端口化
 - [ ] 输出数据行只做展示，暂不支持在节点上编辑输出
 
+## 端口端点与输出行顺序（2026-11-28）
+
+- [x] 已连接端口的连线端点从实心点底部改为圆点中心（Handle 垂直偏移统一 `anchor + 7`）
+- [x] `core.model.call` / `core.agent.run` 的 `thinking` 输出移到输出行最后
+- [x] readme / todo / ADR-041 / design/canvas / architecture/ui 同步；重拍 `ui-form-controls.png`
+
 ## 节点折叠与工作流多选（2026-11-28）
 
 - [x] 节点折叠：Header 右侧按钮切换，状态写入 `node.ui.collapsed`；`setNodeCollapsed` 命令进撤销栈（ADR-042）
@@ -417,6 +423,7 @@
 - [ ] 格式化与 lint
 - [ ] CI：install → ensure:electron → build:wireclaw → typecheck → test → build → smoke
 - [ ] 300 节点性能基线
+- [ ] 定位运行中整屏闪烁（本地 mock 流式场景未复现；已做 HUD 150ms 节流与无 mask 警戒环，待真实工作流日志）
 - [ ] 亮色主题视觉走查
 - [ ] 真实桌面可读性 / 性能 / 窗口阴影 / 缩放验收
 

@@ -3,6 +3,7 @@
 > 状态：**目标架构已定稿**（2026-11-24）。当前已实现开发环境、main 数据/运行时、Shell v2、浮动 Panel、Canvas、真透明主题、M1 最小可运行 Designer、M2 节点库 / configSchema 表单 / 预设、M3 校验与运行可视化、M4 文档生命周期与编辑体验、M5 Workbench Framework、M6 Session / Provider 闭环、M7.1 工作台导航宿主 / M7.2 Session 树存储、M7.3 Session 树导航 / 历史面板、M7.4 RunResult 与运行结果会话、M7.4.1 双区导航、M7.4.2 消息写入，以及 M7.5 运行模式 / 动画运行页；进度见文末。
 >
 > 当前阶段：**M8 — 模板、导入导出与多工作台（收尾）**；M7 已完成（2026-11-26）。M8 已交付工作台模板、第 4 条内置节点预设、`.fhws` 导入导出 UI 与副本冲突策略（ADR-024）、UI 打磨 3/4（ADR-025）、工作区节点库与「节点清单」退场（ADR-026）、独立运行页移除（ADR-027）、运行自动会话与逐步写入（ADR-028），以及 M9.0–M9.6 Provider 与 API Key 库的决策、数据层、迁移、运行时、健康、设置页、节点下拉与 Provider 节点（ADR-029/030/031）；节点内联 Provider / 连接期锁定 / 模型清空、Constant 阅读模式、图级浮动面板布局、模型目录按需刷新与节点全量内联属性见 ADR-032/033/034/035/036；表单控件统一（FH 下拉 / 无聚焦描边 / 自绘勾选 / 上游锁定只读）与 JSON 代码主题见 ADR-037/038；「未选择模型」只做节点提示、不再阻断运行见 ADR-039；Model Call / Agent Run 的数据端口化、本地回退与端口锁定见 ADR-040；节点端口徽标与数据行（输出优先、图标/圆点）见 ADR-041。
+> 2026-11-28 补：端口连线端点改为圆点中心、`thinking` 输出置末；节点折叠（ADR-042）、工作流多选与批量复制 / 删除（ADR-043）、运行态动画语义（ADR-044）、Filter / Combine 节点与旧 Merge 迁移（ADR-045）已交付。
 > 术语：FH = FlowHarness。
 
 ## 阅读顺序
@@ -13,7 +14,7 @@
 4. [providers.md](./providers.md) — Provider Profile、API Key 库、模型目录与健康状态
 5. [runtime.md](./runtime.md) — 执行、事件、IPC、安全
 6. [ui.md](./ui.md) — React、画布、工作台框架、设计器
-7. [decisions.md](./decisions.md) — 架构决策记录（ADR-001 ~ ADR-041）
+7. [decisions.md](./decisions.md) — 架构决策记录（ADR-001 ~ ADR-045）
 
 ## 六个已定稿的关键决策
 

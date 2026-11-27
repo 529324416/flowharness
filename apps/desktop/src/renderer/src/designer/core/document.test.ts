@@ -61,4 +61,46 @@ describe("designer document contract", () => {
         ).toBe(false);
         expect(() => parseGraphDocument({})).toThrow("GraphDocument");
     });
+
+    it("returns the same document when there is nothing to migrate", () => {
+        expect(parseGraphDocument(MAIN_GRAPH_TEMPLATE)).toBe(MAIN_GRAPH_TEMPLATE);
+    });
+
+    it("migrates legacy Merge nodes to Filter, including embedded graphs", () => {
+        const legacy = {
+            ...MAIN_GRAPH_TEMPLATE,
+            nodes: [
+                { id: "merge", type: "core.merge", typeVersion: 1 },
+                {
+                    id: "loop",
+                    type: "core.loop",
+                    typeVersion: 1,
+                    config: {
+                        graph: {
+                            version: 1,
+                            id: "inner",
+                            nodes: [
+                                {
+                                    id: "inner-merge",
+                                    type: "core.merge",
+                                    typeVersion: 1,
+                                },
+                            ],
+                            edges: [],
+                        },
+                    },
+                },
+            ],
+            edges: [],
+        };
+
+        const parsed = parseGraphDocument(legacy);
+        expect(parsed.nodes[0]?.type).toBe("core.filter");
+
+        const loopConfig = parsed.nodes[1]?.config as {
+            graph: { nodes: { type: string }[] };
+        };
+        expect(loopConfig.graph.nodes[0]?.type).toBe("core.filter");
+        expect(JSON.stringify(parsed)).not.toContain("core.merge");
+    });
 });

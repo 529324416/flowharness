@@ -22,7 +22,18 @@ export const EDITOR_CATALOG = createEditorCatalog(designerRegistry, {
     presets: designerPresetLibrary,
 });
 
-export const NODE_CATALOG: readonly NodeCatalogEntry[] = EDITOR_CATALOG.nodeTypes;
+/**
+ * 仅保留反序列化与旧图渲染、但不出现在节点库 / 插入菜单的类型。
+ *
+ * `core.merge` 已由 `core.filter` 取代；旧图仍能打开与运行，但新增节点
+ * 时只提供 Filter。
+ */
+const HIDDEN_NODE_TYPES: ReadonlySet<string> = new Set(["core.merge"]);
+
+export const NODE_CATALOG: readonly NodeCatalogEntry[] =
+    EDITOR_CATALOG.nodeTypes.filter(
+        (entry) => !HIDDEN_NODE_TYPES.has(entry.type),
+    );
 
 export const NODE_PRESETS: readonly NodePresetDocument[] = EDITOR_CATALOG.presets;
 

@@ -83,11 +83,54 @@ export function isGraphDocument(value: unknown): value is GraphDocument {
     return true;
 }
 
+/**
+ * 旧节点类型 → 新类型。Merge 已改名为 Filter（`core.filter`）；
+ * 旧图在加载时自动迁移，保存后写回新类型。
+ */
+const LEGACY_NODE_TYPES: Readonly<Record<string, string>> = {
+    "core.merge": "core.filter",
+};
+
+/**
+ * 递归迁移旧节点类型：顶层节点 + Loop / ForEach / Subgraph 的内嵌图。
+ *
+ * 未发生迁移时返回原对象，调用方可以据此判断是否需要写回。
+ */
+export function migrateLegacyNodeTypes(graph: GraphDocument): GraphDocument {
+    let changed = false;
+    const nodes = graph.nodes.map((node) => {
+        let next = node;
+        const migratedType = LEGACY_NODE_TYPES[node.type];
+        if (migratedType !== undefined) {
+            next = { ...next, type: migratedType };
+            changed = true;
+        }
+
+        const config: unknown = next.config;
+        if (isRecord(config) && isGraphDocument(config.graph)) {
+            const embedded = migrateLegacyNodeTypes(config.graph);
+            if (embedded !== config.graph) {
+                next = {
+                    ...next,
+                    config: {
+                        ...(config as Record<string, unknown>),
+                        graph: embedded,
+                    } as unknown as NonNullable<typeof next.config>,
+                };
+                changed = true;
+            }
+        }
+        return next;
+    });
+
+    return changed ? { ...graph, nodes } : graph;
+}
+
 export function parseGraphDocument(value: unknown): GraphDocument {
     if (!isGraphDocument(value)) {
         throw new Error("文件不是有效的 GraphDocument");
     }
-    return value;
+    return migrateLegacyNodeTypes(value);
 }
 
 function isPortAddress(value: unknown): boolean {

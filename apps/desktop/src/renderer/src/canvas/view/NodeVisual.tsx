@@ -6,6 +6,8 @@ import {
     Check,
     ChevronsDown,
     ChevronsUp,
+    Combine,
+    Filter,
     GitBranch,
     LogIn,
     LogOut,
@@ -74,6 +76,8 @@ const ICONS = {
     modelCall: BotMessageSquare,
     agent: Bot,
     branch: GitBranch,
+    filter: Filter,
+    combine: Combine,
     log: ScrollText,
     default: Box,
 } as const;
@@ -83,6 +87,8 @@ function iconFor(kind: string): (typeof ICONS)[keyof typeof ICONS] {
     if (kind.includes("model.call")) return ICONS.modelCall;
     if (kind.includes("input")) return ICONS.input;
     if (kind.includes("output")) return ICONS.output;
+    if (kind.includes("combine")) return ICONS.combine;
+    if (kind.includes("filter")) return ICONS.filter;
     if (kind.includes("model")) return ICONS.model;
     if (kind.includes("branch") || kind.includes("choice")) return ICONS.branch;
     if (kind.includes("log")) return ICONS.log;

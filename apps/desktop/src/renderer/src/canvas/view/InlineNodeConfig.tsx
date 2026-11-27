@@ -764,6 +764,37 @@ export function InlineNodeConfig({
         );
     }
 
+    if (kind === "core.combine") {
+        const separator =
+            isRecord(config) && typeof config.separator === "string"
+                ? config.separator
+                : "";
+        const visible = show("separator");
+        if (collapsed && !visible) return <></>;
+        return (
+            <FieldRow visible={visible}>
+                <input
+                    className={`${styles.input} nodrag nowheel`}
+                    value={separator}
+                    disabled={readOnly}
+                    aria-label="分隔符"
+                    placeholder="分隔符（默认空串）"
+                    onChange={(event) =>
+                        onChange(
+                            writeConfig(config, {
+                                separator: event.target.value,
+                            }),
+                        )
+                    }
+                    onKeyDown={(event) => event.stopPropagation()}
+                />
+            </FieldRow>
+        );
+    }
+
+    // Filter 没有可编辑 config；不要再用端口摘要占一行（输出数据行已经展示）。
+    if (kind === "core.filter" || kind === "core.merge") return <></>;
+
     if (kind === "core.loop") {
         const maxIterations =
             isRecord(config) && typeof config.maxIterations === "number"

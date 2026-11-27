@@ -10,7 +10,7 @@ import {
 
 describe("designer catalog", () => {
     it("exposes wireclaw metadata: schema, default config and category", () => {
-        expect(NODE_CATALOG).toHaveLength(17);
+        expect(NODE_CATALOG).toHaveLength(18);
 
         const constant = findNodeCatalogEntry("core.constant");
         expect(constant).toBeDefined();
@@ -23,12 +23,25 @@ describe("designer catalog", () => {
         const withSchema = NODE_CATALOG.filter(
             (entry) => entry.configSchema !== undefined,
         );
-        expect(withSchema).toHaveLength(12);
+        expect(withSchema).toHaveLength(13);
         expect(NODE_CATALOG.every((entry) => entry.category !== undefined)).toBe(true);
 
         const provider = findNodeCatalogEntry("core.provider");
         expect(provider?.category).toBe("model");
         expect(provider?.outputs[0]?.type).toBe("provider");
+    });
+
+    it("exposes Filter / Combine and hides the legacy Merge", () => {
+        const filter = findNodeCatalogEntry("core.filter");
+        expect(filter?.title).toBe("Filter");
+        expect(filter?.inputs.map((port) => port.name)).toEqual(["a", "b"]);
+
+        const combine = findNodeCatalogEntry("core.combine");
+        expect(combine?.title).toBe("Combine");
+        expect(combine?.defaultConfig).toEqual({ separator: "" });
+        expect(combine?.inputs.map((port) => port.name)).toEqual(["a", "b"]);
+
+        expect(findNodeCatalogEntry("core.merge")).toBeUndefined();
     });
 
     it("returns a deep copy of the default config", () => {
@@ -53,7 +66,7 @@ describe("designer catalog", () => {
         expect(groups[0]?.label).toBe("输入 / 输出");
         expect(
             groups.flatMap((group) => group.entries).map((entry) => entry.type),
-        ).toHaveLength(17);
+        ).toHaveLength(18);
     });
 
     it("searches by title, type and keywords", () => {
@@ -66,7 +79,7 @@ describe("designer catalog", () => {
         expect(searchNodeCatalog("core.constant").map((entry) => entry.type)).toEqual([
             "core.constant",
         ]);
-        expect(searchNodeCatalog("")).toHaveLength(17);
+        expect(searchNodeCatalog("")).toHaveLength(18);
         expect(searchNodeCatalog("no-such-node")).toHaveLength(0);
     });
 

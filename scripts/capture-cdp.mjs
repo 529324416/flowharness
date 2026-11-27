@@ -297,6 +297,7 @@ try {
         scenario === "designer-workflow-batch" ||
         scenario === "designer-workflow-shift" ||
         scenario === "designer-stream" ||
+        scenario === "designer-filter-combine" ||
         scenario === "designer-panel" ||
         scenario === "designer-slot-connect" ||
         scenario === "designer-import" ||
@@ -1628,6 +1629,127 @@ try {
             await settle(700);
             await borderColor("cooling border +820ms");
             await settle(1200);
+        }
+
+        if (scenario === "designer-filter-combine") {
+            const fixture = join(tmpdir(), `fh-filter-combine-${process.pid}.json`);
+            writeFileSync(
+                fixture,
+                `${JSON.stringify({
+                    version: 1,
+                    id: "filter-combine-fixture",
+                    title: "Filter 与 Combine",
+                    nodes: [
+                        {
+                            id: "a",
+                            type: "core.constant",
+                            typeVersion: 1,
+                            config: { value: { type: "text", text: "left" } },
+                            ui: { x: 80, y: 80 },
+                        },
+                        {
+                            id: "b",
+                            type: "core.constant",
+                            typeVersion: 1,
+                            config: { value: { type: "text", text: "right" } },
+                            ui: { x: 80, y: 230 },
+                        },
+                        {
+                            id: "filter",
+                            type: "core.filter",
+                            typeVersion: 1,
+                            ui: { x: 380, y: 150 },
+                        },
+                        {
+                            id: "c",
+                            type: "core.constant",
+                            typeVersion: 1,
+                            config: { value: { type: "text", text: "hello" } },
+                            ui: { x: 80, y: 430 },
+                        },
+                        {
+                            id: "d",
+                            type: "core.constant",
+                            typeVersion: 1,
+                            config: { value: { type: "text", text: "world" } },
+                            ui: { x: 80, y: 580 },
+                        },
+                        {
+                            id: "combine",
+                            type: "core.combine",
+                            typeVersion: 1,
+                            config: { separator: " · " },
+                            ui: { x: 380, y: 500 },
+                        },
+                        {
+                            id: "filtered",
+                            type: "core.output",
+                            typeVersion: 1,
+                            ui: { x: 700, y: 150 },
+                        },
+                        {
+                            id: "combined",
+                            type: "core.output",
+                            typeVersion: 1,
+                            ui: { x: 700, y: 500 },
+                        },
+                    ],
+                    edges: [
+                        {
+                            from: { nodeId: "a", port: "value" },
+                            to: { nodeId: "filter", port: "a" },
+                        },
+                        {
+                            from: { nodeId: "b", port: "value" },
+                            to: { nodeId: "filter", port: "b" },
+                        },
+                        {
+                            from: { nodeId: "filter", port: "value" },
+                            to: { nodeId: "filtered", port: "text" },
+                        },
+                        {
+                            from: { nodeId: "c", port: "value" },
+                            to: { nodeId: "combine", port: "a" },
+                        },
+                        {
+                            from: { nodeId: "d", port: "value" },
+                            to: { nodeId: "combine", port: "b" },
+                        },
+                        {
+                            from: { nodeId: "combine", port: "text" },
+                            to: { nodeId: "combined", port: "text" },
+                        },
+                    ],
+                })}\n`,
+            );
+
+            const root = await send("DOM.getDocument", { depth: -1 });
+            const input = await send("DOM.querySelector", {
+                nodeId: root.root.nodeId,
+                selector: 'input[type="file"]',
+            });
+            if (input.nodeId === 0) {
+                console.log("filter/combine import input: not found");
+            } else {
+                await send("DOM.setFileInputFiles", {
+                    files: [fixture],
+                    nodeId: input.nodeId,
+                });
+                await settle(1600);
+            }
+
+            await evaluate(
+                `const close = (label) => { const button = document.querySelector(\`button[aria-label="\${label}"]\`); if (button?.getAttribute('aria-pressed') === 'true') button.click(); };` +
+                    `close('切换属性检查'); close('切换运行日志');`,
+            );
+            await settle(500);
+
+            const kinds = await evaluate(`({
+                filter: document.querySelector('[data-node-id="filter"]')?.textContent?.includes('core.filter') ?? false,
+                combine: document.querySelector('[data-node-id="combine"]')?.textContent?.includes('core.combine') ?? false,
+                separator: document.querySelector('[data-node-id="combine"] input[aria-label="分隔符"]')?.value ?? null,
+            })`);
+            console.log(`filter/combine kinds: ${JSON.stringify(kinds.result?.value)}`);
         }
 
         if (scenario === "designer-model-empty") {
